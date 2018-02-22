@@ -132,7 +132,7 @@ propagator.addForceModel(ThirdBodyAttraction(CelestialBodyFactory.getMoon()))
 # propagator.setMasterMode(60.0, TutorialStepHandler())
 
 propagator.setInitialState(initial_state)
-final_state = propagator.propagate(initial_date.shiftedBy(1000.0))   # TIme shift in seconds
+final_state = propagator.propagate(initial_date.shiftedBy(1.0*24*60**2))   # TIme shift in seconds
 
 o = OrbitType.KEPLERIAN.convertType(final_state.getOrbit())
 
