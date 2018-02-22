@@ -34,7 +34,7 @@ inertialFrame = FramesFactory.getEME2000()
 
 # Initial date in UTC time scale
 utc = TimeScalesFactory.getUTC()
-initialDate = AbsoluteDate(2017, 1, 1, 23, 30, 00.000, utc)
+initial_date = AbsoluteDate(2004, 1, 1, 23, 30, 00.000, utc)
 
 # Setup orbit propagator
 #gravitation coefficient
@@ -43,9 +43,10 @@ mu = 3.986004415e+14
 # Orbit construction as Keplerian
 initialOrbit = KeplerianOrbit(a, e, i, omega, raan, lM,
                               PositionAngle.MEAN, inertialFrame,
-                              initialDate, mu)
+                              initial_date, mu)
 
-initialstate = SpacecraftState(initialOrbit)
+initial_state = SpacecraftState(initialOrbit)
+
 
 def simple_keplarian(initialOrbit, initialDate):
     """
@@ -62,13 +63,13 @@ def simple_keplarian(initialOrbit, initialDate):
     # Overall duration in seconds for extrapolation
     duration = 24 * 60.0 ** 2
     # Stop date
-    finalDate = AbsoluteDate(initialDate, duration, utc)
+    finalDate = AbsoluteDate(initial_date, duration, utc)
     # Step duration in seconds
     stepT = 30.0
     # Perform propagation
     # Extrapolation loop
     cpt = 1.0
-    extrapDate = initialDate
+    extrapDate = initial_date
     px, py = [], []
     while extrapDate.compareTo(finalDate) <= 0:
         currentState = kepler.propagate(extrapDate)
@@ -110,7 +111,7 @@ propagation_type = OrbitType.KEPLERIAN
 tolerances = NumericalPropagator.tolerances(position_tolerance, initialOrbit,
                                             propagation_type)
 
-integrator = DormandPrince853Integrator(min_step, max_step, 1e-4, 1e-5)
+integrator = DormandPrince853Integrator(min_step, max_step, 1e-5, 1e-10)
 
 propagator = NumericalPropagator(integrator)
 propagator.setOrbitType(propagation_type)
@@ -120,49 +121,41 @@ provider = GravityFieldFactory.getNormalizedProvider(10, 10)
 holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True), provider)
 
 # SRP
-# spr = SolarRadiationPressure(CelestialBodyFactory.getSun())
+ssc = IsotropicRadiationSingleCoefficient(100.0, 0.8)  # Spacecraft surface area (m^2), C_r absorbtion
+srp = SolarRadiationPressure(CelestialBodyFactory.getSun(), a, ssc)  # sun, semi-major Earth, spacecraft sensitivity
 
 propagator.addForceModel(holmesFeatherstone)
-
 propagator.addForceModel(ThirdBodyAttraction(CelestialBodyFactory.getSun()))
 propagator.addForceModel(ThirdBodyAttraction(CelestialBodyFactory.getMoon()))
-
-# SRP
-ssc = IsotropicRadiationSingleCoefficient(100.0, 0.8)  # Spacecraft surface area (m^2), C_r absorbtion
-spr = SolarRadiationPressure(CelestialBodyFactory.getSun(), a, ssc)  # sun, semi-major Earth, spacecraft sensitivity
-
-propagator.addForceModel(spr)
+# propagator.addForceModel(srp)
 
 # propagator.setMasterMode(60.0, TutorialStepHandler())
 
-propagator.setInitialState(initialstate)
+propagator.setInitialState(initial_state)
+final_state = propagator.propagate(initial_date.shiftedBy(1000.0))   # TIme shift in seconds
 
-
-# finalState = propagator.propagate(AbsoluteDate(initialDate, 630.0))
-
-finalState = propagator.propagate(initialDate.shiftedBy(1000.0))    # TIme shift in seconds
-o = OrbitType.KEPLERIAN.convertType(finalState.getOrbit())
+o = OrbitType.KEPLERIAN.convertType(final_state.getOrbit())
 
 print('Final State: date: {}\na: {} \ne: {} \ni:{} \ntheta {}'.format(
-       finalState.getDate(), o.getA(), o.getE(), degrees(o.getI()), degrees(o.getLv())))
+    final_state.getDate(), o.getA(), o.getE(), degrees(o.getI()), degrees(o.getLv())))
 
 print("done")
 
-class TutorialStepHandler(OrekitFixedStepHandler):
-
-    def __init__():
-        pass
-
-    def init(s0, t, step):
-        print("          date                a           e","           i         \u03c9          \u03a9","          \u03bd")
-
-    def handleStep(currentState, boolean):
-        o = OrbitType.KEPLERIAN.convertType(currentState.getOrbit())
-        print("%s %12.3f %10.8f %10.6f %10.6f %10.6f %10.6f%n".format(currentState.getDate(), o.getA(), o.getE(),
-                                                                      o.getI(),o.getPerigeeArgument(),
-                                                                      o.getRightAscensionOfAscendingNode(),
-                                                                      o.getTrueAnomaly()))
-        if isLast:
-            System.out.println("this was the last step ")
-            System.out.println()
-
+# class TutorialStepHandler(OrekitFixedStepHandler):
+#
+#     def __init__():
+#         pass
+#
+#     def init(s0, t, step):
+#         print("          date                a           e","           i         \u03c9          \u03a9","          \u03bd")
+#
+#     def handleStep(currentState, boolean):
+#         o = OrbitType.KEPLERIAN.convertType(currentState.getOrbit())
+#         print("%s %12.3f %10.8f %10.6f %10.6f %10.6f %10.6f%n".format(currentState.getDate(), o.getA(), o.getE(),
+#                                                                       o.getI(),o.getPerigeeArgument(),
+#                                                                       o.getRightAscensionOfAscendingNode(),
+#                                                                       o.getTrueAnomaly()))
+#         if isLast:
+#             System.out.println("this was the last step ")
+#             System.out.println()
+#
