@@ -1,9 +1,6 @@
-from __future__ import print_function
-
 import orekit
 from math import radians, degrees
 import os, sys
-
 
 orekit.initVM()
 
@@ -40,7 +37,7 @@ from org.orekit.forces.radiation import RadiationSensitive
 from org.orekit.bodies import CelestialBodyFactory
 from org.orekit.utils import IERSConventions
 
-for org.orekit.utils import Constants
+from org.orekit.utils import Constants
 
 from org.orekit.python import PythonEventHandler, PythonOrekitFixedStepHandler
 
@@ -52,13 +49,13 @@ def main():
     initial_date = AbsoluteDate(2018, 7, 9, 23, 30, 00.000, utc)
 
     # The duration in hours
-    duration = 24 * 60 **2
+    duration = 24.0 * 60 **2
 
     # Earth rotation rate
     rotation_rate = Constants.WGS84_EARTH_ANGULAR_VELOCITY
 
     # Create the inital orbit of the spacecraft
-    orbit = createOrbit()
+    orbit = createOrbit(initial_date)
 
     # spacecraft mass
     mass = 1000.0
@@ -72,19 +69,18 @@ def main():
     initial_state = SpacecraftState(orbit)
 
 
-    prop.setEphemerisMode()
+    # prop.setEphemerisMode()
 
 
-    output_step = 10
-    numEphemeris = numProp.getGeneratedEphemeris()
+    output_step = 10.
+    # numEphemeris = numProp.getGeneratedEphemeris()
     handler = OutputHandler()
-    numEphemeris.setMasterMode(output_step, handler)
+    prop.setMasterMode(output_step, handler)
 
-    prop.propagate(initial_date, initial_date.shiftedBy(duration))
+    final_date = prop.propagate(initial_date.shiftedBy(duration))
 
 
-
-def createOrbit():
+def createOrbit(initial_date):
     """ Crate the initial orbit using Keplarian elements"""
 
     a = 24396159.0  # semi major axis (m)
@@ -112,7 +108,7 @@ def createPropagator(orbit, mass):
     minStep = 1.e-3
     maxStep = 1.e+3
 
-    integrator = DormandPrince853Integrator(minStep, maxStep, tol[0], tol[1])
+    integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
     integrator.setInitialStepSize(100.0)
 
     numProp = NumericalPropagator(integrator)
@@ -130,8 +126,6 @@ def setForceModel(numProp):
     numProp.addForceModel(holmesFeatherstone)
 
 
-
-
 class OutputHandler(PythonOrekitFixedStepHandler):
 
     def init(selfself, s0, t):
@@ -140,7 +134,8 @@ class OutputHandler(PythonOrekitFixedStepHandler):
     def handleStep(self, currentState, isLast):
         o = OrbitType.KEPLERIAN.convertType(currentState.getOrbit())
         print(o.getDate())
-        print('a:{:5.3f}, e:{:5.3f}, i:{:5.3f}, theta:{:5.3f}'.format(o.getA(), o.getE(), o.getI(), o.getLv()))
+        print('a:{:5.3f}, e:{:5.3f}, i:{:5.3f}, theta:{:5.3f}'.format(o.getA(), o.getE(),
+                                                                      degrees(o.getI()), degrees(o.getLv())))
         if isLast:
             print('this was the last step ')
 
@@ -156,3 +151,7 @@ class DateHandler(PythonEventHandler):
 
     def resetState(self, detector, oldstate):
         return oldstate
+
+
+if __name__ == '__main__':
+    main()
