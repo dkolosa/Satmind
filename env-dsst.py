@@ -20,6 +20,8 @@ from org.orekit.time import AbsoluteDate
 from org.orekit.time import TimeScalesFactory
 from org.hipparchus.ode import AbstractIntegrator
 from org.hipparchus.ode.nonstiff import DormandPrince853Integrator
+from org.hipparchus.geometry.euclidean.threed import Vector3D
+
 from org.orekit.propagation.numerical import NumericalPropagator
 from org.orekit.propagation.sampling import OrekitFixedStepHandler
 from org.orekit.propagation.events import EventDetector
@@ -38,6 +40,8 @@ from org.orekit.bodies import CelestialBodyFactory
 from org.orekit.utils import IERSConventions
 
 from org.orekit.utils import Constants
+
+from org.orekit.forces.maneuvers import ConstantThrustManeuver
 
 from org.orekit.python import PythonEventHandler, PythonOrekitFixedStepHandler
 
@@ -63,7 +67,7 @@ def main():
     #create the numerical propagator
     prop = createPropagator(orbit, mass)
 
-    setForceModel(prop)
+    setForceModel(prop, initial_date)
 
 
     initial_state = SpacecraftState(orbit)
@@ -116,7 +120,7 @@ def createPropagator(orbit, mass):
     return numProp
 
 
-def setForceModel(numProp):
+def setForceModel(numProp, initial_date):
     """ Set up the force model that will be used"""
 
 # force model gravity field
@@ -124,6 +128,15 @@ def setForceModel(numProp):
     holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True), provider)
 
     numProp.addForceModel(holmesFeatherstone)
+
+    duration = 1000.0
+    isp = 120.0
+    thrust = 100.0
+    direction = Vector3D.PLUS_I
+
+    thrust = ConstantThrustManeuver(initial_date, duration, thrust, isp, direction)
+
+    numProp.addForceModel(thrust)
 
 
 class OutputHandler(PythonOrekitFixedStepHandler):
