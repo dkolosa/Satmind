@@ -1,6 +1,7 @@
 import orekit
 from math import radians, degrees
 import os, sys
+import matplotlib.pyplot as plt
 
 orekit.initVM()
 
@@ -48,6 +49,8 @@ from org.orekit.python import PythonEventHandler, PythonOrekitFixedStepHandler
 
 def main():
 
+    FUEL_MASS = "Fuel Mass"
+
     # Initial date in UTC time scale
     utc = TimeScalesFactory.getUTC()
     initial_date = AbsoluteDate(2018, 7, 9, 23, 30, 00.000, utc)
@@ -61,28 +64,62 @@ def main():
     # Create the inital orbit of the spacecraft
     orbit = createOrbit(initial_date)
 
-    # spacecraft mass
+    # spacecraft dry mass
     mass = 1000.0
+    fuel_mass = 500.0
 
     #create the numerical propagator
     prop = createPropagator(orbit, mass)
 
+    # Set up enviornment force models
     setForceModel(prop, initial_date)
 
-
-    initial_state = SpacecraftState(orbit)
-
-
-    # prop.setEphemerisMode()
-
+    # Set the initial state of the spacecraft
+    sc_state = SpacecraftState(orbit, mass)
+    sc_fuel = sc_state.addAdditionalState(FUEL_MASS, fuel_mass)
 
     output_step = 10.
     # numEphemeris = numProp.getGeneratedEphemeris()
     handler = OutputHandler()
-    prop.setMasterMode(output_step, handler)
+    # prop.setMasterMode(output_step, handler)
+    prop.setSlaveMode()
 
-    final_date = prop.propagate(initial_date.shiftedBy(duration))
+    final_date = initial_date.shiftedBy(duration)
 
+    # Thrust parameters
+    thrust_mag = 10.0
+    isp = 1200.0
+    direction = Vector3D.PLUS_I
+    # thrust = ConstantThrustManeuver(initial_date, 24.0*60**2, thrust_mag, isp, direction)
+
+    # prop.addForceModel(thrust)
+
+    px, py, fuel = [], [], []
+    extrapDate = initial_date
+    stepT = 100.0
+    cpt = 0
+
+    while extrapDate.compareTo(final_date) <= 0:
+        thrust = ConstantThrustManeuver(extrapDate, stepT, thrust_mag, isp, direction)
+        prop.addForceModel(thrust)
+        currentState = prop.propagate(extrapDate)
+        # print('step {}: time {} {}\n'.format(cpt, currentState.getDate(), currentState.getOrbit()))
+        coord = currentState.getPVCoordinates().getPosition()
+        thrust_mag += 0.01
+        # Calculate the fuel used and update spacecraft fuel mass
+        sc_fuel = sc_fuel.addAdditionalState(FUEL_MASS,
+                                             sc_fuel.getAdditionalState(FUEL_MASS)[0] + thrust.getFlowRate() * stepT)
+
+        px.append(coord.getX())
+        py.append(coord.getY())
+        if sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
+            print("Ran out of fuel")
+            break
+        # P[:,cpt]=[coord.getX coord.getY coord.getZ]
+        extrapDate = AbsoluteDate(extrapDate, stepT, utc)
+        cpt += 1
+
+    print("spacecraft state", str(sc_fuel.getAdditionalState(FUEL_MASS)[0]))
 
 def createOrbit(initial_date):
     """ Crate the initial orbit using Keplarian elements"""
