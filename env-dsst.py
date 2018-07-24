@@ -3,6 +3,7 @@ from math import radians, degrees
 import os, sys
 import matplotlib.pyplot as plt
 
+
 orekit.initVM()
 
 from orekit.pyhelpers import setup_orekit_curdir
@@ -125,10 +126,10 @@ def createOrbit(initial_date):
     """ Crate the initial orbit using Keplarian elements"""
 
     a = 24396159.0  # semi major axis (m)
-    e = 0.720  # eccentricity
-    i = radians(10.0)  # inclination
-    omega = radians(50.0)  # perigee argument
-    raan = radians(150)  # right ascension of ascending node
+    e = 0.1  # eccentricity
+    i = radians(2.0)  # inclination
+    omega = radians(2.0)  # perigee argument
+    raan = radians(1.0)  # right ascension of ascending node
     lM = 0.0  # mean anomaly
 
     mu = 3.986004415e+14
@@ -141,7 +142,7 @@ def createOrbit(initial_date):
     return orbit
 
 
-def createPropagator(orbit, mass):
+def createPropagator(orbit, mass, prop_master_mode=False):
     """ Set up the propagator to be used"""
 
 
@@ -154,11 +155,19 @@ def createPropagator(orbit, mass):
 
     numProp = NumericalPropagator(integrator)
     numProp.setInitialState(SpacecraftState(orbit, mass))
+
+    if prop_master_mode:
+        output_step = 5.0
+        handler = OutputHandler()
+        numProp.setMasterMode(output_step, handler)
+    else:
+        numProp.setSlaveMode()
+
     return numProp
 
 
 def setForceModel(numProp, initial_date):
-    """ Set up the force model that will be used"""
+    """ Set up environment force models"""
 
 # force model gravity field
     provider = GravityFieldFactory.getNormalizedProvider(10, 10)
@@ -166,20 +175,12 @@ def setForceModel(numProp, initial_date):
 
     numProp.addForceModel(holmesFeatherstone)
 
-    duration = 1000.0
-    isp = 120.0
-    thrust = 100.0
-    direction = Vector3D.PLUS_I
-
-    thrust = ConstantThrustManeuver(initial_date, duration, thrust, isp, direction)
-
-    numProp.addForceModel(thrust)
 
 
 class OutputHandler(PythonOrekitFixedStepHandler):
 
     def init(selfself, s0, t):
-        print('Orbital Elements')
+        print('Orbital Elements:')
 
     def handleStep(self, currentState, isLast):
         o = OrbitType.KEPLERIAN.convertType(currentState.getOrbit())
