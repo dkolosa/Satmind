@@ -1,8 +1,9 @@
+
 import orekit
 from math import radians, degrees
 import os, sys, datetime
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle
+
 import numpy as np
 
 orekit.initVM()
@@ -12,37 +13,21 @@ from orekit.pyhelpers import setup_orekit_curdir
 setup_orekit_curdir()
 
 from org.orekit.errors import OrekitException
-from org.orekit.frames import Frame
-from org.orekit.frames import FramesFactory
-from org.orekit.orbits import KeplerianOrbit
-from org.orekit.orbits import Orbit
-from org.orekit.orbits import PositionAngle
+from org.orekit.frames import FramesFactory, Frame
+from org.orekit.orbits import KeplerianOrbit, Orbit
 from org.orekit.propagation import SpacecraftState
 from org.orekit.propagation.analytical import KeplerianPropagator
-from org.orekit.time import AbsoluteDate
-from org.orekit.time import TimeScalesFactory
-from org.hipparchus.ode import AbstractIntegrator
+from org.orekit.time import AbsoluteDate, TimeScalesFactory
 from org.hipparchus.ode.nonstiff import DormandPrince853Integrator
 from org.hipparchus.geometry.euclidean.threed import Vector3D
 
 from org.orekit.propagation.numerical import NumericalPropagator
 from org.orekit.propagation.sampling import OrekitFixedStepHandler
-from org.orekit.propagation.events import EventDetector
-from org.orekit.propagation.events.handlers import EventHandler
-from org.orekit.propagation.events import PositionAngleDetector
-from org.orekit.propagation.events import AbstractDetector
-from org.orekit.orbits import OrbitType
-from org.orekit.orbits import PositionAngle
+from org.orekit.orbits import OrbitType, PositionAngle
 from org.orekit.forces.gravity.potential import GravityFieldFactory
 from org.orekit.forces.gravity import HolmesFeatherstoneAttractionModel
-from org.orekit.forces.gravity import ThirdBodyAttraction
-from org.orekit.forces.radiation import SolarRadiationPressure
-from org.orekit.forces.radiation import IsotropicRadiationSingleCoefficient
-from org.orekit.forces.radiation import RadiationSensitive
-from org.orekit.bodies import CelestialBodyFactory
-from org.orekit.utils import IERSConventions
 
-from org.orekit.utils import Constants
+from org.orekit.utils import IERSConventions, Constants
 
 from org.orekit.forces.maneuvers import ConstantThrustManeuver
 
@@ -97,7 +82,6 @@ class OrekitEnv:
             year, month, day, hour, minute, sec = now.year, now.month, now.day, now.hour, now.minute, float(now.second)
             self._initial_date = AbsoluteDate(year, month, day, hour, minute, sec, UTC)
 
-
     def shift_date(self, step):
         self._extrap_Date = AbsoluteDate(self._extrap_Date, step, UTC)
         pass
@@ -121,6 +105,8 @@ class OrekitEnv:
         sc_state = SpacecraftState(self._orbit, mass)
         self._sc_fuel = sc_state.addAdditionalState(FUEL_MASS, fuel_mass)
 
+
+
     def create_Propagator(self, prop_master_mode=False):
         """ Set up the propagator to be used"""
 
@@ -143,8 +129,6 @@ class OrekitEnv:
 
         self._prop = numProp
 
-        # return numProp
-
     def render_plots(self):
         plt.plot(np.array(self._px) / 1000, np.array(self._py) / 1000)
         plt.xlabel("x (km)")
@@ -152,6 +136,8 @@ class OrekitEnv:
         # earth = Circle(xy=(0,0), radius=6371.0)
         # plt.figimage(earth)
         plt.show()
+
+
 
     def setForceModel(self):
         """ Set up environment force models"""
@@ -169,7 +155,7 @@ class OrekitEnv:
 
 
     def getTotalMass(self):
-        return self._sc_fuel.getAdditionalState(FUEL_MASS)[0]
+        return self._sc_fuel.getAdditionalState(FUEL_MASS)[0] + self._sc_fuel.getMass()
 
     def step(self, thrust_mag,stepT):
         # TODO makes one propagation step
@@ -251,81 +237,6 @@ def main():
 
     print(env.getTotalMass())
     env.render_plots()
-
-
-
-    # # Initial date in UTC time scale
-    # utc = TimeScalesFactory.getUTC()
-    # initial_date = AbsoluteDate(2018, 7, 9, 23, 30, 00.000, utc)
-    #
-    # # The duration in hours
-    # duration = 24.0 * 60**2
-    #
-    # # Create the inital orbit of the spacecraft
-    # orbit = createOrbit(initial_date)
-    #
-    # # spacecraft dry mass
-    # mass = 1000.0
-    # fuel_mass = 500.0
-    #
-    # #create the numerical propagator
-    # prop = createPropagator(orbit, mass)
-    #
-    # # Set up enviornment force models
-    # setForceModel(prop, initial_date)
-    #
-    # # Set the initial state of the spacecraft
-    # sc_state = SpacecraftState(orbit, mass)
-    # sc_fuel = sc_state.addAdditionalState(FUEL_MASS, fuel_mass)
-    #
-    # output_step = 10.
-    # # numEphemeris = numProp.getGeneratedEphemeris()
-    # handler = OutputHandler()
-    # # prop.setMasterMode(output_step, handler)
-    # # prop.setSlaveMode()
-    #
-    # final_date = initial_date.shiftedBy(duration)
-    #
-    # # Thrust parameters
-    # thrust_mag = 10.0
-    # isp = 1200.0
-    # direction = Vector3D.PLUS_I
-    # # thrust = ConstantThrustManeuver(initial_date, 24.0*60**2, thrust_mag, isp, direction)
-    #
-    # # prop.addForceModel(thrust)
-    #
-    # px, py, fuel = [], [], []
-    # extrapDate = initial_date
-    # stepT = 100.0
-    # cpt = 0
-    #
-    # while extrapDate.compareTo(final_date) <= 0:
-    #     thrust = ConstantThrustManeuver(extrapDate, stepT, thrust_mag, isp, direction)
-    #     prop.addForceModel(thrust)
-    #     currentState = prop.propagate(extrapDate)
-    #     # print('step {}: time {} {}\n'.format(cpt, currentState.getDate(), currentState.getOrbit()))
-    #     coord = currentState.getPVCoordinates().getPosition()
-    #     thrust_mag += 0.01
-    #     # Calculate the fuel used and update spacecraft fuel mass
-    #     sc_fuel = sc_fuel.addAdditionalState(FUEL_MASS,
-    #                                          sc_fuel.getAdditionalState(FUEL_MASS)[0] + thrust.getFlowRate() * stepT)
-    #
-    #     px.append(coord.getX())
-    #     py.append(coord.getY())
-    #     if sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
-    #         print("Ran out of fuel")
-    #         break
-    #     # P[:,cpt]=[coord.getX coord.getY coord.getZ]
-    #     extrapDate = AbsoluteDate(extrapDate, stepT, utc)
-    #     cpt += 1
-    #
-    # print("spacecraft state", str(sc_fuel.getAdditionalState(FUEL_MASS)[0]))
-
-
-
-
-
-
 
 
 if __name__ == '__main__':
