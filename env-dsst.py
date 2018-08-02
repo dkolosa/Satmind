@@ -1,7 +1,8 @@
 import orekit
 from math import radians, degrees
-import os, sys
+import os, sys, datetime
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
 import numpy as np
 
 orekit.initVM()
@@ -53,6 +54,22 @@ UTC = TimeScalesFactory.getUTC()
 
 
 class OrekitEnv:
+    """ This class uses Orekit to create an environment to propagate a satellite
+
+        Params:
+        _prop: The propagation object
+        _initial_date: The initial start date of the propagation
+        _orbit: The orbit type (Keplerian, Circular, etc...)
+        _currentDate: The current date during propagation
+        _currentorbit: The current orbit paramenters
+        _px: spacecraft position in the x-direction
+        _py: spacecraft position in the y-direction
+        _sc_fuel: The spacecraft with fuel accounted for
+        _extrap_Date: changing date during propagation state
+        _sc_state: The spacecraft without fuel
+
+    """
+
 
 
     def __init__(self):
@@ -67,11 +84,23 @@ class OrekitEnv:
         self._py = []
         self._sc_fuel = None
         self._extrap_Date = None
-        self._sc_state = None
 
-    def set_date(self, year, month, day, hour, min, sec):
-        self._initial_date = AbsoluteDate(year, month, day, hour, min, sec, UTC)
-        self._extrap_Date = self._initial_date
+    def set_date(self, date=None, absolute_date=None, step=0):
+        if date != None:
+            year, month, day, hour, minute, sec = date
+            self._initial_date = AbsoluteDate(year, month, day, hour, minute, sec, UTC)
+        elif absolute_date != None and step != 0:
+            self._extrap_Date = AbsoluteDate(absolute_date, step, UTC)
+        else:
+            # no argument given, use current date and time
+            now = datetime.datetime.now()
+            year, month, day, hour, minute, sec = now.year, now.month, now.day, now.hour, now.minute, float(now.second)
+            self._initial_date = AbsoluteDate(year, month, day, hour, minute, sec, UTC)
+
+
+    def shift_date(self, step):
+        self._extrap_Date = AbsoluteDate(self._extrap_Date, step, UTC)
+        pass
 
     def create_orbit(self, state):
         """ Crate the initial orbit using Keplarian elements"""
@@ -88,9 +117,12 @@ class OrekitEnv:
 
         # return orbit
 
-    def createPropagator(self, prop_master_mode=False):
-        """ Set up the propagator to be used"""
+    def set_spacecraft(self, mass, fuel_mass):
+        sc_state = SpacecraftState(self._orbit, mass)
+        self._sc_fuel = sc_state.addAdditionalState(FUEL_MASS, fuel_mass)
 
+    def create_Propagator(self, prop_master_mode=False):
+        """ Set up the propagator to be used"""
 
         tol = NumericalPropagator.tolerances(1.0, self._orbit, self._orbit.getType())
         minStep = 1.e-3
@@ -113,6 +145,14 @@ class OrekitEnv:
 
         # return numProp
 
+    def render_plots(self):
+        plt.plot(np.array(self._px) / 1000, np.array(self._py) / 1000)
+        plt.xlabel("x (km)")
+        plt.ylabel("y (km)")
+        # earth = Circle(xy=(0,0), radius=6371.0)
+        # plt.figimage(earth)
+        plt.show()
+
     def setForceModel(self):
         """ Set up environment force models"""
 
@@ -120,13 +160,13 @@ class OrekitEnv:
         provider = GravityFieldFactory.getNormalizedProvider(10, 10)
         holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True),
                                                                provider)
-
         self._prop.addForceModel(holmesFeatherstone)
 
     def reset(self):
         # TODO reset the state of the sc to the initial state
         self._currentDate = self._initial_date
         self._currentOrbit = self._orbit
+
 
     def getTotalMass(self):
         return self._sc_fuel.getAdditionalState(FUEL_MASS)[0]
@@ -172,20 +212,19 @@ class OutputHandler(PythonOrekitFixedStepHandler):
             print('this was the last step ')
 
 
-
 def main():
 
     env = OrekitEnv()
     year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
-
-    env.set_date(year, month, day, hr, minute, sec)
+    date = [year, month, day, hr, minute, sec]
+    env.set_date(date)
 
     mass = 1000.0
     fuel_mass = 500.0
     duration = 24.0*60.0**2
 
     # set the sc initial state
-    a = 24396159.0  # semi major axis (m)
+    a = 24_396_159.0  # semi major axis (m)
     e = 0.1  # eccentricity
     i = radians(2.0)  # inclination
     omega = radians(2.0)  # perigee argument
@@ -194,28 +233,24 @@ def main():
     state = [a, e, i, omega, raan, lM]
 
     env.create_orbit(state)
-    env._sc_state = SpacecraftState(env._orbit, mass)
-    env._sc_fuel = env._sc_state.addAdditionalState("Fuel Mass", fuel_mass)
-    env.createPropagator()
+    env.set_spacecraft(mass, fuel_mass)
+    env.create_Propagator()
     env.setForceModel()
 
     final_date = env._initial_date.shiftedBy(duration)
     env._extrap_Date = env._initial_date
     stepT = 100.0
 
-    thrust_mag = 10.0
-    position =  
+    thrust_mag = 0.0
     while env._extrap_Date.compareTo(final_date) <= 0:
         position = env.step(thrust_mag, stepT)
-        env._extrap_Date = AbsoluteDate(env._extrap_Date, stepT, UTC)
+        env.shift_date(stepT)
+        # env._extrap_Date = AbsoluteDate(env._extrap_Date, stepT, UTC)
 
     print("done")
 
     print(env.getTotalMass())
-
-    # print(env._py)
-    plt.plot(env._px, env._py)
-    plt.show()
+    env.render_plots()
 
 
 
