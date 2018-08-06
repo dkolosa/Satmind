@@ -231,7 +231,7 @@ def main():
 
     final_date = env._initial_date.shiftedBy(duration)
     env._extrap_Date = env._initial_date
-    stepT = 100.0
+    stepT = 10.0
 
     thrust_mag = 30.0
     while env._extrap_Date.compareTo(final_date) <= 0:
