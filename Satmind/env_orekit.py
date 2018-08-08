@@ -156,6 +156,8 @@ class OrekitEnv:
         # TODO reset the state of the sc to the initial state
         self._currentDate = self._initial_date
         self._currentOrbit = self._orbit
+        self._px = []
+        self._py = []
 
 
     def getTotalMass(self):
@@ -213,7 +215,7 @@ def main():
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration = 24.0*60.0**2
+    duration = 24.0*60.0**2 * 10
 
     # set the sc initial state
     a = 24_396_159.0  # semi major axis (m)
@@ -233,7 +235,7 @@ def main():
     env._extrap_Date = env._initial_date
     stepT = 10.0
 
-    thrust_mag = 30.0
+    thrust_mag = 0.5
     while env._extrap_Date.compareTo(final_date) <= 0:
         position = env.step(thrust_mag, stepT)
         env.shift_date(stepT)
