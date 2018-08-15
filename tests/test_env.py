@@ -9,6 +9,7 @@ class MyTestCase(unittest.TestCase):
         """ Test for 0 thrust propagation"""
 
         env = OrekitEnv()
+        done = False
         year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 0.0
         date = [year, month, day, hr, minute, sec]
         env.set_date(date)
@@ -37,7 +38,7 @@ class MyTestCase(unittest.TestCase):
 
         thrust_mag = 0.0
         while env._extrap_Date.compareTo(final_date) <= 0:
-            position = env.step(thrust_mag, stepT)
+            state, reward, done, _ = env.step(thrust_mag, stepT)
             env.shift_date(stepT)
 
         print("done")

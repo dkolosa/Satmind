@@ -1,11 +1,11 @@
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import tensorflow as tf
 import random
 import gym
 import gym.spaces
 
-# from Satmind.env_orekit import OrekitEnv
+# from env_orekit import OrekitEnv
 
 # Create the enviornment
 env = gym.make('FrozenLake-v0')
@@ -42,23 +42,24 @@ env.reset()
 # env._extrap_Date = env._initial_date
 # stepT = 10.0
 #
-# thrust_mag = 30.0
-
+# # thrust_mag = 0.0
+#
+# thrust_mag = [0.0, 0.5, 1.0, 1.5]
 
 
 # learning parameters
 y = .99
-e = 0.1
-num_episodes = 5
+e = 0.01
+num_episodes = 1000
 # steps and rewards per episode (respectively)
 j_list = []
 r_list = []
 
 # Network Model
-num_inputs = 2
+num_inputs = 16
 num_outputs = 4
-layer_1_nodes = 50
-layer_2_nodes = 20
+layer_1_nodes = 20
+# layer_2_nodes = 20
 
 # Establish feed-forward network
 inputs = tf.placeholder(shape=[1,num_inputs], dtype=tf.float32)
@@ -83,12 +84,11 @@ predict = tf.argmax(Q_output, 1)
 
 # Sum of squares loss between target and predicted Q
 
-next_Q = tf.placeholder(shape=[1, 4], dtype=tf.float32)
+next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
 loss = tf.reduce_sum(tf.square(next_Q-Q_output))
-trainer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+trainer = tf.train.GradientDescentOptimizer(learning_rate=0.1)
 
-with tf.variable_scope('train'):
-    update = trainer.minimize(loss)
+update = trainer.minimize(loss)
 
 # with tf.variable_scope('logging'):
 #     tf.summary.scalar('current_cost', update)
@@ -111,19 +111,24 @@ with tf.Session() as sess:
         j = 0
 
         # Q-network
-        while j < 99:
+        while j < 200:
             j+=1
 
             #choose an action
             # This value is thrust
-            a, allQ = sess.run([predict,Q_output],
+            a, allQ = sess.run([predict, Q_output],
                                feed_dict={inputs:np.identity(num_inputs)[s:s+1]})
+            # a, allQ = sess.run([predict, Q_output],
+            #                    feed_dict={inputs:np.identity(num_inputs)[s:s+1]})
             if np.random.rand(1) < e:
                 a[0] = env.action_space.sample()
+                # a[0] = random.choice(thrust_mag)
 
             # Get a new state and reward
             # The state is the x-y coordinates, r =0 if not reached
             s1, r, d, _ = env.step(a[0])
+            # s1 = env.step(thrust_mag, stepT)
+
             # Obtain the Q value
             Q1 = sess.run(Q_output, feed_dict={inputs:np.identity(num_inputs)[s1:s1+1]})
             # Get maxQ and set target value for chosen action
@@ -143,15 +148,16 @@ with tf.Session() as sess:
         j_list.append(j)
         r_list.append(rall)
 
-        if i % 100 == 0:
-            env.render_plots()
+        # if i % 100 == 0:
+            # env.render_plots()
+            # env.render()
 
-    print('KEY:\nSFFF(S: starting point, safe)\n',
-          'FHFH(F: frozen surface, safe)\n',
-          'FFFH(H: hole, fall to your doom)\n',
-          'HFFG(G: goal, where the frisbee is located)')
+    # print('KEY:\nSFFF(S: starting point, safe)\n',
+    #       'FHFH(F: frozen surface, safe)\n',
+    #       'FFFH(H: hole, fall to your doom)\n',
+    #       'HFFG(G: goal, where the frisbee is located)')
 
-    print("successful episodes " + str(sum(r_list)/num_episodes) + "%")
+    print("successful episodes " + str(sum(r_list)/num_episodes*100) + "%")
     print("Score: " + str(sum(r_list)))
     plt.plot(r_list)
     plt.show()
