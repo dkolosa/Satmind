@@ -58,8 +58,6 @@ class OrekitEnv:
 
     """
 
-
-
     def __init__(self):
         """ initializes the orekit VM and included libraries"""
 
@@ -167,11 +165,13 @@ class OrekitEnv:
         # TODO makes one propagation step
         # Keep track of fuel, thrust, position, date
 
+        done = False
+        reward = 0
         # 5 sec steps
         isp = 1200.0
         direction = Vector3D.PLUS_I
-        inertialFrame = FramesFactory.getEME2000()
-        attitude = LofOffset(inertialFrame, LOFType.LVLH)
+        inertial_frame = FramesFactory.getEME2000()
+        attitude = LofOffset(inertial_frame, LOFType.LVLH)
 
         # start date, duration, thrust, isp, direction
         thrust = ConstantThrustManeuver(self._extrap_Date, stepT, thrust_mag, isp, attitude, direction)
@@ -186,10 +186,14 @@ class OrekitEnv:
                                                          self._sc_fuel.getAdditionalState(FUEL_MASS)[0] + thrust.getFlowRate() * stepT)
         self._px.append(coord.getX())
         self._py.append(coord.getY())
+        state = [coord.getX(), coord.getY()]
         if self._sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
             print("Ran out of fuel")
+            done = True
+            reward = -1
             exit()
-        return [coord.getX(), coord.getY()]
+
+        return np.array(state), reward, done, {}
 
 
 class OutputHandler(PythonOrekitFixedStepHandler):
@@ -215,7 +219,7 @@ def main():
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration = 24.0*60.0**2 * 10
+    duration = 24.0*60.0**2
 
     # set the sc initial state
     a = 24_396_159.0  # semi major axis (m)
@@ -233,9 +237,9 @@ def main():
 
     final_date = env._initial_date.shiftedBy(duration)
     env._extrap_Date = env._initial_date
-    stepT = 10.0
+    stepT = 100.0
 
-    thrust_mag = 0.5
+    thrust_mag = 30.0
     while env._extrap_Date.compareTo(final_date) <= 0:
         position = env.step(thrust_mag, stepT)
         env.shift_date(stepT)
