@@ -4,57 +4,59 @@ import tensorflow as tf
 import random
 import gym
 import gym.spaces
+from sklearn.preprocessing import MinMaxScaler
 
-# from env_orekit import OrekitEnv
+from env_orekit import OrekitEnv
 
 # Create the enviornment
-env = gym.make('FrozenLake-v0')
-env.reset()
+# env = gym.make('FrozenLake-v0')
+# env.reset()
 
 # Orekit env
 
-# env = OrekitEnv()
-# env.reset()
-#
-# year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
-# date = [year, month, day, hr, minute, sec]
-# env.set_date(date)
-#
-# mass = 1000.0
-# fuel_mass = 500.0
-# duration = 24.0 * 60.0 ** 2
-#
-# a = 41_000.0e3
-# e = 0.01
-# i = 1.0
-# omega = 0.1
-# rann = 0.01
-# lv = 0.01
-#
-# state = [a, e, i, omega, rann, lv]
-#
-# env.create_orbit(state)
-# env.set_spacecraft(mass, fuel_mass)
-# env.create_Propagator()
-# env.setForceModel()
-#
-# final_date = env._initial_date.shiftedBy(duration)
-# env._extrap_Date = env._initial_date
-# stepT = 10.0
-#
-# # thrust_mag = 0.0
-#
-# thrust_mag = [0.0, 0.5, 1.0, 1.5]
+env = OrekitEnv()
+
+year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
+date = [year, month, day, hr, minute, sec]
+env.set_date(date)
+
+mass = 1000.0
+fuel_mass = 500.0
+duration = 24.0 * 60.0 ** 2
+
+a = 41_000.0e3
+e = 0.001
+i = 0.0
+omega = 0.1
+rann = 0.01
+lv = 0.01
+
+state = [a, e, i, omega, rann, lv]
+
+env.create_orbit(state)
+env.set_spacecraft(mass, fuel_mass)
+env.create_Propagator()
+env.setForceModel()
+
+final_date = env._initial_date.shiftedBy(duration)
+env._extrap_Date = env._initial_date
+stepT = 100.0
+
+# thrust_mag = 0.0
+
+thrust_mag = [0.0, 0.5, 5.0, 10.0]
 
 
 # learning parameters
 y = .99
 e = 0.01
-num_episodes = 1000
+num_episodes = 100
 # steps and rewards per episode (respectively)
 j_list = []
 r_list = []
 
+
+pos_scale = MinMaxScaler(feature_range=(0,1))
 
 class Experience():
     def __init__(self, buffer_size):
@@ -71,7 +73,7 @@ class Experience():
 experience = Experience(buffer_size=50)
 
 # Network Model
-num_inputs = 16
+num_inputs = 2
 num_outputs = 4
 layer_1_nodes = 20
 # layer_2_nodes = 20
@@ -104,6 +106,11 @@ with tf.variable_scope('output'):
 
 predict = tf.argmax(Q_output, 1)
 
+actions = tf.placeholder(shape=[None], dtype=tf.int32)
+actions_onehot = tf.one_hot(actions, num_outputs, dtype=tf.float32)
+
+Q = tf.reduce_sum(tf.multiply(Q_output, actions_onehot), reduction_indices=1)
+
 # Sum of squares loss between target and predicted Q
 
 next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
@@ -132,7 +139,9 @@ with tf.Session() as sess:
         d = False
         j = 0
 
-        episonde_eperience = Experience(buffer_size=50)
+        # scaled_s = pos_scale.fit_transform(s[:2])
+
+        # episonde_eperience = Experience(buffer_size=50)
 
         # Q-network
         while j < 200:
@@ -140,31 +149,35 @@ with tf.Session() as sess:
 
             #choose an action
             # This value is thrust
-            a, allQ = sess.run([predict, Q_output],
-                               feed_dict={inputs:np.identity(num_inputs)[s:s+1]})
+            a, allQ = sess.run([predict, Q_output], feed_dict={inputs: [s]})
+
             # a, allQ = sess.run([predict, Q_output],
             #                    feed_dict={inputs:np.identity(num_inputs)[s:s+1]})
             if np.random.rand(1) < e:
-                a[0] = env.action_space.sample()
-                # a[0] = random.choice(thrust_mag)
-
+                # a[0] = env.action_space.sample()
+                a[0] = random.choice(thrust_mag)
+            print(allQ)
             # Get a new state and reward
             # The state is the x-y coordinates, r =0 if not reached
-            s1, r, d, _ = env.step(a[0])
+            print(thrust_mag[a[0]])
+            s1, r, d, _ = env.step(thrust_mag[a[0]], stepT)
             # s1 = env.step(thrust_mag, stepT)
 
             # episonde_eperience.experience_replay(np.reshape(np.array([s, a, r, s1, d]), [1, 5]))
 
             # Obtain the Q value
-            Q1 = sess.run(Q_output, feed_dict={inputs:np.identity(num_inputs)[s1:s1+1]})
+            Q1 = sess.run(Q_output, feed_dict={inputs: [s1]})
             # Get maxQ and set target value for chosen action
             maxQ1 = np.max(Q1)
             targetQ = allQ
             targetQ[0,a[0]] = r + y*maxQ1
 
             # Train the NN using target and predicted Q values
+            # _, W1 = sess.run([update, weights],
+                             # feed_dict={inputs:np.identity(num_inputs)[s:s+1],next_Q:targetQ})
+
             _, W1 = sess.run([update, weights],
-                             feed_dict={inputs:np.identity(num_inputs)[s:s+1],next_Q:targetQ})
+            feed_dict={inputs:[s], next_Q:targetQ})
             rall += r
             s = s1
             if d  == True:
@@ -176,8 +189,8 @@ with tf.Session() as sess:
 
         # experience.experience_replay(episonde_eperience)
 
-        # if i % 100 == 0:
-            # env.render_plots()
+        if i % 10 == 0:
+            env.render_plots()
             # env.render()
 
     # print('KEY:\nSFFF(S: starting point, safe)\n',
