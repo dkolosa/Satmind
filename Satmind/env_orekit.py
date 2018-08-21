@@ -3,16 +3,10 @@ import orekit
 from math import radians, degrees
 import os, sys, datetime
 import matplotlib.pyplot as plt
-
 import numpy as np
 
 orekit.initVM()
 
-from orekit.pyhelpers import setup_orekit_curdir
-
-setup_orekit_curdir()
-
-from org.orekit.errors import OrekitException
 from org.orekit.frames import FramesFactory, Frame
 from org.orekit.orbits import KeplerianOrbit, Orbit
 from org.orekit.propagation import SpacecraftState
@@ -20,21 +14,19 @@ from org.orekit.propagation.analytical import KeplerianPropagator
 from org.orekit.time import AbsoluteDate, TimeScalesFactory
 from org.hipparchus.ode.nonstiff import DormandPrince853Integrator
 from org.hipparchus.geometry.euclidean.threed import Vector3D
-
 from org.orekit.propagation.numerical import NumericalPropagator
 from org.orekit.propagation.sampling import OrekitFixedStepHandler
 from org.orekit.orbits import OrbitType, PositionAngle
 from org.orekit.forces.gravity.potential import GravityFieldFactory
 from org.orekit.forces.gravity import HolmesFeatherstoneAttractionModel
-
 from org.orekit.utils import IERSConventions, Constants
-
 from org.orekit.forces.maneuvers import ConstantThrustManeuver
-
 from org.orekit.frames import LOFType
 from org.orekit.attitudes import LofOffset
-
 from org.orekit.python import PythonEventHandler, PythonOrekitFixedStepHandler
+from orekit.pyhelpers import setup_orekit_curdir
+
+setup_orekit_curdir()
 
 FUEL_MASS = "Fuel Mass"
 
@@ -70,8 +62,10 @@ class OrekitEnv:
         self._py = []
         self._sc_fuel = None
         self._extrap_Date = None
+        self._targetOrbit = None
 
     def set_date(self, date=None, absolute_date=None, step=0):
+        """ Set up the date for teh orekit secnario"""
         if date != None:
             year, month, day, hour, minute, sec = date
             self._initial_date = AbsoluteDate(year, month, day, hour, minute, sec, UTC)
@@ -87,26 +81,24 @@ class OrekitEnv:
         self._extrap_Date = AbsoluteDate(self._extrap_Date, step, UTC)
         pass
 
-    def create_orbit(self, state):
+    def create_orbit(self, state, date, target=False):
         """ Crate the initial orbit using Keplarian elements"""
         a, e, i, omega, raan, lM = state
-
         mu = 3.986004415e+14
 
         # Set inertial frame
         inertialFrame = FramesFactory.getEME2000()
+        set_orbit = KeplerianOrbit(a, e, i, omega, raan, lM, PositionAngle.MEAN, inertialFrame, date, mu)
 
-        self._orbit = KeplerianOrbit(a, e, i, omega, raan, lM, PositionAngle.MEAN, inertialFrame, self._initial_date, mu)
-
-        self._currentOrbit = self._orbit
-
-        # return orbit
+        if target:
+            self._targetOrbit = set_orbit
+        else:
+            self._currentOrbit = set_orbit
+            self._orbit = set_orbit
 
     def set_spacecraft(self, mass, fuel_mass):
         sc_state = SpacecraftState(self._orbit, mass)
-        self._sc_fuel = sc_state.addAdditionalState(FUEL_MASS, fuel_mass)
-
-
+        self._sc_fuel = sc_state.addAdditionalState (FUEL_MASS, fuel_mass)
 
     def create_Propagator(self, prop_master_mode=False):
         """ Set up the propagator to be used"""
@@ -130,7 +122,6 @@ class OrekitEnv:
 
         self._prop = numProp
 
-
     def render_plots(self):
         plt.plot(np.array(self._px) / 1000, np.array(self._py) / 1000)
         plt.xlabel("x (km)")
@@ -138,8 +129,6 @@ class OrekitEnv:
         # earth = Circle(xy=(0,0), radius=6371.0)
         # plt.figimage(earth)
         plt.show()
-
-
 
     def setForceModel(self):
         """ Set up environment force models"""
@@ -156,6 +145,9 @@ class OrekitEnv:
         self._currentOrbit = self._orbit
         self._px = []
         self._py = []
+        pos = self._currentOrbit.getPVCoordinates().getPosition()
+        state = [pos.getX(), pos.getY()]
+        return np.array(state)
 
 
     def getTotalMass(self):
@@ -193,7 +185,35 @@ class OrekitEnv:
             reward = -1
             exit()
 
+        reward = self.dist_reward(np.array(state))
+
+        if reward == 1.0:
+            done = True
+
+
         return np.array(state), reward, done, {}
+
+    def dist_reward(self, state):
+        """Computes the reward based on the state of the agent """
+
+        target = [self._targetOrbit.getPVCoordinates().getPosition().getX(),
+                  self._targetOrbit.getPVCoordinates().getPosition().getY()]
+
+        initial_state = [self._orbit.getPVCoordinates().getPosition().getX(),
+                         self._orbit.getPVCoordinates().getPosition().getY()]
+
+        # use the distance from the current to final state
+        x_diff = target[0] - state[0]
+        y_diff = target[1] - state[1]
+        dist = np.sqrt(x_diff**2+y_diff**2)
+
+
+        # reward function is between -1 and 1
+        dist_org = np.sqrt((target[0]-initial_state[0])**2 + (target[1]-initial_state[1])**2)
+        reward = 1-(dist/dist_org)**.4
+
+        # returns the reward value
+        return reward
 
 
 class OutputHandler(PythonOrekitFixedStepHandler):
@@ -230,26 +250,40 @@ def main():
     lM = 0.0  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 
-    env.create_orbit(state)
+    # target state
+    a_targ = 30_000_000.0
+    e_targ = e
+    i_targ = i
+    omega_targ = omega
+    raan_targ = raan
+    lM_targ = lM
+    state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
+
+    env.create_orbit(state, env._initial_date, target=False)
+
     env.set_spacecraft(mass, fuel_mass)
     env.create_Propagator()
     env.setForceModel()
 
     final_date = env._initial_date.shiftedBy(duration)
+    env.create_orbit(state_targ, final_date, target=True)
     env._extrap_Date = env._initial_date
     stepT = 100.0
 
     thrust_mag = 30.0
+    reward = []
     while env._extrap_Date.compareTo(final_date) <= 0:
-        position = env.step(thrust_mag, stepT)
+        position, r, done, _ = env.step(thrust_mag, stepT)
+        reward.append(r)
         env.shift_date(stepT)
         # env._extrap_Date = AbsoluteDate(env._extrap_Date, stepT, UTC)
 
     print("done")
 
     print(env.getTotalMass())
-    env.render_plots()
-
+    # env.render_plots()
+    plt.plot(reward)
+    plt.show()
 
 if __name__ == '__main__':
     main()
