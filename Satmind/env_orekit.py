@@ -103,7 +103,7 @@ class OrekitEnv:
     def create_Propagator(self, prop_master_mode=False):
         """ Set up the propagator to be used"""
 
-        tol = NumericalPropagator.tolerances(1.0, self._orbit, self._orbit.getType())
+        # tol = NumericalPropagator.tolerances(1.0, self._orbit, self._orbit.getType())
         minStep = 1.e-3
         maxStep = 1.e+3
 
@@ -143,6 +143,7 @@ class OrekitEnv:
         # TODO reset the state of the sc to the initial state
         self._currentDate = self._initial_date
         self._currentOrbit = self._orbit
+        self._extrap_Date = self._initial_date
         self._px = []
         self._py = []
         pos = self._currentOrbit.getPVCoordinates().getPosition()
