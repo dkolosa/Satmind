@@ -31,6 +31,9 @@ setup_orekit_curdir()
 FUEL_MASS = "Fuel Mass"
 
 UTC = TimeScalesFactory.getUTC()
+direction = Vector3D.PLUS_I
+inertial_frame = FramesFactory.getEME2000()
+attitude = LofOffset(inertial_frame, LOFType.LVLH)
 
 
 class OrekitEnv:
@@ -144,6 +147,10 @@ class OrekitEnv:
         self._currentDate = self._initial_date
         self._currentOrbit = self._orbit
         self._extrap_Date = self._initial_date
+        self._prop = None
+        self.create_Propagator()
+        self.setForceModel()
+        self.set_spacecraft(1000.0, 500.0)
         self._px = []
         self._py = []
         pos = self._currentOrbit.getPVCoordinates().getPosition()
@@ -162,10 +169,6 @@ class OrekitEnv:
         reward = 0
         # 5 sec steps
         isp = 1200.0
-        direction = Vector3D.PLUS_I
-        inertial_frame = FramesFactory.getEME2000()
-        attitude = LofOffset(inertial_frame, LOFType.LVLH)
-
         # start date, duration, thrust, isp, direction
         thrust = ConstantThrustManeuver(self._extrap_Date, stepT, thrust_mag, isp, attitude, direction)
         self._prop.addForceModel(thrust)
@@ -197,21 +200,28 @@ class OrekitEnv:
     def dist_reward(self, state):
         """Computes the reward based on the state of the agent """
 
-        target = [self._targetOrbit.getPVCoordinates().getPosition().getX(),
-                  self._targetOrbit.getPVCoordinates().getPosition().getY()]
+        # target = [self._targetOrbit.getPVCoordinates().getPosition().getX(),
+        #           self._targetOrbit.getPVCoordinates().getPosition().getY()]
+        target_a = self._targetOrbit.getA()
 
-        initial_state = [self._orbit.getPVCoordinates().getPosition().getX(),
-                         self._orbit.getPVCoordinates().getPosition().getY()]
-
+        # initial_state = [self._orbit.getPVCoordinates().getPosition().getX(),
+                         # self._orbit.getPVCoordinates().getPosition().getY()]
+        initial_a = self._orbit.getA()
+        # o = OrbitType.KEPLERIAN.convertType(currentState.getOrbit())
+        current_a = self._currentOrbit.getA()
         # use the distance from the current to final state
-        x_diff = target[0] - state[0]
-        y_diff = target[1] - state[1]
-        dist = np.sqrt(x_diff**2+y_diff**2)
-
+        # x_diff = target[0] - state[0]
+        # y_diff = target[1] - state[1]
+        # dist = np.sqrt(x_diff**2+y_diff**2)
 
         # reward function is between -1 and 1
-        dist_org = np.sqrt((target[0]-initial_state[0])**2 + (target[1]-initial_state[1])**2)
+        # dist_org = np.sqrt((target[0]-initial_state[0])**2 + (target[1]-initial_state[1])**2)
+        dist = target_a - current_a
+        dist_org = target_a - initial_a
         reward = 1-(dist/dist_org)**.4
+
+        if reward == 1:
+            print("target reached!!\n At {}".format(self._currentOrbit.getDate()))
 
         # returns the reward value
         return reward
