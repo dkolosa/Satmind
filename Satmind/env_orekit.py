@@ -25,13 +25,14 @@ from org.orekit.frames import LOFType
 from org.orekit.attitudes import LofOffset
 from org.orekit.python import PythonEventHandler, PythonOrekitFixedStepHandler
 from orekit.pyhelpers import setup_orekit_curdir
+from org.orekit.forces.gravity import NewtonianAttraction
 
 setup_orekit_curdir()
 
 FUEL_MASS = "Fuel Mass"
 
 UTC = TimeScalesFactory.getUTC()
-direction = Vector3D.PLUS_I
+DIRECTION = Vector3D.MINUS_I
 inertial_frame = FramesFactory.getEME2000()
 attitude = LofOffset(inertial_frame, LOFType.LVLH)
 
@@ -124,6 +125,7 @@ class OrekitEnv:
             numProp.setSlaveMode()
 
         self._prop = numProp
+        # self._prop.setAttitudeProvider(attitude)
 
     def render_plots(self):
         plt.plot(np.array(self._px) / 1000, np.array(self._py) / 1000)
@@ -137,13 +139,16 @@ class OrekitEnv:
         """ Set up environment force models"""
 
         # force model gravity field
-        provider = GravityFieldFactory.getNormalizedProvider(10, 10)
-        holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True),
-                                                               provider)
-        self._prop.addForceModel(holmesFeatherstone)
+        # provider = GravityFieldFactory.getNormalizedProvider(10, 10)
+        # holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True),
+        #                                                        provider)
+        # self._prop.addForceModel(holmesFeatherstone)
+
+        earth = NewtonianAttraction(3.9857e14)
+        self._prop.addForceModel(earth)
+
 
     def reset(self):
-        # TODO reset the state of the sc to the initial state
         self._currentDate = self._initial_date
         self._currentOrbit = self._orbit
         self._extrap_Date = self._initial_date
@@ -170,7 +175,7 @@ class OrekitEnv:
         # 5 sec steps
         isp = 1200.0
         # start date, duration, thrust, isp, direction
-        thrust = ConstantThrustManeuver(self._extrap_Date, stepT, thrust_mag, isp, attitude, direction)
+        thrust = ConstantThrustManeuver(self._extrap_Date, stepT, thrust_mag, isp, attitude, DIRECTION)
         self._prop.addForceModel(thrust)
         currentState = self._prop.propagate(self._extrap_Date)
         # print('step {}: time {} {}\n'.format(cpt, currentState.getDate(), currentState.getOrbit()))
@@ -191,8 +196,9 @@ class OrekitEnv:
 
         reward = self.dist_reward(np.array(state))
 
-        if reward == 1.0:
+        if reward >= 0.9 and reward <=1.1:
             done = True
+            print('Target Reached!!')
 
 
         return np.array(state), reward, done, {}
@@ -218,11 +224,11 @@ class OrekitEnv:
         # dist_org = np.sqrt((target[0]-initial_state[0])**2 + (target[1]-initial_state[1])**2)
         dist = target_a - current_a
         dist_org = target_a - initial_a
-        reward = 1-(dist/dist_org)**.4
+        reward = 1+(dist/dist_org)**-.2
 
-        if reward == 1:
-            print("target reached!!\n At {}".format(self._currentOrbit.getDate()))
-
+        # if reward <= 1.5 and reward >= 0.5:
+        #     print("target reached!!\n At {}".format(self._currentOrbit.getDate()))
+        #
         # returns the reward value
         return reward
 
@@ -254,10 +260,10 @@ def main():
 
     # set the sc initial state
     a = 24_396_159.0  # semi major axis (m)
-    e = 0.1  # eccentricity
-    i = radians(2.0)  # inclination
-    omega = radians(2.0)  # perigee argument
-    raan = radians(1.0)  # right ascension of ascending node
+    e = 0.00001  # eccentricity
+    i = radians(0.001)  # inclination
+    omega = radians(0.001)  # perigee argument
+    raan = radians(0.001)  # right ascension of ascending node
     lM = 0.0  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 
@@ -279,9 +285,9 @@ def main():
     final_date = env._initial_date.shiftedBy(duration)
     env.create_orbit(state_targ, final_date, target=True)
     env._extrap_Date = env._initial_date
-    stepT = 100.0
+    stepT = 10.0
 
-    thrust_mag = 30.0
+    thrust_mag = 10.0
     reward = []
     while env._extrap_Date.compareTo(final_date) <= 0:
         position, r, done, _ = env.step(thrust_mag, stepT)
@@ -292,9 +298,14 @@ def main():
     print("done")
 
     print(env.getTotalMass())
-    # env.render_plots()
-    plt.plot(reward)
-    plt.show()
+    env.render_plots()
+    a_final = env._currentOrbit.getA()
+    print('orbit:{}'.format(a_final))
+    print('da:{}'.format(a_final - a))
+
+
+    # plt.plot(reward)
+    # plt.show()
 
 if __name__ == '__main__':
     main()

@@ -45,7 +45,7 @@ if __name__ == '__main__':
     state = [sma, e, i, omega, rann, lv]
 
     # target state
-    a_targ = 42_000_000.0
+    a_targ = 45_000_000.0
     e_targ = e
     i_targ = i
     omega_targ = omega
@@ -67,12 +67,12 @@ if __name__ == '__main__':
 
     # thrust_mag = 0.0
 
-    thrust_mag = [0.0, 0.2, 0.5, 1.0, 3.0, 5.0]
+    thrust_mag = [0.0, 0.1, 0.2, 0.5, 1.0, 3.0]
 
     # learning parameters
     y = .99
     e = 0.01
-    num_episodes = 500
+    num_episodes = 21
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     num_inputs = 2
     num_outputs = 6
     layer_1_nodes = 20
-    # layer_2_nodes = 20
+    layer_2_nodes = 20
 
     # Establish feed-forward network
     inputs = tf.placeholder(shape=[1, num_inputs], dtype=tf.float32)
@@ -98,17 +98,17 @@ if __name__ == '__main__':
         # bias = tf.get_variable(name='bias1', shape=([layer_1_nodes]), initializer=tf.zeros_initializer())
         layer_1_output = tf.nn.tanh(tf.matmul(inputs, weights))
 
-    # with tf.variable_scope('layer-2'):
-    #     weights = tf.get_variable(name='weights-2', shape=(layer_1_nodes, layer_2_nodes))
-    #     layer_2_output = tf.matmul(layer_1_output, weights)
+    with tf.variable_scope('layer-2'):
+        weights = tf.get_variable(name='weights-2', shape=(layer_1_nodes, layer_2_nodes))
+        layer_2_output = tf.nn.tanh(tf.matmul(layer_1_output, weights))
 
     # weights2 = tf.Variable(tf.random_uniform([16,4]
     with tf.variable_scope('output'):
-        weights = tf.get_variable(name='weight-out', shape=(layer_1_nodes, num_outputs))
+        weights = tf.get_variable(name='weight-out', shape=(layer_2_nodes, num_outputs))
         # bias = tf.get_variable(name='bias_out', shape=([num_outputs]), initializer=tf.zeros_initializer())
 
         # Q_output = tf.nn.relu(tf.matmul(layer_1_output, weights) + bias)
-        Q_output = tf.matmul(layer_1_output, weights)
+        Q_output = tf.matmul(layer_2_output, weights)
 
     predict = tf.argmax(Q_output, 1)
 
@@ -162,7 +162,7 @@ if __name__ == '__main__':
                 #                    feed_dict={inputs:np.identity(num_inputs)[s:s+1]})
                 if np.random.rand(1) < e:
                     # a[0] = env.action_space.sample()
-                    a[0] = random.randint(0, len(thrust_mag))
+                    a[0] = random.randint(0, len(thrust_mag)-1)
                     # print("Random Hit!")
                 # print("a[0]: ", a[0])
                 # Get a new state and reward
@@ -196,7 +196,6 @@ if __name__ == '__main__':
                 # Get maxQ and set target value for chosen action
                 maxQ1 = np.max(Q1)
                 targetQ = allQ
-                # print('targetQ',targetQ)
                 targetQ[0, a[0]] = r + y * maxQ1
 
                 # Train the NN using target and predicted Q values
@@ -216,7 +215,7 @@ if __name__ == '__main__':
 
             # experience.experience_replay(episonde_eperience)
 
-            if i % 10 == 0:
+            if i % 5 == 0:
             # plt.plot(env._px, env._py)
             # env.render_plots()
             # env.render()
@@ -226,12 +225,13 @@ if __name__ == '__main__':
                 plt.plot(r_list)
                 plt.show()
             print("episode {} of {}".format(i, num_episodes))
+
         # print('KEY:\nSFFF(S: starting point, safe)\n',
         #       'FHFH(F: frozen surface, safe)\n',
         #       'FFFH(H: hole, fall to your doom)\n',
         #       'HFFG(G: goal, where the frisbee is located)')
         # print("successful episodes " + str(sum(r_list)/num_episodes*100) + "%")
         # print("Score: " + str(sum(r_list)))
-        plt.plot(r_list)
+        print('orbit:{}'.format(env._currentOrbit.getA()))
         # plt.show()
         # print(r_list)
