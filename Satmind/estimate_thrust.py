@@ -2,8 +2,7 @@
 
 import numpy as np
 
-mu = 398600
-
+mu = 398600.0
 
 def get_sma(state, thrust_s, duration):
 
@@ -20,11 +19,11 @@ def get_thrust(state, da, duration):
 if __name__ == '__main__':
 #TODO: given a circular orbit, determine the required time delta-a and thrust required
 
-    a, e, E = 35_000.0, 0.0001, 0.0001
+    a, e, E = 41_000.0, 0.0001, 0.0001
     state = [a, e, E]
     F_s = 0.10
-    duration = 1*24*60**2
-    da = 1000
+    duration = 2*24*60**2
+    da = 3000.0
     # print(get_sma(state, F_s, duration))
     thrust = get_thrust(state,da, duration)
     mass = 2000

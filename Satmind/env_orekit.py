@@ -26,16 +26,17 @@ from org.orekit.attitudes import LofOffset
 from org.orekit.python import PythonEventHandler, PythonOrekitFixedStepHandler
 from orekit.pyhelpers import setup_orekit_curdir
 from org.orekit.forces.gravity import NewtonianAttraction
+from org.orekit.utils import Constants
 
 setup_orekit_curdir()
 
 FUEL_MASS = "Fuel Mass"
 
 UTC = TimeScalesFactory.getUTC()
-DIRECTION = Vector3D.MINUS_I
+DIRECTION = Vector3D.PLUS_J
 inertial_frame = FramesFactory.getEME2000()
 attitude = LofOffset(inertial_frame, LOFType.LVLH)
-
+MU = Constants.EGM96_EARTH_MU
 
 class OrekitEnv:
     """ This class uses Orekit to create an environment to propagate a satellite
@@ -88,11 +89,10 @@ class OrekitEnv:
     def create_orbit(self, state, date, target=False):
         """ Crate the initial orbit using Keplarian elements"""
         a, e, i, omega, raan, lM = state
-        mu = 3.986004415e+14
 
         # Set inertial frame
         inertialFrame = FramesFactory.getEME2000()
-        set_orbit = KeplerianOrbit(a, e, i, omega, raan, lM, PositionAngle.MEAN, inertialFrame, date, mu)
+        set_orbit = KeplerianOrbit(a, e, i, omega, raan, lM, PositionAngle.MEAN, inertialFrame, date, MU)
 
         if target:
             self._targetOrbit = set_orbit
@@ -144,7 +144,7 @@ class OrekitEnv:
         #                                                        provider)
         # self._prop.addForceModel(holmesFeatherstone)
 
-        earth = NewtonianAttraction(3.9857e14)
+        earth = NewtonianAttraction(MU)
         self._prop.addForceModel(earth)
 
 
@@ -166,20 +166,20 @@ class OrekitEnv:
     def getTotalMass(self):
         return self._sc_fuel.getAdditionalState(FUEL_MASS)[0] + self._sc_fuel.getMass()
 
-    def step(self, thrust_mag,stepT):
+    def step(self, thrust_mag, stepT):
         # TODO makes one propagation step
         # Keep track of fuel, thrust, position, date
 
         done = False
         reward = 0
-        # 5 sec steps
         isp = 1200.0
         # start date, duration, thrust, isp, direction
         thrust = ConstantThrustManeuver(self._extrap_Date, stepT, thrust_mag, isp, attitude, DIRECTION)
         self._prop.addForceModel(thrust)
-        currentState = self._prop.propagate(self._extrap_Date)
+        currentState = self._prop.propagate(self._extrap_Date.shiftedBy(stepT))
         # print('step {}: time {} {}\n'.format(cpt, currentState.getDate(), currentState.getOrbit()))
         self._currentDate = currentState.getDate()
+        self._extrap_Date = self._currentDate
         self._currentOrbit = currentState.getOrbit()
         coord = currentState.getPVCoordinates().getPosition()
         # Calculate the fuel used and update spacecraft fuel mass
@@ -256,10 +256,10 @@ def main():
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration = 24.0*60.0**2
+    duration = 24.0*60.0**2*2
 
     # set the sc initial state
-    a = 24_396_159.0  # semi major axis (m)
+    a = 5_500.0e3  # semi major axis (m)
     e = 0.00001  # eccentricity
     i = radians(0.001)  # inclination
     omega = radians(0.001)  # perigee argument
@@ -268,7 +268,7 @@ def main():
     state = [a, e, i, omega, raan, lM]
 
     # target state
-    a_targ = 30_000_000.0
+    a_targ = 10_000.0e3
     e_targ = e
     i_targ = i
     omega_targ = omega
@@ -285,27 +285,20 @@ def main():
     final_date = env._initial_date.shiftedBy(duration)
     env.create_orbit(state_targ, final_date, target=True)
     env._extrap_Date = env._initial_date
-    stepT = 10.0
+    stepT = 100.0
+    thrust_mag = 1.0
+    isp = 1200.0
 
-    thrust_mag = 10.0
-    reward = []
     while env._extrap_Date.compareTo(final_date) <= 0:
         position, r, done, _ = env.step(thrust_mag, stepT)
-        reward.append(r)
-        env.shift_date(stepT)
-        # env._extrap_Date = AbsoluteDate(env._extrap_Date, stepT, UTC)
+        # reward.append(r)
 
     print("done")
-
-    print(env.getTotalMass())
-    env.render_plots()
     a_final = env._currentOrbit.getA()
-    print('orbit:{}'.format(a_final))
-    print('da:{}'.format(a_final - a))
+    print('orbit:{} km'.format(a_final/1e3))
+    print('da:{} km'.format((a_final - a)/1e3))
+    env.render_plots()
 
-
-    # plt.plot(reward)
-    # plt.show()
 
 if __name__ == '__main__':
     main()
