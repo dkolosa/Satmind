@@ -194,12 +194,11 @@ class OrekitEnv:
             reward = -1
             exit()
 
-        reward = self.dist_reward(np.array(state))
-
-        if reward >= 0.9 and reward <=1.1:
+        reward = np.real(self.dist_reward(np.array(state)))
+        # print(reward)
+        if reward == 100:
             done = True
             print('Target Reached!!')
-
 
         return np.array(state), reward, done, {}
 
@@ -224,7 +223,13 @@ class OrekitEnv:
         # dist_org = np.sqrt((target[0]-initial_state[0])**2 + (target[1]-initial_state[1])**2)
         dist = target_a - current_a
         dist_org = target_a - initial_a
-        reward = 1+(dist/dist_org)**-.2
+
+        if -1.0 <= dist <= 1.0:
+            reward = 100
+            print('Target Reached')
+
+        reward = 1-(dist/dist_org)**.4
+
 
         # if reward <= 1.5 and reward >= 0.5:
         #     print("target reached!!\n At {}".format(self._currentOrbit.getDate()))
@@ -256,7 +261,7 @@ def main():
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration = 24.0*60.0**2*2
+    duration = 24.0*60.0**2*10
 
     # set the sc initial state
     a = 5_500.0e3  # semi major axis (m)

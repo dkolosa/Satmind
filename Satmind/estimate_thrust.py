@@ -22,9 +22,9 @@ if __name__ == '__main__':
     a, e, E = 41_000.0, 0.0001, 0.0001
     state = [a, e, E]
     F_s = 0.10
-    duration = 2*24*60**2
-    da = 3000.0
+    duration = 10*24*60**2
+    da = 1372.0
     # print(get_sma(state, F_s, duration))
     thrust = get_thrust(state,da, duration)
-    mass = 2000
+    mass = 1500.0
     print('tangential thrust accl:{} m/s^2 \nthrust: {} N'.format(thrust, thrust * mass))

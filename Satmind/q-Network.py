@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration = 24.0 * 60.0 ** 2
+    duration =3 * 24.0 * 60.0 ** 2
 
     sma = 41_000.0e3
     e = 0.001
@@ -122,7 +122,7 @@ if __name__ == '__main__':
     next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
     # next_Q = tf.placeholder(shape=[None], dtype=tf.float32)
     loss = tf.reduce_sum(tf.square(next_Q - Q_output))
-    trainer = tf.train.GradientDescentOptimizer(learning_rate=0.1)
+    trainer = tf.train.AdamOptimizer(learning_rate=0.001)
     update = trainer.minimize(loss)
 
     # with tf.variable_scope('logging'):
@@ -144,12 +144,12 @@ if __name__ == '__main__':
             rall = 0
             d = False
             j = 0
-            actions = []
             # episonde_eperience = Experience(buffer_size=50)
 
             # Q-network
             # while j < 99:
             while env._extrap_Date.compareTo(final_date) <= 0:
+                actions = []
                 j += 1
                 # choose an action
                 # This value is thrust
@@ -184,8 +184,9 @@ if __name__ == '__main__':
                 else:
                     action = thrust_mag[0]
 
-                s1, r, d, _ = env.step(action, stepT)
-                env.shift_date(stepT)
+                s1, r, done, _ = env.step(action, stepT)
+                actions.append(action)
+                # env.shift_date(stepT)
 
                 # s1 = env.step(thrust_mag, stepT)
 
@@ -206,12 +207,25 @@ if __name__ == '__main__':
                 rall += r
                 s = s1
                 actions.append(action)
-                if d == True:
+
+
+
+                if done:
                     # Random action
                     e = 1.0 / ((i / 50) + 10)
+                    plt.title('completed episode')
+                    plt.subplot(2, 1, 1)
+                    plt.plot(np.asarray(env._px) / 1e3, np.asarray(env._py) / 1e3)
+                    plt.xlabel('km')
+                    plt.ylabel('km')
+                    plt.subplot(2, 1, 2)
+                    plt.plot(r_list)
+                    plt.show()
                     break
+
             j_list.append(j)
             r_list.append(rall)
+
 
             # experience.experience_replay(episonde_eperience)
 
@@ -219,10 +233,14 @@ if __name__ == '__main__':
             # plt.plot(env._px, env._py)
             # env.render_plots()
             # env.render()
-                plt.subplot(2, 1, 1)
-                plt.plot(env._px, env._py)
-                plt.subplot(2, 1, 2)
+                plt.subplot(2, 2, 1)
+                plt.plot(np.asarray(env._px)/1e3, np.asarray(env._py)/1e3)
+                plt.xlabel('km')
+                plt.ylabel('km')
+                plt.subplot(2, 2, 2)
                 plt.plot(r_list)
+                plt.subplot(2,2,3)
+                plt.plot(range(0,len(actions)), actions)
                 plt.show()
             print("episode {} of {}".format(i, num_episodes))
 
