@@ -67,12 +67,12 @@ if __name__ == '__main__':
 
     # thrust_mag = 0.0
 
-    thrust_mag = [0.0, 0.1, 0.2, 0.5, 1.0, 3.0]
+    thrust_mag = [0.0, 0.1, 0.25, 0.5, 0.75, 1.0]
 
     # learning parameters
     y = .99
     e = 0.01
-    num_episodes = 21
+    num_episodes = 100
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
@@ -83,8 +83,11 @@ if __name__ == '__main__':
     # Network Model
     num_inputs = 2
     num_outputs = 6
-    layer_1_nodes = 20
-    layer_2_nodes = 20
+    # TODO: one-hot encode output acitons
+        # [[1,0,0,0,0,0],[0,1,0,0,0,0],...]
+
+    layer_1_nodes = 200
+    layer_2_nodes = 200
 
     # Establish feed-forward network
     inputs = tf.placeholder(shape=[1, num_inputs], dtype=tf.float32)
@@ -118,16 +121,18 @@ if __name__ == '__main__':
     # Q = tf.reduce_sum(tf.multiply(Q_output, actions_onehot), reduction_indices=1)
 
     # Sum of squares loss between target and predicted Q
-
     next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
     # next_Q = tf.placeholder(shape=[None], dtype=tf.float32)
     loss = tf.reduce_sum(tf.square(next_Q - Q_output))
     trainer = tf.train.AdamOptimizer(learning_rate=0.001)
     update = trainer.minimize(loss)
 
-    # with tf.variable_scope('logging'):
-    #     tf.summary.scalar('current_cost', update)
-    #     summary = tf.summary.merge_all()
+
+    # writer = tf.summary.scalar("Loss", loss)
+    with tf.variable_scope('logging'):
+        writer = tf.summary.FileWriter("log/dq")
+        tf.summary.scalar('loss', loss)
+        summary = tf.summary.merge_all()
 
     # saver = tf.train.saver()
 
@@ -226,6 +231,7 @@ if __name__ == '__main__':
             j_list.append(j)
             r_list.append(rall)
 
+            print('a final {}'.format(env._currentOrbit.getA()/1e3))
 
             # experience.experience_replay(episonde_eperience)
 
@@ -233,14 +239,15 @@ if __name__ == '__main__':
             # plt.plot(env._px, env._py)
             # env.render_plots()
             # env.render()
-                plt.subplot(2, 2, 1)
+                plt.title('iteration {}'.format(i))
+                plt.subplot(2, 1, 1)
                 plt.plot(np.asarray(env._px)/1e3, np.asarray(env._py)/1e3)
                 plt.xlabel('km')
                 plt.ylabel('km')
-                plt.subplot(2, 2, 2)
+                plt.subplot(2, 1, 2)
                 plt.plot(r_list)
-                plt.subplot(2,2,3)
-                plt.plot(range(0,len(actions)), actions)
+                # plt.subplot(2,2,3)
+                # plt.plot(actions)
                 plt.show()
             print("episode {} of {}".format(i, num_episodes))
 

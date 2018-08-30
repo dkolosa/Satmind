@@ -187,18 +187,21 @@ class OrekitEnv:
                                                          self._sc_fuel.getAdditionalState(FUEL_MASS)[0] + thrust.getFlowRate() * stepT)
         self._px.append(coord.getX())
         self._py.append(coord.getY())
-        state = [coord.getX(), coord.getY()]
-        if self._sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
-            print("Ran out of fuel")
-            done = True
-            reward = -1
-            exit()
+
+        vcoord = currentState.getPVCoordinates().getVelocity()
+
+        x, y = coord.getX(), coord.getY()
+        xdot, ydot = vcoord.getX(), vcoord.getY()
+
+        r = np.sqrt(x**2 + y**2)
+        theta = np.arctan(y/x)
+        rdot = np.sqrt(xdot**2+ydot**2)
+        thetadot = np.arctan(ydot/xdot)
+
+        # state = [coord.getX(), coord.getY()]
+        state = [r, theta]
 
         reward = np.real(self.dist_reward(np.array(state)))
-        # print(reward)
-        if reward == 100:
-            done = True
-            print('Target Reached!!')
 
         return np.array(state), reward, done, {}
 
@@ -212,6 +215,7 @@ class OrekitEnv:
         # initial_state = [self._orbit.getPVCoordinates().getPosition().getX(),
                          # self._orbit.getPVCoordinates().getPosition().getY()]
         initial_a = self._orbit.getA()
+
         # o = OrbitType.KEPLERIAN.convertType(currentState.getOrbit())
         current_a = self._currentOrbit.getA()
         # use the distance from the current to final state
@@ -224,17 +228,21 @@ class OrekitEnv:
         dist = target_a - current_a
         dist_org = target_a - initial_a
 
-        if -1.0 <= dist <= 1.0:
-            reward = 100
+        if self._sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
+            print("Ran out of fuel")
+            done = True
+            reward = -100
+            exit()
+
+        if dist < -1e3:
+            reward = -100
+            # print('Overshoot')
+        elif -1e3 <= dist <= 1e3:
+            reward = 1000
             print('Target Reached')
-
-        reward = 1-(dist/dist_org)**.4
-
-
-        # if reward <= 1.5 and reward >= 0.5:
-        #     print("target reached!!\n At {}".format(self._currentOrbit.getDate()))
-        #
-        # returns the reward value
+        else:
+            reward = 1-(dist/dist_org)
+            # reward = -1
         return reward
 
 
