@@ -64,16 +64,16 @@ if __name__ == '__main__':
     env.create_orbit(state_targ, final_date, target=True)
 
     env._extrap_Date = env._initial_date
-    stepT = 1000.0
+    stepT = 100.0
 
     # thrust_mag = 0.0
 
-    thrust_values = [0.0, 0.25, 0.50, 1.0, 5.0, 10.0]
+    thrust_values = [0.0, 0.25, 0.50, 0.75, 1.0, 5.0]
     thrust_mag = [0, 1, 2, 3, 4, 5]
     # learning parameters
     y = .95
     e = 0.01
-    num_episodes = 5
+    num_episodes = 15
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
@@ -95,20 +95,30 @@ if __name__ == '__main__':
     # w1 = tf.Variable(tf.zeros[16,100])
     # b1 = tf.variable(tf.zeros[100])
 
-    with tf.variable_scope('layer-1'):
-        weights = tf.get_variable(name='weights-1', shape=(num_inputs, layer_1_nodes),
-                                  initializer=tf.contrib.layers.xavier_initializer())
-        # bias = tf.get_variable(name='bias1', shape=([layer_1_nodes]), initializer=tf.zeros_initializer())
-        layer_1_output = tf.nn.tanh(tf.matmul(inputs, weights))
+    # with tf.variable_scope('layer-1'):
+    #     weights = tf.get_variable(name='weights-1', shape=(num_inputs, layer_1_nodes),
+    #                               initializer=tf.contrib.layers.xavier_initializer())
+    #     # bias = tf.get_variable(name='bias1', shape=([layer_1_nodes]), initializer=tf.zeros_initializer())
+    #     layer_1_output = tf.nn.tanh(tf.matmul(inputs, weights))
 
-    with tf.variable_scope('layer-2'):
-        weights = tf.get_variable(name='weights-2', shape=(layer_1_nodes, layer_2_nodes))
-        layer_2_output = tf.nn.tanh(tf.matmul(layer_1_output, weights))
+    fc1 = tf.contrib.layers.fully_connected(inputs,
+                                            layer_1_nodes,
+                                            activation_fn=tf.nn.relu)
 
-    with tf.variable_scope('output'):
-        weights = tf.get_variable(name='weight-out', shape=(layer_2_nodes, num_outputs))
-        # bias = tf.get_variable(name='bias_out', shape=([num_outputs]), initializer=tf.zeros_initializer())
-        Q_output = tf.matmul(layer_2_output, weights)
+    fc2 = tf.contrib.layers.fully_connected(fc1, layer_2_nodes,
+                                            activation_fn=tf.nn.relu)
+
+    Q_output = tf.contrib.layers.fully_connected(fc1, num_outputs,
+                                                 activation_fn=None)
+
+    # with tf.variable_scope('layer-2'):
+    #     weights = tf.get_variable(name='weights-2', shape=(layer_1_nodes, layer_2_nodes))
+    #     layer_2_output = tf.nn.tanh(tf.matmul(layer_1_output, weights))
+    #
+    # with tf.variable_scope('output'):
+    #     weights = tf.get_variable(name='weight-out', shape=(layer_2_nodes, num_outputs))
+    #     # bias = tf.get_variable(name='bias_out', shape=([num_outputs]), initializer=tf.zeros_initializer())
+    #     Q_output = tf.matmul(layer_2_output, weights)
 
     next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
 
@@ -187,7 +197,9 @@ if __name__ == '__main__':
                 targetQ[0, a[0]] = r + y * maxQ1
 
                 # Train the NN using target and predicted Q values
-                _, W1 = sess.run([update, weights], feed_dict={inputs: [s], next_Q: targetQ})
+                _, W1 = sess.run([update, fc1], feed_dict={inputs: [s], next_Q: targetQ})
+                _, W1 = sess.run([update, fc2], feed_dict={inputs: [s], next_Q: targetQ})
+
                 rall += r
                 s = s1
 
@@ -204,7 +216,7 @@ if __name__ == '__main__':
                     plt.xlabel('km')
                     plt.ylabel('km')
                     plt.subplot(2, 1, 2)
-                    plt.plot(action)
+                    plt.plot(actions)
                     plt.show()
                     break
 
