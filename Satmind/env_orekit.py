@@ -158,8 +158,15 @@ class OrekitEnv:
         self.set_spacecraft(1000.0, 500.0)
         self._px = []
         self._py = []
-        pos = self._currentOrbit.getPVCoordinates().getPosition()
-        state = [pos.getX(), pos.getY()]
+        # pos = self._currentOrbit.getPVCoordinates().getPosition()
+        # state = [pos.getX(), pos.getY()]
+
+        a = self._currentOrbit.getA()
+        lm = self._currentOrbit.getLM()
+        adot = self._currentOrbit.getADot()
+        lmdot = self._currentOrbit.getLMDot()
+        state = [a, 0]
+
         return np.array(state)
 
 
@@ -188,32 +195,32 @@ class OrekitEnv:
         self._px.append(coord.getX())
         self._py.append(coord.getY())
 
-        vcoord = currentState.getPVCoordinates().getVelocity()
+        # vcoord = currentState.getPVCoordinates().getVelocity()
 
-        x, y = coord.getX(), coord.getY()
-        xdot, ydot = vcoord.getX(), vcoord.getY()
-
-        r = np.sqrt(x**2 + y**2)
-        theta = np.arctan(y/x)
-        rdot = np.sqrt(xdot**2+ydot**2)
-        thetadot = np.arctan(ydot/xdot)
+        # x, y = coord.getX(), coord.getY()
+        # xdot, ydot = vcoord.getX(), vcoord.getY()
 
         # state = [coord.getX(), coord.getY()]
-        state = [r, theta]
+        # state = [r, theta]
+        # a = self._currentOrbit.getA() / self._targetOrbit.getA()
+        a = self._currentOrbit.getA()
+
+        # lm = self._currentOrbit.getLM() / self._targetOrbit.getLM()
+        adot = self._currentOrbit.getADot()
+        # lmdot = self._currentOrbit.getLMDot()
+        state = [a, adot]
 
         reward = np.real(self.dist_reward(np.array(state)))
+
+        if reward == 1000:
+            done = True
 
         return np.array(state), reward, done, {}
 
     def dist_reward(self, state):
         """Computes the reward based on the state of the agent """
 
-        # target = [self._targetOrbit.getPVCoordinates().getPosition().getX(),
-        #           self._targetOrbit.getPVCoordinates().getPosition().getY()]
         target_a = self._targetOrbit.getA()
-
-        # initial_state = [self._orbit.getPVCoordinates().getPosition().getX(),
-                         # self._orbit.getPVCoordinates().getPosition().getY()]
         initial_a = self._orbit.getA()
 
         # o = OrbitType.KEPLERIAN.convertType(currentState.getOrbit())
@@ -234,10 +241,10 @@ class OrekitEnv:
             reward = -100
             exit()
 
-        if dist < -1e3:
+        if dist < -100:
             reward = -100
             # print('Overshoot')
-        elif -1e3 <= dist <= 1e3:
+        elif -100 <= dist <= 100:
             reward = 1000
             print('Target Reached')
         else:
