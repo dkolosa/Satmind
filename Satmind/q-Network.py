@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import random
+from collections import deque
 import gym
 import gym.spaces
 
@@ -11,12 +12,58 @@ from env_orekit import OrekitEnv
 class Experience:
     def __init__(self, buffer_size):
         self.buffer_size = buffer_size
-        self.buffer = []
+        self.buffer = deque(maxlen=buffer_size)
+
+    def add(self, experience):
+        self.buffer.append(experience)
+
 
     def experience_replay(self, experience):
         if len(self.buffer) + len(experience) >= self.buffer_size:
             self.buffer[0:(len(experience) + len(self.buffer)) - self.buffer_size] = []
         self.buffer.extend(experience)
+
+
+class Q_Network:
+
+    def __init__(self, num_inputs, num_outputs, layer_1_nodes, layer_2_nodes):
+        # Establish feed-forward network
+        self.inputs = tf.placeholder(shape=[1, num_inputs], dtype=tf.float32)
+        self.next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
+        
+
+        # w1 = tf.Variable(tf.zeros[16,100])
+        # b1 = tf.variable(tf.zeros[100])
+
+        # with tf.variable_scope('layer-1'):
+        #     weights = tf.get_variable(name='weights-1', shape=(num_inputs, layer_1_nodes),
+        #                               initializer=tf.contrib.layers.xavier_initializer())
+        #     # bias = tf.get_variable(name='bias1', shape=([layer_1_nodes]), initializer=tf.zeros_initializer())
+        #     layer_1_output = tf.nn.tanh(tf.matmul(inputs, weights))
+
+        self.fc1 = tf.contrib.layers.fully_connected(self.inputs, layer_1_nodes)
+
+        self.fc2 = tf.contrib.layers.fully_connected(self.fc1, layer_2_nodes)
+
+        self.fc3 = tf.contrib.layers.fully_connected(self.fc2, layer_2_nodes)
+
+        self.Q_output = tf.contrib.layers.fully_connected(self.fc3, num_outputs,activation_fn=None)
+
+        # with tf.variable_scope('layer-2'):
+        #     weights = tf.get_variable(name='weights-2', shape=(layer_1_nodes, layer_2_nodes))
+        #     layer_2_output = tf.nn.tanh(tf.matmul(layer_1_output, weights))
+        #
+        # with tf.variable_scope('output'):
+        #     weights = tf.get_variable(name='weight-out', shape=(layer_2_nodes, num_outputs))
+        #     # bias = tf.get_variable(name='bias_out', shape=([num_outputs]), initializer=tf.zeros_initializer())
+        #     Q_output = tf.matmul(layer_2_output, weights)
+
+        self.predict = tf.argmax(self.Q_output, 1)
+
+        # Sum of squares loss between target and predicted Q
+        self.loss = tf.reduce_sum(tf.square(self.next_Q - self.Q_output))
+        trainer = tf.train.AdamOptimizer(learning_rate=0.001)
+        self.update = trainer.minimize(self.loss)
 
 
 if __name__ == '__main__':
@@ -68,18 +115,17 @@ if __name__ == '__main__':
 
     # thrust_mag = 0.0
 
-    thrust_values = [0.0, 0.25, 0.50, 0.75, 1.0, 5.0]
-    thrust_mag = [0, 1, 2, 3, 4, 5]
+    thrust_values = [0.0, 0.25, 0.50, 0.75, 1.0, 2.0]
     # learning parameters
     y = .95
-    e = 0.01
-    num_episodes = 15
+    e = 0.05
+    num_episodes = 10
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
 
     # experience replay
-    experience = Experience(buffer_size=50)
+    experience = Experience(buffer_size=100)
 
     # Network Model
     num_inputs = 2
@@ -90,51 +136,14 @@ if __name__ == '__main__':
     layer_1_nodes = 512
     layer_2_nodes = 512
 
-    # Establish feed-forward network
-    inputs = tf.placeholder(shape=[1, num_inputs], dtype=tf.float32)
-    # w1 = tf.Variable(tf.zeros[16,100])
-    # b1 = tf.variable(tf.zeros[100])
-
-    # with tf.variable_scope('layer-1'):
-    #     weights = tf.get_variable(name='weights-1', shape=(num_inputs, layer_1_nodes),
-    #                               initializer=tf.contrib.layers.xavier_initializer())
-    #     # bias = tf.get_variable(name='bias1', shape=([layer_1_nodes]), initializer=tf.zeros_initializer())
-    #     layer_1_output = tf.nn.tanh(tf.matmul(inputs, weights))
-
-    fc1 = tf.contrib.layers.fully_connected(inputs,
-                                            layer_1_nodes,
-                                            activation_fn=tf.nn.relu)
-
-    fc2 = tf.contrib.layers.fully_connected(fc1, layer_2_nodes,
-                                            activation_fn=tf.nn.relu)
-
-    Q_output = tf.contrib.layers.fully_connected(fc1, num_outputs,
-                                                 activation_fn=None)
-
-    # with tf.variable_scope('layer-2'):
-    #     weights = tf.get_variable(name='weights-2', shape=(layer_1_nodes, layer_2_nodes))
-    #     layer_2_output = tf.nn.tanh(tf.matmul(layer_1_output, weights))
-    #
-    # with tf.variable_scope('output'):
-    #     weights = tf.get_variable(name='weight-out', shape=(layer_2_nodes, num_outputs))
-    #     # bias = tf.get_variable(name='bias_out', shape=([num_outputs]), initializer=tf.zeros_initializer())
-    #     Q_output = tf.matmul(layer_2_output, weights)
-
-    next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
-
-    predict = tf.argmax(Q_output, 1)
-
-    # Sum of squares loss between target and predicted Q
-    loss = tf.reduce_sum(tf.square(next_Q - Q_output))
-    trainer = tf.train.AdamOptimizer(learning_rate=0.001)
-    update = trainer.minimize(loss)
+    deep_q = Q_Network(num_inputs, num_outputs, layer_1_nodes, layer_2_nodes)
 
 
     # writer = tf.summary.scalar("Loss", loss)
-    with tf.variable_scope('logging'):
-        writer = tf.summary.FileWriter("log/dq")
-        tf.summary.scalar('loss', loss)
-        summary = tf.summary.merge_all()
+    # with tf.variable_scope('logging'):
+    #     writer = tf.summary.FileWriter("log/dq")
+    #     tf.summary.scalar('loss', loss)
+    #     summary = tf.summary.merge_all()
 
     # saver = tf.train.saver()
 
@@ -145,6 +154,7 @@ if __name__ == '__main__':
     # Start tensorflow session
     with tf.Session() as sess:
         sess.run(init)
+        track_a =[]
         for i in range(1,num_episodes):
             # reset enviornment to get first observation
             s = env.reset()
@@ -162,7 +172,7 @@ if __name__ == '__main__':
                 j += 1
                 # choose an action
                 # This value is thrust
-                a, allQ = sess.run([predict, Q_output], feed_dict={inputs: [s]})
+                a, allQ = sess.run([deep_q.predict, deep_q.Q_output], feed_dict={deep_q.inputs: [s]})
 
                 if np.random.rand(1) < e:
                     a[0] = random.randint(0, len(thrust_mag)-1)
@@ -183,13 +193,15 @@ if __name__ == '__main__':
                 elif a == 5:
                     action = thrust_values[5]
                 else:
-                    action = thrust_mag[0]
+                    action = thrust_values[0]
 
                 s1, r, done, _ = env.step(action, stepT)
                 actions.append(action)
 
+                experience.add((s, action, r, s1))
+
                 # Obtain the Q value
-                Q1 = sess.run(Q_output, feed_dict={inputs: [s1]})
+                Q1 = sess.run(deep_q.Q_output, feed_dict={deep_q.inputs: [s1]})
 
                 # Get maxQ and set target value for chosen action
                 maxQ1 = np.max(Q1)
@@ -197,16 +209,17 @@ if __name__ == '__main__':
                 targetQ[0, a[0]] = r + y * maxQ1
 
                 # Train the NN using target and predicted Q values
-                _, W1 = sess.run([update, fc1], feed_dict={inputs: [s], next_Q: targetQ})
-                _, W1 = sess.run([update, fc2], feed_dict={inputs: [s], next_Q: targetQ})
+                _, W1 = sess.run([deep_q.update, deep_q.fc1], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
+                # _, W2 = sess.run([deep_q.update, deep_q.fc2], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
+
+                loss, _ = sess.run([deep_q.loss, deep_q.update], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
 
                 rall += r
                 s = s1
 
-                opt = sess.run(loss, feed_dict={inputs: [s], next_Q: targetQ})
                 # print("==============")
                 # print("loss: ", opt)
-                loss_tot.append(opt)
+                loss_tot.append(loss)
                 if done:
                     # Random action
                     e = 1.0 / ((i / 50) + 10)
@@ -217,21 +230,18 @@ if __name__ == '__main__':
                     plt.ylabel('km')
                     plt.subplot(2, 1, 2)
                     plt.plot(actions)
+                    plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
+                    plt.ylabel('Thrust (N)')
                     plt.show()
                     break
 
             j_list.append(j)
             r_list.append(rall)
 
-            print('a final {}'.format(env._currentOrbit.getA()/1e3))
+            # print('a final {}'.format(env._currentOrbit.getA()/1e3))
+            track_a.append(env._currentOrbit.getA()/1e3)
 
-            # experience.experience_replay(episonde_eperience)
-            # plt.plot(j_list, opt)
-            # plt.plot(actions)
-
-            plt.show()
             if i % 5 == 0:
-
                 plt.title('iteration {}'.format(i))
                 plt.subplot(2, 1, 1)
                 plt.plot(np.asarray(env._px)/1e3, np.asarray(env._py)/1e3)
@@ -242,8 +252,11 @@ if __name__ == '__main__':
                 # plt.subplot(2,2,3)
                 # plt.plot(actions)
                 plt.show()
-            print("episode {} of {}".format(i, num_episodes))
+            print("episode {} of {}, orbit:{}".format(i, num_episodes, env._currentOrbit.getA()/1e3))
+        plt.subplot(2,1,1)
+        plt.plot(track_a)
+        plt.title('final sma per episode')
+        plt.subplot(2,1,2)
         plt.plot(loss_tot)
+        plt.title('Total Loss')
         plt.show()
-        print('orbit:{}'.format(env._currentOrbit.getA()/1e3))
-

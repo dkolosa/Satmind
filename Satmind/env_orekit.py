@@ -195,14 +195,6 @@ class OrekitEnv:
         self._px.append(coord.getX())
         self._py.append(coord.getY())
 
-        # vcoord = currentState.getPVCoordinates().getVelocity()
-
-        # x, y = coord.getX(), coord.getY()
-        # xdot, ydot = vcoord.getX(), vcoord.getY()
-
-        # state = [coord.getX(), coord.getY()]
-        # state = [r, theta]
-        # a = self._currentOrbit.getA() / self._targetOrbit.getA()
         a = self._currentOrbit.getA()
 
         # lm = self._currentOrbit.getLM() / self._targetOrbit.getLM()
@@ -212,7 +204,7 @@ class OrekitEnv:
 
         reward = np.real(self.dist_reward(np.array(state)))
 
-        if reward == 1000:
+        if reward == 100:
             done = True
 
         return np.array(state), reward, done, {}
@@ -222,13 +214,7 @@ class OrekitEnv:
 
         target_a = self._targetOrbit.getA()
         initial_a = self._orbit.getA()
-
-        # o = OrbitType.KEPLERIAN.convertType(currentState.getOrbit())
         current_a = self._currentOrbit.getA()
-        # use the distance from the current to final state
-        # x_diff = target[0] - state[0]
-        # y_diff = target[1] - state[1]
-        # dist = np.sqrt(x_diff**2+y_diff**2)
 
         # reward function is between -1 and 1
         # dist_org = np.sqrt((target[0]-initial_state[0])**2 + (target[1]-initial_state[1])**2)
@@ -245,11 +231,9 @@ class OrekitEnv:
             reward = -100
             # print('Overshoot')
         elif -100 <= dist <= 100:
-            reward = 1000
-            print('Target Reached')
+            reward = 100
         else:
-            reward = 1-(dist/dist_org)
-            # reward = -1
+            reward = 1-(dist/target_a)
         return reward
 
 
