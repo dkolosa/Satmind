@@ -30,7 +30,9 @@ class Q_Network:
         # Establish feed-forward network
         self.inputs = tf.placeholder(shape=[1, num_inputs], dtype=tf.float32)
         self.next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
-        
+
+        self.actions = tf.placeholder(shape=[None], dtype=tf.int32, name='actions')
+        one_hot_action = tf.one_hot(self.actions, num_outputs)
 
         # w1 = tf.Variable(tf.zeros[16,100])
         # b1 = tf.variable(tf.zeros[100])
@@ -49,19 +51,15 @@ class Q_Network:
 
         self.Q_output = tf.contrib.layers.fully_connected(self.fc3, num_outputs,activation_fn=None)
 
-        # with tf.variable_scope('layer-2'):
-        #     weights = tf.get_variable(name='weights-2', shape=(layer_1_nodes, layer_2_nodes))
-        #     layer_2_output = tf.nn.tanh(tf.matmul(layer_1_output, weights))
-        #
-        # with tf.variable_scope('output'):
-        #     weights = tf.get_variable(name='weight-out', shape=(layer_2_nodes, num_outputs))
-        #     # bias = tf.get_variable(name='bias_out', shape=([num_outputs]), initializer=tf.zeros_initializer())
-        #     Q_output = tf.matmul(layer_2_output, weights)
-
         self.predict = tf.argmax(self.Q_output, 1)
 
+        self.Q = tf.reduce_sum(tf.multiply(self.Q_output, one_hot_action), axis=1)
+
         # Sum of squares loss between target and predicted Q
-        self.loss = tf.reduce_sum(tf.square(self.next_Q - self.Q_output))
+
+        self.loss = tf.reduce_mean(tf.square(self.next_Q - self.Q), axis=1)
+
+        # self.loss = tf.reduce_sum(tf.square(self.next_Q - self.Q_output))
         trainer = tf.train.AdamOptimizer(learning_rate=0.001)
         self.update = trainer.minimize(self.loss)
 
