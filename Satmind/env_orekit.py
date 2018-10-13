@@ -227,13 +227,13 @@ class OrekitEnv:
             reward = -100
             exit()
 
-        if dist < -100:
+        if dist < -1000:
             reward = -100
             # print('Overshoot')
-        elif -100 <= dist <= 100:
+        elif -1000 <= dist <= 1000:
             reward = 100
         else:
-            reward = 1-(dist/target_a)
+            reward = -(target_a/current_a)
         return reward
 
 

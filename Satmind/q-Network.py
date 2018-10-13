@@ -31,8 +31,8 @@ class Q_Network:
         self.inputs = tf.placeholder(shape=[1, num_inputs], dtype=tf.float32)
         self.next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
 
-        self.actions = tf.placeholder(shape=[None], dtype=tf.int32, name='actions')
-        one_hot_action = tf.one_hot(self.actions, num_outputs)
+        # self.actions = tf.placeholder(shape=[None], dtype=tf.int32, name='actions')
+        # one_hot_action = tf.one_hot(self.actions, num_outputs)
 
         # w1 = tf.Variable(tf.zeros[16,100])
         # b1 = tf.variable(tf.zeros[100])
@@ -47,17 +47,18 @@ class Q_Network:
 
         self.fc2 = tf.contrib.layers.fully_connected(self.fc1, layer_2_nodes)
 
-        self.fc3 = tf.contrib.layers.fully_connected(self.fc2, layer_2_nodes)
+        # self.fc3 = tf.contrib.layers.fully_connected(self.fc2, layer_2_nodes)
 
-        self.Q_output = tf.contrib.layers.fully_connected(self.fc3, num_outputs,activation_fn=None)
+        self.Q_output = tf.contrib.layers.fully_connected(self.fc2, num_outputs,activation_fn=None)
 
         self.predict = tf.argmax(self.Q_output, 1)
+        
 
-        self.Q = tf.reduce_sum(tf.multiply(self.Q_output, one_hot_action), axis=1)
+        # self.Q = tf.reduce_sum(tf.multiply(self.Q_output, one_hot_action), axis=1)
 
         # Sum of squares loss between target and predicted Q
 
-        self.loss = tf.reduce_mean(tf.square(self.next_Q - self.Q), axis=1)
+        self.loss = tf.reduce_mean(tf.square(self.next_Q - self.Q_output), axis=1)
 
         # self.loss = tf.reduce_sum(tf.square(self.next_Q - self.Q_output))
         trainer = tf.train.AdamOptimizer(learning_rate=0.001)
@@ -80,9 +81,9 @@ if __name__ == '__main__':
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration =3 * 24.0 * 60.0 ** 2
+    duration =2 * 24.0 * 60.0 ** 2
 
-    sma = 41_000.0e3
+    sma = 40_000.0e3
     e = 0.001
     i = 0.0
     omega = 0.1
@@ -117,7 +118,7 @@ if __name__ == '__main__':
     # learning parameters
     y = .95
     e = 0.05
-    num_episodes = 10
+    num_episodes = 500
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
@@ -150,6 +151,7 @@ if __name__ == '__main__':
 
     # Network Training
     # Start tensorflow session
+    hit = 0
     with tf.Session() as sess:
         sess.run(init)
         track_a =[]
@@ -173,25 +175,27 @@ if __name__ == '__main__':
                 a, allQ = sess.run([deep_q.predict, deep_q.Q_output], feed_dict={deep_q.inputs: [s]})
 
                 if np.random.rand(1) < e:
-                    a[0] = random.randint(0, len(thrust_mag)-1)
+                    a[0] = random.randint(0, len(thrust_values)-1)
                     # print("Random Hit!")
 
                 # Get a new state and reward
                 # The state is the x-y coordinates, r =0 if not reached
-                if a == 0:
-                    action = thrust_values[0]
-                elif a == 1:
-                    action = thrust_values[1]
-                elif a == 2:
-                    action = thrust_values[2]
-                elif a == 3:
-                    action = thrust_values[3]
-                elif a == 4:
-                    action = thrust_values[4]
-                elif a == 5:
-                    action = thrust_values[5]
-                else:
-                    action = thrust_values[0]
+                # if a == 0:
+                #     action = thrust_values[0]
+                # elif a == 1:
+                #     action = thrust_values[1]
+                # elif a == 2:
+                #     action = thrust_values[2]
+                # elif a == 3:
+                #     action = thrust_values[3]
+                # elif a == 4:
+                #     action = thrust_values[4]
+                # elif a == 5:
+                #     action = thrust_values[5]
+                # else:
+                #     action = thrust_values[0]
+
+                action = thrust_values[int(a)]
 
                 s1, r, done, _ = env.step(action, stepT)
                 actions.append(action)
@@ -208,7 +212,7 @@ if __name__ == '__main__':
 
                 # Train the NN using target and predicted Q values
                 _, W1 = sess.run([deep_q.update, deep_q.fc1], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
-                # _, W2 = sess.run([deep_q.update, deep_q.fc2], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
+                _, W2 = sess.run([deep_q.update, deep_q.fc2], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
 
                 loss, _ = sess.run([deep_q.loss, deep_q.update], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
 
@@ -219,6 +223,7 @@ if __name__ == '__main__':
                 # print("loss: ", opt)
                 loss_tot.append(loss)
                 if done:
+                    hit +=1
                     # Random action
                     e = 1.0 / ((i / 50) + 10)
                     plt.title('completed episode')
@@ -258,3 +263,4 @@ if __name__ == '__main__':
         plt.plot(loss_tot)
         plt.title('Total Loss')
         plt.show()
+        print("Target hit: {} of {} episodes".format(hit, num_episodes))
