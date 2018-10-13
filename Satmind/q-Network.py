@@ -47,7 +47,7 @@ class Q_Network:
 
         self.fc2 = tf.contrib.layers.fully_connected(self.fc1, layer_2_nodes)
 
-        # self.fc3 = tf.contrib.layers.fully_connected(self.fc2, layer_2_nodes)
+        self.fc3 = tf.contrib.layers.fully_connected(self.fc2, layer_2_nodes)
 
         self.Q_output = tf.contrib.layers.fully_connected(self.fc2, num_outputs,activation_fn=None)
 
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     # learning parameters
     y = .95
     e = 0.05
-    num_episodes = 500
+    num_episodes = 100
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
@@ -152,6 +152,10 @@ if __name__ == '__main__':
     # Network Training
     # Start tensorflow session
     hit = 0
+
+    # Initialize the saver
+    saver = tf.train.Saver()
+
     with tf.Session() as sess:
         sess.run(init)
         track_a =[]
@@ -256,6 +260,18 @@ if __name__ == '__main__':
                 # plt.plot(actions)
                 plt.show()
             print("episode {} of {}, orbit:{}".format(i, num_episodes, env._currentOrbit.getA()/1e3))
+
+        # Save the entire seesion just in case
+        save_session = saver.save(sess, "log/complete_model/complete_model.ckpt")
+
+        # Save the model for future use
+        model_dir = "log/model.ckpt"
+        save_path = tf.saved_model.simple_save(sess, model_dir,
+                               inputs={"input": deep_q.inputs},
+                               outputs={"output": deep_q.predict})
+        print("model save in {}".format(str(save_path)))
+
+
         plt.subplot(2,1,1)
         plt.plot(track_a)
         plt.title('final sma per episode')
