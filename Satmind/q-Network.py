@@ -15,6 +15,11 @@ class Experience:
         self.buffer = deque(maxlen=buffer_size)
 
     def add(self, experience):
+        '''
+
+        :param experience:
+        :return:
+        '''
         self.buffer.append(experience)
 
 
@@ -23,6 +28,26 @@ class Experience:
             self.buffer[0:(len(experience) + len(self.buffer)) - self.buffer_size] = []
         self.buffer.extend(experience)
 
+
+    def get_all_experiences(self):
+        '''
+        Prints all of the experience data stored in the buffer
+
+        :return: Printed list of the experience in the buffer
+        '''
+        for e in self.buffer: print(e)
+
+    def populate_experience(self, thrust, env, stepT, final_date):
+        i = 0
+        s = env.reset()
+        while env._extrap_Date.compareTo(final_date) <= 0:
+            action = np.random.choice(thrust)
+            # s1, r, done, _ = env.step(action, stepT)
+            # self.add((s, action, r, s1))
+            s = s1
+            i += 1
+            if i == self.buffer_size:
+                break
 
 class Q_Network:
 
@@ -47,12 +72,11 @@ class Q_Network:
 
         self.fc2 = tf.contrib.layers.fully_connected(self.fc1, layer_2_nodes)
 
-        self.fc3 = tf.contrib.layers.fully_connected(self.fc2, layer_2_nodes)
+        # self.fc3 = tf.contrib.layers.fully_connected(self.fc2, layer_2_nodes)
 
         self.Q_output = tf.contrib.layers.fully_connected(self.fc2, num_outputs,activation_fn=None)
 
         self.predict = tf.argmax(self.Q_output, 1)
-        
 
         # self.Q = tf.reduce_sum(tf.multiply(self.Q_output, one_hot_action), axis=1)
 
@@ -118,7 +142,7 @@ if __name__ == '__main__':
     # learning parameters
     y = .95
     e = 0.05
-    num_episodes = 100
+    num_episodes = 1000
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
@@ -132,8 +156,8 @@ if __name__ == '__main__':
     # TODO: one-hot encode output acitons
         # [[1,0,0,0,0,0],[0,1,0,0,0,0],...]
 
-    layer_1_nodes = 512
-    layer_2_nodes = 512
+    layer_1_nodes = 128
+    layer_2_nodes = 128
 
     deep_q = Q_Network(num_inputs, num_outputs, layer_1_nodes, layer_2_nodes)
 
@@ -155,6 +179,7 @@ if __name__ == '__main__':
 
     # Initialize the saver
     saver = tf.train.Saver()
+    # experience.populate_experience(thrust=thrust_values, env=env, stepT=stepT, final_date=final_date)
 
     with tf.Session() as sess:
         sess.run(init)
@@ -180,24 +205,8 @@ if __name__ == '__main__':
 
                 if np.random.rand(1) < e:
                     a[0] = random.randint(0, len(thrust_values)-1)
-                    # print("Random Hit!")
-
                 # Get a new state and reward
                 # The state is the x-y coordinates, r =0 if not reached
-                # if a == 0:
-                #     action = thrust_values[0]
-                # elif a == 1:
-                #     action = thrust_values[1]
-                # elif a == 2:
-                #     action = thrust_values[2]
-                # elif a == 3:
-                #     action = thrust_values[3]
-                # elif a == 4:
-                #     action = thrust_values[4]
-                # elif a == 5:
-                #     action = thrust_values[5]
-                # else:
-                #     action = thrust_values[0]
 
                 action = thrust_values[int(a)]
 
@@ -216,7 +225,7 @@ if __name__ == '__main__':
 
                 # Train the NN using target and predicted Q values
                 _, W1 = sess.run([deep_q.update, deep_q.fc1], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
-                _, W2 = sess.run([deep_q.update, deep_q.fc2], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
+                # _, W2 = sess.run([deep_q.update, deep_q.fc2], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
 
                 loss, _ = sess.run([deep_q.loss, deep_q.update], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
 
@@ -230,6 +239,7 @@ if __name__ == '__main__':
                     hit +=1
                     # Random action
                     e = 1.0 / ((i / 50) + 10)
+                    print("Episode {}, Fuel Mass: {}".format(i, env.getTotalMass() - mass))
                     plt.title('completed episode')
                     plt.subplot(2, 1, 1)
                     plt.plot(np.asarray(env._px) / 1e3, np.asarray(env._py) / 1e3)
@@ -239,6 +249,7 @@ if __name__ == '__main__':
                     plt.plot(actions)
                     plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
                     plt.ylabel('Thrust (N)')
+                    plt.tight_layout()
                     plt.show()
                     break
 
@@ -248,7 +259,7 @@ if __name__ == '__main__':
             # print('a final {}'.format(env._currentOrbit.getA()/1e3))
             track_a.append(env._currentOrbit.getA()/1e3)
 
-            if i % 5 == 0:
+            if i % 10 == 0:
                 plt.title('iteration {}'.format(i))
                 plt.subplot(2, 1, 1)
                 plt.plot(np.asarray(env._px)/1e3, np.asarray(env._py)/1e3)
@@ -258,6 +269,7 @@ if __name__ == '__main__':
                 plt.plot(r_list)
                 # plt.subplot(2,2,3)
                 # plt.plot(actions)
+                plt.tight_layout()
                 plt.show()
             print("episode {} of {}, orbit:{}".format(i, num_episodes, env._currentOrbit.getA()/1e3))
 
