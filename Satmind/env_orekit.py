@@ -176,7 +176,6 @@ class OrekitEnv:
     def step(self, thrust_mag, stepT):
         # TODO makes one propagation step
         # Keep track of fuel, thrust, position, date
-
         done = False
         reward = 0
         isp = 1200.0
@@ -196,9 +195,11 @@ class OrekitEnv:
         self._py.append(coord.getY())
 
         a = self._currentOrbit.getA()
+        e = self._currentOrbit.getE()
+        E = self._currentOrbit.getLE()
 
         # lm = self._currentOrbit.getLM() / self._targetOrbit.getLM()
-        adot = self._currentOrbit.getADot()
+        adot = 2*np.sqrt(a/MU) * (thrust_mag/self.getTotalMass()) * (a*np.sqrt(1-e**2))/(1-e*np.cos(E))
         # lmdot = self._currentOrbit.getLMDot()
         state = [a, adot]
 
@@ -233,7 +234,8 @@ class OrekitEnv:
         elif -1000 <= dist <= 1000:
             reward = 100
         else:
-            reward = -(target_a/current_a)
+            reward = 2-(current_a/target_a)
+            # reward = 1 - dist**.4
         return reward
 
 
