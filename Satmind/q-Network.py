@@ -5,6 +5,7 @@ import random
 from collections import deque
 import gym
 import gym.spaces
+import time
 
 from env_orekit import OrekitEnv
 
@@ -53,7 +54,10 @@ class Q_Network:
 
     def __init__(self, num_inputs, num_outputs, layer_1_nodes, layer_2_nodes):
         # Establish feed-forward network
-        self.inputs = tf.placeholder(shape=[1, num_inputs], dtype=tf.float32)
+
+        with tf.variable_scope('inputs'):
+            self.inputs = tf.placeholder(shape=[1, num_inputs], dtype=tf.float32)
+
         self.next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
 
         # self.actions = tf.placeholder(shape=[None], dtype=tf.int32, name='actions')
@@ -68,13 +72,23 @@ class Q_Network:
         #     # bias = tf.get_variable(name='bias1', shape=([layer_1_nodes]), initializer=tf.zeros_initializer())
         #     layer_1_output = tf.nn.tanh(tf.matmul(inputs, weights))
 
-        self.fc1 = tf.contrib.layers.fully_connected(self.inputs, layer_1_nodes)
+        with tf.variable_scope('layer-1'):
+            self.fc1 = tf.contrib.layers.fully_connected(self.inputs, layer_1_nodes)
 
-        self.fc2 = tf.contrib.layers.fully_connected(self.fc1, layer_2_nodes)
+        with tf.variable_scope('layer-2'):
+            self.fc2 = tf.contrib.layers.fully_connected(self.fc1, layer_2_nodes)
 
-        # self.fc3 = tf.contrib.layers.fully_connected(self.fc2, layer_2_nodes)
+        # with tf.variable_scope('layer-3'):
+        #     self.fc3 = tf.contrib.layers.fully_connected(self.fc2, layer_2_nodes)
+        #
+        # with tf.variable_scope('layer-4'):
+        #     self.fc4 = tf.contrib.layers.fully_connected(self.fc3, layer_2_nodes)
+        #
+        # with tf.variable_scope('layer-5'):
+        #     self.fc5 = tf.contrib.layers.fully_connected(self.fc4, layer_2_nodes)
 
-        self.Q_output = tf.contrib.layers.fully_connected(self.fc2, num_outputs,activation_fn=None)
+        with tf.variable_scope('output'):
+            self.Q_output = tf.contrib.layers.fully_connected(self.fc2, num_outputs,activation_fn=None)
 
         self.predict = tf.argmax(self.Q_output, 1)
 
@@ -96,7 +110,7 @@ if __name__ == '__main__':
     # env.reset()
 
     # Orekit env
-
+    save = False
     env = OrekitEnv()
 
     year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
@@ -142,7 +156,7 @@ if __name__ == '__main__':
     # learning parameters
     y = .95
     e = 0.05
-    num_episodes = 1000
+    num_episodes = 100
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
@@ -161,16 +175,8 @@ if __name__ == '__main__':
 
     deep_q = Q_Network(num_inputs, num_outputs, layer_1_nodes, layer_2_nodes)
 
-
-    # writer = tf.summary.scalar("Loss", loss)
-    # with tf.variable_scope('logging'):
-    #     writer = tf.summary.FileWriter("log/dq")
-    #     tf.summary.scalar('loss', loss)
-    #     summary = tf.summary.merge_all()
-
-    # saver = tf.train.saver()
-
     # Initialize network nodes
+    summary = tf.summary.merge_all()
     init = tf.global_variables_initializer()
 
     # Network Training
@@ -181,10 +187,16 @@ if __name__ == '__main__':
     saver = tf.train.Saver()
     # experience.populate_experience(thrust=thrust_values, env=env, stepT=stepT, final_date=final_date)
 
+
     with tf.Session() as sess:
+
+        summary_writer = tf.summary.FileWriter('log/graph',sess.graph)
+        loss_writer = tf.summary.FileWriter('log/loss')
+
         sess.run(init)
         track_a =[]
         for i in range(1,num_episodes):
+            # start = time.time()
             # reset enviornment to get first observation
             s = env.reset()
             rall = 0
@@ -196,6 +208,7 @@ if __name__ == '__main__':
             # while j < 99:
             actions = []
             loss_tot = []
+            reward = []
             while env._extrap_Date.compareTo(final_date) <= 0:
 
                 j += 1
@@ -227,18 +240,15 @@ if __name__ == '__main__':
                 _, W1 = sess.run([deep_q.update, deep_q.fc1], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
                 # _, W2 = sess.run([deep_q.update, deep_q.fc2], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
 
-                loss, _ = sess.run([deep_q.loss, deep_q.update], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
 
                 rall += r
                 s = s1
 
-                # print("==============")
-                # print("loss: ", opt)
-                loss_tot.append(loss)
                 if done:
                     hit +=1
                     # Random action
-                    e = 1.0 / ((i / 50) + 10)
+                    # e = 1.0 / ((i / 50) + 10)
+                    e = 0.01
                     print("Episode {}, Fuel Mass: {}".format(i, env.getTotalMass() - mass))
                     plt.title('completed episode')
                     plt.subplot(2, 1, 1)
@@ -252,12 +262,28 @@ if __name__ == '__main__':
                     plt.tight_layout()
                     plt.show()
                     break
+                reward.append(r)
 
+            # stop = time.time()
             j_list.append(j)
             r_list.append(rall)
 
+            plt.subplot(2,1,1)
+            plt.plot(reward)
+            plt.subplot(2,1,2)
+            plt.plot(actions)
+            plt.show()
+
             # print('a final {}'.format(env._currentOrbit.getA()/1e3))
             track_a.append(env._currentOrbit.getA()/1e3)
+
+            # if i % 2 == 0:
+            #     loss, _ = sess.run([deep_q.loss, deep_q.update],
+            #                        feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
+            #     plt.plot(loss)
+            #     plt.show()
+            #     # loss_writer.add_summary(loss, i)
+            #     # loss_writer.flush()
 
             if i % 10 == 0:
                 plt.title('iteration {}'.format(i))
@@ -271,24 +297,17 @@ if __name__ == '__main__':
                 # plt.plot(actions)
                 plt.tight_layout()
                 plt.show()
+            # print("episode {}, time {}".format(i, stop-start))
             print("episode {} of {}, orbit:{}".format(i, num_episodes, env._currentOrbit.getA()/1e3))
+        if save:
+            # Save the entire seesion just in case
+            save_session = saver.save(sess, "log/complete_model/complete_model.ckpt")
 
-        # Save the entire seesion just in case
-        save_session = saver.save(sess, "log/complete_model/complete_model.ckpt")
+            # Save the model for future use
+            model_dir = "log/model.ckpt"
+            save_path = tf.saved_model.simple_save(sess, model_dir,
+                                   inputs={"input": deep_q.inputs},
+                                   outputs={"output": deep_q.predict})
+            print("model save in {}".format(str(save_path)))
 
-        # Save the model for future use
-        model_dir = "log/model.ckpt"
-        save_path = tf.saved_model.simple_save(sess, model_dir,
-                               inputs={"input": deep_q.inputs},
-                               outputs={"output": deep_q.predict})
-        print("model save in {}".format(str(save_path)))
-
-
-        plt.subplot(2,1,1)
-        plt.plot(track_a)
-        plt.title('final sma per episode')
-        plt.subplot(2,1,2)
-        plt.plot(loss_tot)
-        plt.title('Total Loss')
-        plt.show()
         print("Target hit: {} of {} episodes".format(hit, num_episodes))
