@@ -17,20 +17,26 @@ class Experience:
 
     def add(self, experience):
         '''
-
         :param experience:
         :return:
         '''
         self.buffer.append(experience)
 
+    def experience_replay(self):
+        index = np.random.choice(np.arange(len(self.buffer)), replace=False)
+        return self.buffer[index]
 
-    def experience_replay(self, experience):
-        if len(self.buffer) + len(experience) >= self.buffer_size:
-            self.buffer[0:(len(experience) + len(self.buffer)) - self.buffer_size] = []
-        self.buffer.extend(experience)
+    def populate_memory(self, env, thrust_values, stepT):
 
+        state = env.reset()
+        for e in self.buffer:
+            act = np.random.choice(thrust_values)
+            state_1, reward, done_mem, _ = env.state(act, stepT)
+            e = [state, act, reward, state_1]
+            self.add(e)
+            state = state_1
 
-    def get_all_experiences(self):
+    def print_buffer(self):
         '''
         Prints all of the experience data stored in the buffer
 
@@ -38,17 +44,6 @@ class Experience:
         '''
         for e in self.buffer: print(e)
 
-    def populate_experience(self, thrust, env, stepT, final_date):
-        i = 0
-        s = env.reset()
-        while env._extrap_Date.compareTo(final_date) <= 0:
-            action = np.random.choice(thrust)
-            # s1, r, done, _ = env.step(action, stepT)
-            # self.add((s, action, r, s1))
-            s = s1
-            i += 1
-            if i == self.buffer_size:
-                break
 
 class Q_Network:
 
@@ -60,8 +55,6 @@ class Q_Network:
 
         self.next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
 
-        # self.actions = tf.placeholder(shape=[None], dtype=tf.int32, name='actions')
-        # one_hot_action = tf.one_hot(self.actions, num_outputs)
 
         # w1 = tf.Variable(tf.zeros[16,100])
         # b1 = tf.variable(tf.zeros[100])
@@ -156,22 +149,24 @@ if __name__ == '__main__':
     # learning parameters
     y = .95
     e = 0.05
-    num_episodes = 100
+    num_episodes = 500
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
 
     # experience replay
-    experience = Experience(buffer_size=100)
+    experience = Experience(buffer_size=500)
+    experience.populate_memory(env, thrust_values, stepT)
 
+    experience.print_buffer()
     # Network Model
     num_inputs = 2
     num_outputs = 6
     # TODO: one-hot encode output acitons
         # [[1,0,0,0,0,0],[0,1,0,0,0,0],...]
 
-    layer_1_nodes = 128
-    layer_2_nodes = 128
+    layer_1_nodes = 512
+    layer_2_nodes = 512
 
     deep_q = Q_Network(num_inputs, num_outputs, layer_1_nodes, layer_2_nodes)
 
@@ -203,14 +198,12 @@ if __name__ == '__main__':
             r = 0
             d = False
             j = 0
-            # episonde_eperience = Experience(buffer_size=50)
             # Q-network
             # while j < 99:
             actions = []
             loss_tot = []
             reward = []
             while env._extrap_Date.compareTo(final_date) <= 0:
-
                 j += 1
                 # choose an action
                 # This value is thrust
@@ -222,28 +215,42 @@ if __name__ == '__main__':
                 # The state is the x-y coordinates, r =0 if not reached
 
                 action = thrust_values[int(a)]
-
                 s1, r, done, _ = env.step(action, stepT)
                 actions.append(action)
 
                 experience.add((s, action, r, s1))
 
+                # Grab the state from replay memory for training
+                memory = experience.experience_replay()
+                state_mem = np.asarray(memory[0:1]).flatten()
+                action_mem = memory[1]
+                reward_mem = memory[2]
+                next_state_mem = np.asarray(memory[3:4]).flatten()
+
                 # Obtain the Q value
-                Q1 = sess.run(deep_q.Q_output, feed_dict={deep_q.inputs: [s1]})
+                # Q1 = sess.run(deep_q.Q_output, feed_dict={deep_q.inputs: [s1]})
+                Q1 = sess.run(deep_q.Q_output, feed_dict={deep_q.inputs: [next_state_mem]})
+
 
                 # Get maxQ and set target value for chosen action
                 maxQ1 = np.max(Q1)
                 targetQ = allQ
-                targetQ[0, a[0]] = r + y * maxQ1
+                # targetQ[0, a[0]] = r + y * maxQ1
+                targetQ[0, a[0]] = reward_mem + y * maxQ1
 
                 # Train the NN using target and predicted Q values
                 _, W1 = sess.run([deep_q.update, deep_q.fc1], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
                 # _, W2 = sess.run([deep_q.update, deep_q.fc2], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
 
+                loss, _ = sess.run([deep_q.loss, deep_q.update], feed_dict={deep_q.inputs: [state_mem], deep_q.next_Q: targetQ})
+                # loss, _ = sess.run([deep_q.loss, deep_q.update], feed_dict=params)
 
                 rall += r
                 s = s1
 
+                # print("==============")
+                # print("loss: ", opt)
+                loss_tot.append(loss)
                 if done:
                     hit +=1
                     # Random action
@@ -277,15 +284,7 @@ if __name__ == '__main__':
             # print('a final {}'.format(env._currentOrbit.getA()/1e3))
             track_a.append(env._currentOrbit.getA()/1e3)
 
-            # if i % 2 == 0:
-            #     loss, _ = sess.run([deep_q.loss, deep_q.update],
-            #                        feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
-            #     plt.plot(loss)
-            #     plt.show()
-            #     # loss_writer.add_summary(loss, i)
-            #     # loss_writer.flush()
-
-            if i % 10 == 0:
+            if i % 5 == 0:
                 plt.title('iteration {}'.format(i))
                 plt.subplot(2, 1, 1)
                 plt.plot(np.asarray(env._px)/1e3, np.asarray(env._py)/1e3)
