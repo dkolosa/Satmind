@@ -143,7 +143,6 @@ class OrekitEnv:
         # holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True),
         #                                                        provider)
         # self._prop.addForceModel(holmesFeatherstone)
-
         earth = NewtonianAttraction(MU)
         self._prop.addForceModel(earth)
 
@@ -158,8 +157,6 @@ class OrekitEnv:
         self.set_spacecraft(1000.0, 500.0)
         self._px = []
         self._py = []
-        # pos = self._currentOrbit.getPVCoordinates().getPosition()
-        # state = [pos.getX(), pos.getY()]
 
         a = self._currentOrbit.getA()
         lm = self._currentOrbit.getLM()
@@ -174,9 +171,7 @@ class OrekitEnv:
         return self._sc_fuel.getAdditionalState(FUEL_MASS)[0] + self._sc_fuel.getMass()
 
     def step(self, thrust_mag, stepT):
-        # TODO makes one propagation step
         # Keep track of fuel, thrust, position, date
-
         done = False
         reward = 0
         isp = 1200.0
@@ -190,20 +185,18 @@ class OrekitEnv:
         self._currentOrbit = currentState.getOrbit()
         coord = currentState.getPVCoordinates().getPosition()
         # Calculate the fuel used and update spacecraft fuel mass
-        self._sc_fuel = self._sc_fuel.addAdditionalState(FUEL_MASS,
-                                                         self._sc_fuel.getAdditionalState(FUEL_MASS)[0] + thrust.getFlowRate() * stepT)
+        self._sc_fuel = self._sc_fuel.addAdditionalState(FUEL_MASS, self._sc_fuel.getAdditionalState(FUEL_MASS)[0]
+                                                         + thrust.getFlowRate() * stepT)
         self._px.append(coord.getX())
         self._py.append(coord.getY())
 
         a = self._currentOrbit.getA()
-
-        # lm = self._currentOrbit.getLM() / self._targetOrbit.getLM()
+        lm = self._currentOrbit.getLv()
         adot = self._currentOrbit.getADot()
-        # lmdot = self._currentOrbit.getLMDot()
+        lmdot = self._currentOrbit.getLvDot()
         state = [a, adot]
 
         reward = np.real(self.dist_reward(np.array(state)))
-
         if reward == 100:
             done = True
 
@@ -221,7 +214,9 @@ class OrekitEnv:
         dist = target_a - current_a
         dist_org = target_a - initial_a
 
-        if self._sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
+        fuel_mass = self._sc_fuel.getAdditionalState(FUEL_MASS)[0]
+
+        if fuel_mass <= 0:
             print("Ran out of fuel")
             done = True
             reward = -100
@@ -260,14 +255,14 @@ def main():
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration = 24.0*60.0**2*10
+    duration = 24.0*60.0**2*2
 
     # set the sc initial state
     a = 5_500.0e3  # semi major axis (m)
-    e = 0.00001  # eccentricity
-    i = radians(0.001)  # inclination
-    omega = radians(0.001)  # perigee argument
-    raan = radians(0.001)  # right ascension of ascending node
+    e = 0.01  # eccentricity
+    i = radians(0.01)  # inclination
+    omega = radians(0.01)  # perigee argument
+    raan = radians(0.01)  # right ascension of ascending node
     lM = 0.0  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 
@@ -289,19 +284,29 @@ def main():
     final_date = env._initial_date.shiftedBy(duration)
     env.create_orbit(state_targ, final_date, target=True)
     env._extrap_Date = env._initial_date
-    stepT = 100.0
+    stepT = 1000.0
     thrust_mag = 1.0
     isp = 1200.0
 
+    a, lv = [], []
     while env._extrap_Date.compareTo(final_date) <= 0:
         position, r, done, _ = env.step(thrust_mag, stepT)
+        a.append(position[0])
+        lv.append(position[1])
+
         # reward.append(r)
 
     print("done")
     a_final = env._currentOrbit.getA()
-    print('orbit:{} km'.format(a_final/1e3))
-    print('da:{} km'.format((a_final - a)/1e3))
-    env.render_plots()
+    # print('orbit:{} km'.format(a_final/1e3))
+    # print('da:{} km'.format((a_final - a)/1e3))
+    plt.subplot(2,1,1)
+    plt.plot(a)
+    plt.subplot(2,1,2)
+    plt.plot(lv)
+    plt.show()
+    # print(lv)
+    # env.render_plots()
 
 
 if __name__ == '__main__':
