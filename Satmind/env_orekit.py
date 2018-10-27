@@ -39,8 +39,8 @@ attitude = LofOffset(inertial_frame, LOFType.LVLH)
 MU = Constants.EGM96_EARTH_MU
 
 class OrekitEnv:
-    """ This class uses Orekit to create an environment to propagate a satellite
-
+    """
+    This class uses Orekit to create an environment to propagate a satellite
         Params:
         _prop: The propagation object
         _initial_date: The initial start date of the propagation
@@ -56,7 +56,9 @@ class OrekitEnv:
     """
 
     def __init__(self):
-        """ initializes the orekit VM and included libraries"""
+        """
+        initializes the orekit VM and included libraries
+        """
 
         self._prop = None
         self._initial_date = None
@@ -70,7 +72,13 @@ class OrekitEnv:
         self._targetOrbit = None
 
     def set_date(self, date=None, absolute_date=None, step=0):
-        """ Set up the date for teh orekit secnario"""
+        """
+        Set up the date for an orekit secnario
+        :param date: list [year, month, day, hour, minute, second] (optional)
+        :param absolute_date: a orekit Absolute Date object (optional)
+        :param step: seconds to shift the date by (int)
+        :return:
+        """
         if date != None:
             year, month, day, hour, minute, sec = date
             self._initial_date = AbsoluteDate(year, month, day, hour, minute, sec, UTC)
@@ -82,12 +90,16 @@ class OrekitEnv:
             year, month, day, hour, minute, sec = now.year, now.month, now.day, now.hour, now.minute, float(now.second)
             self._initial_date = AbsoluteDate(year, month, day, hour, minute, sec, UTC)
 
-    def shift_date(self, step):
-        self._extrap_Date = AbsoluteDate(self._extrap_Date, step, UTC)
-        pass
+
 
     def create_orbit(self, state, date, target=False):
-        """ Crate the initial orbit using Keplarian elements"""
+        """
+         Crate the initial orbit using Keplarian elements
+        :param state: a state list [a, e, i, omega, raan, lM]
+        :param date: A date given as an orekit absolute date object
+        :param target: a target orbit list [a, e, i, omega, raan, lM]
+        :return:
+        """
         a, e, i, omega, raan, lM = state
 
         # Set inertial frame
@@ -101,12 +113,21 @@ class OrekitEnv:
             self._orbit = set_orbit
 
     def set_spacecraft(self, mass, fuel_mass):
+        """
+        Add the fuel mass to the spacecraft
+        :param mass: dry mass of spacecraft (kg, flaot)
+        :param fuel_mass:
+        :return:
+        """
         sc_state = SpacecraftState(self._orbit, mass)
         self._sc_fuel = sc_state.addAdditionalState (FUEL_MASS, fuel_mass)
 
     def create_Propagator(self, prop_master_mode=False):
-        """ Set up the propagator to be used"""
-
+        """
+        Creates and initializes the propagator
+        :param prop_master_mode: Set propagator to slave of master mode (slave default)
+        :return:
+        """
         # tol = NumericalPropagator.tolerances(1.0, self._orbit, self._orbit.getType())
         minStep = 1.e-3
         maxStep = 1.e+3
@@ -128,6 +149,10 @@ class OrekitEnv:
         # self._prop.setAttitudeProvider(attitude)
 
     def render_plots(self):
+        """
+        Renders the x-y plots of the spacecraft trajectory
+        :return:
+        """
         plt.plot(np.array(self._px) / 1000, np.array(self._py) / 1000)
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
@@ -136,7 +161,11 @@ class OrekitEnv:
         plt.show()
 
     def setForceModel(self):
-        """ Set up environment force models"""
+        """
+        Set up environment force models
+        :return:
+
+        """
 
         # force model gravity field
         # provider = GravityFieldFactory.getNormalizedProvider(10, 10)
@@ -148,6 +177,10 @@ class OrekitEnv:
 
 
     def reset(self):
+        """
+        Resets the orekit enviornment
+        :return:
+        """
         self._currentDate = self._initial_date
         self._currentOrbit = self._orbit
         self._extrap_Date = self._initial_date
@@ -168,9 +201,19 @@ class OrekitEnv:
 
 
     def getTotalMass(self):
+        """
+        Get the total mass of the spacecraft
+        :return: dry mass + fuel mass (kg)
+        """
         return self._sc_fuel.getAdditionalState(FUEL_MASS)[0] + self._sc_fuel.getMass()
 
     def step(self, thrust_mag, stepT):
+        """
+        Take a propagation step
+        :param thrust_mag: Thrust magnitude (Newtons, float)
+        :param stepT: duration of propagation and thrust magnitude (seconds, int)
+        :return: spacecraft state (np.array), reward value (float), done (bbol)
+        """
         # Keep track of fuel, thrust, position, date
         done = False
         reward = 0
@@ -206,7 +249,11 @@ class OrekitEnv:
         return np.array(state), reward, done, {}
 
     def dist_reward(self, state):
-        """Computes the reward based on the state of the agent """
+        """
+        Computes the reward based on the state of the agent
+        :param state: Spacecraft state
+        :return: reward value (float)
+        """
 
         target_a = self._targetOrbit.getA()
         initial_a = self._orbit.getA()
@@ -235,11 +282,25 @@ class OrekitEnv:
 
 
 class OutputHandler(PythonOrekitFixedStepHandler):
-    """ Implements a custom handler for every value """
+    """
+    Implements a custom handler for every value
+    """
     def init(self, s0, t):
+        """
+        Initilization at every prpagation step
+        :param s0: initial state (spacecraft State)
+        :param t: initial time (int)
+        :return:
+        """
         print('Orbital Elements:')
 
     def handleStep(self, currentState, isLast):
+        """
+        Perform a step at every propagation step
+        :param currentState: current spacecraft state (Spacecraft state)
+        :param isLast: last step in the propagation (bool)
+        :return:
+        """
         o = OrbitType.KEPLERIAN.convertType(currentState.getOrbit())
         print(o.getDate())
         print('a:{:5.3f}, e:{:5.3f}, i:{:5.3f}, theta:{:5.3f}'.format(o.getA(), o.getE(),
