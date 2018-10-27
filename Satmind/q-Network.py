@@ -16,18 +16,29 @@ class Experience:
         self.buffer = deque(maxlen=buffer_size)
 
     def add(self, experience):
-        '''
-        :param experience:
+        """
+        Add an experience to the buffer
+        :param experience: (state, action, reward, next state)
         :return:
-        '''
+        """
         self.buffer.append(experience)
 
     def experience_replay(self):
+        """
+        Get a random experience from the deque
+        :return:  experience: (state, action, reward, next state)
+        """
         index = np.random.choice(np.arange(len(self.buffer)), replace=False)
         return self.buffer[index]
 
     def populate_memory(self, env, thrust_values, stepT):
-
+        """
+        Populate with experiences by taking random actions
+        :param env: Agent enviornment object
+        :param thrust_values: Given list of possible thrust levels
+        :param stepT: Thrust step values
+        :return:
+        """
         state = env.reset()
         for e in self.buffer:
             act = np.random.choice(thrust_values)
@@ -46,8 +57,17 @@ class Experience:
 
 
 class Q_Network:
+    """ A Q-learning based neural network"""
 
     def __init__(self, num_inputs, num_outputs, layer_1_nodes, layer_2_nodes):
+        """
+
+        :param num_inputs: number of inputs nodes (integer)
+        :param num_outputs: number of output nodes (integer)
+        :param layer_1_nodes: Number of nodes in the first hidden layer
+        :param layer_2_nodes: number of nodes in the second hidden layer
+        """
+
         # Establish feed-forward network
 
         with tf.variable_scope('inputs'):
