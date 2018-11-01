@@ -242,7 +242,7 @@ class OrekitEnv:
         # lmdot = self._currentOrbit.getLMDot()
         state = [a, adot]
 
-        reward = np.real(self.dist_reward(np.array(state)))
+        reward, done = self.dist_reward(np.array(state))
         if reward == 100:
             done = True
 
@@ -272,13 +272,16 @@ class OrekitEnv:
 
         if dist < -1000:
             reward = -100
+            done = True
             # print('Overshoot')
         elif -1000 <= dist <= 1000:
             reward = 100
+            done = True
         else:
-            reward = 2-(current_a/target_a)
+            reward = -(target_a/current_a)**.2
+            done = False
             # reward = 1 - dist**.4
-        return reward
+        return [reward, done]
 
 
 class OutputHandler(PythonOrekitFixedStepHandler):

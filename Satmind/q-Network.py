@@ -59,18 +59,19 @@ class Experience:
 class Q_Network:
     """ A Q-learning based neural network"""
 
-    def __init__(self, num_inputs, num_outputs, layer_1_nodes, layer_2_nodes):
+    def __init__(self, num_inputs, num_outputs, layer_1_nodes, layer_2_nodes, name):
         """
 
         :param num_inputs: number of inputs nodes (integer)
         :param num_outputs: number of output nodes (integer)
         :param layer_1_nodes: Number of nodes in the first hidden layer
         :param layer_2_nodes: number of nodes in the second hidden layer
+        :param name: name of network
         """
 
         # Establish feed-forward network
 
-        with tf.variable_scope('inputs'):
+        with tf.variable_scope(str(name) + '-inputs'):
             self.inputs = tf.placeholder(shape=[1, num_inputs], dtype=tf.float32)
 
         self.next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
@@ -85,10 +86,10 @@ class Q_Network:
         #     # bias = tf.get_variable(name='bias1', shape=([layer_1_nodes]), initializer=tf.zeros_initializer())
         #     layer_1_output = tf.nn.tanh(tf.matmul(inputs, weights))
 
-        with tf.variable_scope('layer-1'):
+        with tf.variable_scope(str(name) + '-layer-1'):
             self.fc1 = tf.contrib.layers.fully_connected(self.inputs, layer_1_nodes)
 
-        with tf.variable_scope('layer-2'):
+        with tf.variable_scope(str(name) + '-layer-2'):
             self.fc2 = tf.contrib.layers.fully_connected(self.fc1, layer_2_nodes)
 
         # with tf.variable_scope('layer-3'):
@@ -100,7 +101,7 @@ class Q_Network:
         # with tf.variable_scope('layer-5'):
         #     self.fc5 = tf.contrib.layers.fully_connected(self.fc4, layer_2_nodes)
 
-        with tf.variable_scope('output'):
+        with tf.variable_scope(str(name) + '-output'):
             self.Q_output = tf.contrib.layers.fully_connected(self.fc2, num_outputs,activation_fn=None)
 
         self.predict = tf.argmax(self.Q_output, 1)
@@ -165,7 +166,7 @@ if __name__ == '__main__':
 
     # thrust_mag = 0.0
 
-    thrust_values = [0.0, 0.25, 0.50, 0.75, 1.0, 2.0]
+    thrust_values = [0.0, 0.25, 0.50, 0.75, 1.0]
     # learning parameters
     y = .95
     e = 0.05
@@ -181,14 +182,16 @@ if __name__ == '__main__':
     experience.print_buffer()
     # Network Model
     num_inputs = 2
-    num_outputs = 6
+    num_outputs = 5
     # TODO: one-hot encode output acitons
         # [[1,0,0,0,0,0],[0,1,0,0,0,0],...]
 
     layer_1_nodes = 512
     layer_2_nodes = 512
 
-    deep_q = Q_Network(num_inputs, num_outputs, layer_1_nodes, layer_2_nodes)
+    deep_q = Q_Network(num_inputs, num_outputs, layer_1_nodes, layer_2_nodes, name='action')
+
+    target_q = Q_Network(num_inputs, num_outputs, 128, 128, name='target')
 
     # Initialize network nodes
     summary = tf.summary.merge_all()
@@ -223,7 +226,8 @@ if __name__ == '__main__':
             actions = []
             loss_tot = []
             reward = []
-            while env._extrap_Date.compareTo(final_date) <= 0:
+            # while env._extrap_Date.compareTo(final_date) <= 0:
+            while j < 5000:
                 j += 1
                 # choose an action
                 # This value is thrust
@@ -248,22 +252,22 @@ if __name__ == '__main__':
                 next_state_mem = np.asarray(memory[3:4]).flatten()
 
                 # Obtain the Q value
-                # Q1 = sess.run(deep_q.Q_output, feed_dict={deep_q.inputs: [s1]})
-                Q1 = sess.run(deep_q.Q_output, feed_dict={deep_q.inputs: [next_state_mem]})
-
+                Q1 = sess.run(deep_q.Q_output, feed_dict={deep_q.inputs: [s1]})
+                target_Q1 = sess.run(target_q.Q_output, feed_dict={target_q.inputs: [next_state_mem]})
 
                 # Get maxQ and set target value for chosen action
-                maxQ1 = np.max(Q1)
+                maxQ1 = np.argmax(Q1)
                 targetQ = allQ
+
                 # targetQ[0, a[0]] = r + y * maxQ1
-                targetQ[0, a[0]] = reward_mem + y * maxQ1
+                targetQ[0, a[0]] = reward_mem + y * target_Q1[0,maxQ1]
+
 
                 # Train the NN using target and predicted Q values
-                _, W1 = sess.run([deep_q.update, deep_q.fc1], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
+                # _, W1 = sess.run([deep_q.update, deep_q.fc1], feed_dict={target_q.inputs: [s], target_q.next_Q: targetQ})
                 # _, W2 = sess.run([deep_q.update, deep_q.fc2], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
 
-                loss, _ = sess.run([deep_q.loss, deep_q.update], feed_dict={deep_q.inputs: [state_mem], deep_q.next_Q: targetQ})
-                # loss, _ = sess.run([deep_q.loss, deep_q.update], feed_dict=params)
+                loss, _ = sess.run([target_q.loss, target_q.update], feed_dict={target_q.inputs: [state_mem], target_q.next_Q: targetQ})
 
                 rall += r
                 s = s1
@@ -276,7 +280,10 @@ if __name__ == '__main__':
                     # Random action
                     # e = 1.0 / ((i / 50) + 10)
                     e = 0.01
-                    print("Episode {}, Fuel Mass: {}".format(i, env.getTotalMass() - mass))
+                    r = 100
+                    reward.append(r)
+                    r_list.append(rall)
+                    print("Episode {}, Fuel Mass: {}, date: {}".format(i, env.getTotalMass() - mass, env._currentOrbit.getDate()))
                     plt.title('completed episode')
                     plt.subplot(2, 1, 1)
                     plt.plot(np.asarray(env._px) / 1e3, np.asarray(env._py) / 1e3)
@@ -318,6 +325,8 @@ if __name__ == '__main__':
                 plt.show()
             # print("episode {}, time {}".format(i, stop-start))
             print("episode {} of {}, orbit:{}".format(i, num_episodes, env._currentOrbit.getA()/1e3))
+            if hit == 100:
+                break
         if save:
             # Save the entire seesion just in case
             save_session = saver.save(sess, "log/complete_model/complete_model.ckpt")
