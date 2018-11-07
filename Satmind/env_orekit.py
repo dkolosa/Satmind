@@ -28,6 +28,9 @@ from orekit.pyhelpers import setup_orekit_curdir
 from org.orekit.forces.gravity import NewtonianAttraction
 from org.orekit.utils import Constants
 
+from java.util import Arrays
+from orekit import JArray_double
+
 setup_orekit_curdir()
 
 FUEL_MASS = "Fuel Mass"
@@ -132,7 +135,14 @@ class OrekitEnv:
         minStep = 1.e-3
         maxStep = 1.e+3
 
-        integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
+        position_tolerance = 10.0
+        tolerances = NumericalPropagator.tolerances(position_tolerance, self._orbit, self._orbit.getType())
+        abs_tolerance = JArray_double.cast_(tolerances[0])
+        rel_telerance = JArray_double.cast_(tolerances[1])
+
+        # integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
+        integrator = DormandPrince853Integrator(minStep, maxStep, abs_tolerance, rel_telerance)
+
         integrator.setInitialStepSize(100.0)
 
         numProp = NumericalPropagator(integrator)
@@ -347,7 +357,7 @@ def main():
     final_date = env._initial_date.shiftedBy(duration)
     env.create_orbit(state_targ, final_date, target=True)
     env._extrap_Date = env._initial_date
-    stepT = 100.0
+    stepT = 500.0
     thrust_mag = 1.0
     isp = 1200.0
 
