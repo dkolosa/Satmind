@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration =2 * 24.0 * 60.0 ** 2
+    duration = 2 * 24.0 * 60.0 ** 2
 
     sma = 40_000.0e3
     e = 0.001
@@ -302,16 +302,16 @@ if __name__ == '__main__':
             j_list.append(j)
             r_list.append(rall)
 
-            plt.subplot(2,1,1)
-            plt.plot(reward)
-            plt.subplot(2,1,2)
-            plt.plot(actions)
-            plt.show()
+            # plt.subplot(2,1,1)
+            # plt.plot(reward)
+            # plt.subplot(2,1,2)
+            # plt.plot(actions)
+            # plt.show()
 
             # print('a final {}'.format(env._currentOrbit.getA()/1e3))
             track_a.append(env._currentOrbit.getA()/1e3)
 
-            if i % 5 == 0:
+            if i % 10 == 0:
                 plt.title('iteration {}'.format(i))
                 plt.subplot(2, 1, 1)
                 plt.plot(np.asarray(env._px)/1e3, np.asarray(env._py)/1e3)

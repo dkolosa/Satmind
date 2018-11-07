@@ -270,15 +270,15 @@ class OrekitEnv:
             reward = -100
             exit()
 
-        if dist < -1000:
+        if dist < -100:
             reward = -100
             done = True
             # print('Overshoot')
-        elif -1000 <= dist <= 1000:
+        elif -100 <= dist <= 100 and -100 <= self._currentDate.compareTo(self._targetOrbit.getDate()) <= 100:
             reward = 100
             done = True
         else:
-            reward = -(target_a/current_a)**.2
+            reward = -(target_a/current_a)
             done = False
             # reward = 1 - dist**.4
         return [reward, done]
