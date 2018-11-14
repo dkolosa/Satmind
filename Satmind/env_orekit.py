@@ -237,8 +237,10 @@ class OrekitEnv:
         e = self._currentOrbit.getE()
         E = self._currentOrbit.getLE()
 
+        o = OrbitType.KEPLERIAN.convertType(currentState.getOrbit())
+
         # lm = self._currentOrbit.getLM() / self._targetOrbit.getLM()
-        adot = 2*np.sqrt(a/MU) * (thrust_mag/self.getTotalMass()) * (a*np.sqrt(1-e**2))/(1-e*np.cos(E))
+        adot = 2*np.sqrt(a/MU) * (thrust_mag/self.getTotalMass()) * (a*np.sqrt(1-e**2))/(1-e*np.cos(o.getLE()))
         # lmdot = self._currentOrbit.getLMDot()
         state = [a, adot]
 
@@ -260,7 +262,6 @@ class OrekitEnv:
         current_a = self._currentOrbit.getA()
 
         # reward function is between -1 and 1
-        # dist_org = np.sqrt((target[0]-initial_state[0])**2 + (target[1]-initial_state[1])**2)
         dist = target_a - current_a
         dist_org = target_a - initial_a
 
@@ -268,7 +269,6 @@ class OrekitEnv:
             print("Ran out of fuel")
             done = True
             reward = -100
-            exit()
 
         if dist < -100:
             reward = -100
@@ -281,7 +281,7 @@ class OrekitEnv:
             reward = -(target_a/current_a)
             done = False
             # reward = 1 - dist**.4
-        return [reward, done]
+        return reward, done
 
 
 class OutputHandler(PythonOrekitFixedStepHandler):
@@ -321,14 +321,14 @@ def main():
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration = 24.0*60.0**2*10
+    duration = 24.0*60.0**2*1
 
     # set the sc initial state
     a = 5_500.0e3  # semi major axis (m)
-    e = 0.00001  # eccentricity
+    e = 0.01  # eccentricity
     i = radians(0.001)  # inclination
-    omega = radians(0.001)  # perigee argument
-    raan = radians(0.001)  # right ascension of ascending node
+    omega = radians(0.01)  # perigee argument
+    raan = radians(0.01)  # right ascension of ascending node
     lM = 0.0  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 

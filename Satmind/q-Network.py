@@ -169,8 +169,8 @@ if __name__ == '__main__':
     thrust_values = [0.0, 0.25, 0.50, 0.75, 1.0]
     # learning parameters
     y = .95
-    e = 0.05
-    num_episodes = 500
+    e = 0.10
+    num_episodes = 5
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
@@ -279,14 +279,17 @@ if __name__ == '__main__':
                     hit +=1
                     # Random action
                     # e = 1.0 / ((i / 50) + 10)
-                    e = 0.01
-                    r = 100
+                    e = 0.05
                     reward.append(r)
                     r_list.append(rall)
+
+                    pos_x = env._targetOrbit.getPVCoordinates().getPosition().getX()
+                    pos_y = env._targetOrbit.getPVCoordinates().getPosition().getY()
+                    pos = q = np.column_stack((env._px, env._py)) / 1e3
                     print("Episode {}, Fuel Mass: {}, date: {}".format(i, env.getTotalMass() - mass, env._currentOrbit.getDate()))
                     plt.title('completed episode')
                     plt.subplot(2, 1, 1)
-                    plt.plot(np.asarray(env._px) / 1e3, np.asarray(env._py) / 1e3)
+                    plt.plot(pos[:,0], pos[:,1], 'b-', pos_x/1e3, pos_y/1e3, 'ro')
                     plt.xlabel('km')
                     plt.ylabel('km')
                     plt.subplot(2, 1, 2)
