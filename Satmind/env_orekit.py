@@ -44,23 +44,22 @@ MU = Constants.EGM96_EARTH_MU
 class OrekitEnv:
     """
     This class uses Orekit to create an environment to propagate a satellite
+    """
+
+    def __init__(self, state, state_targ, date, duration, mass, fuel_mass):
+        """
+        initializes the orekit VM and included libraries
         Params:
         _prop: The propagation object
         _initial_date: The initial start date of the propagation
         _orbit: The orbit type (Keplerian, Circular, etc...)
         _currentDate: The current date during propagation
-        _currentorbit: The current orbit paramenters
+        _currentOrbit: The current orbit paramenters
         _px: spacecraft position in the x-direction
         _py: spacecraft position in the y-direction
         _sc_fuel: The spacecraft with fuel accounted for
         _extrap_Date: changing date during propagation state
         _sc_state: The spacecraft without fuel
-
-    """
-
-    def __init__(self):
-        """
-        initializes the orekit VM and included libraries
         """
 
         self._prop = None
@@ -73,6 +72,15 @@ class OrekitEnv:
         self._sc_fuel = None
         self._extrap_Date = None
         self._targetOrbit = None
+
+        self.set_date(date)
+        self._extrap_Date = self._initial_date
+        self.create_orbit(state, self._initial_date, target=False)
+        self.set_spacecraft(mass, fuel_mass)
+        self.create_Propagator()
+        self.setForceModel()
+        self.final_date = self._initial_date.shiftedBy(duration)
+        self.create_orbit(state_targ, self.final_date, target=True)
 
     def set_date(self, date=None, absolute_date=None, step=0):
         """
@@ -92,8 +100,6 @@ class OrekitEnv:
             now = datetime.datetime.now()
             year, month, day, hour, minute, sec = now.year, now.month, now.day, now.hour, now.minute, float(now.second)
             self._initial_date = AbsoluteDate(year, month, day, hour, minute, sec, UTC)
-
-
 
     def create_orbit(self, state, date, target=False):
         """
@@ -173,10 +179,7 @@ class OrekitEnv:
     def setForceModel(self):
         """
         Set up environment force models
-        :return:
-
         """
-
         # force model gravity field
         # provider = GravityFieldFactory.getNormalizedProvider(10, 10)
         # holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True),
@@ -247,12 +250,14 @@ class OrekitEnv:
         e = self._currentOrbit.getE()
         E = self._currentOrbit.getLE()
 
+        o = OrbitType.KEPLERIAN.convertType(currentState.getOrbit())
+
         # lm = self._currentOrbit.getLM() / self._targetOrbit.getLM()
-        adot = 2*np.sqrt(a/MU) * (thrust_mag/self.getTotalMass()) * (a*np.sqrt(1-e**2))/(1-e*np.cos(E))
+        adot = 2*np.sqrt(a/MU) * (thrust_mag/self.getTotalMass()) * (a*np.sqrt(1-e**2))/(1-e*np.cos(o.getLE()))
         # lmdot = self._currentOrbit.getLMDot()
         state = [a, adot]
 
-        reward = np.real(self.dist_reward(np.array(state)))
+        reward, done = self.dist_reward(np.array(state))
         if reward == 100:
             done = True
 
@@ -270,7 +275,6 @@ class OrekitEnv:
         current_a = self._currentOrbit.getA()
 
         # reward function is between -1 and 1
-        # dist_org = np.sqrt((target[0]-initial_state[0])**2 + (target[1]-initial_state[1])**2)
         dist = target_a - current_a
         dist_org = target_a - initial_a
 
@@ -278,17 +282,19 @@ class OrekitEnv:
             print("Ran out of fuel")
             done = True
             reward = -100
-            exit()
 
-        if dist < -1000:
+        if dist < -100:
             reward = -100
+            done = True
             # print('Overshoot')
-        elif -1000 <= dist <= 1000:
+        elif -100 <= dist <= 100 and -100 <= self._currentDate.compareTo(self._targetOrbit.getDate()) <= 100:
             reward = 100
+            done = True
         else:
-            reward = 2-(current_a/target_a)
+            reward = -(target_a/current_a)
+            done = False
             # reward = 1 - dist**.4
-        return reward
+        return reward, done
 
 
 class OutputHandler(PythonOrekitFixedStepHandler):
@@ -321,21 +327,19 @@ class OutputHandler(PythonOrekitFixedStepHandler):
 
 def main():
 
-    env = OrekitEnv()
     year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
     date = [year, month, day, hr, minute, sec]
-    env.set_date(date)
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration = 24.0*60.0**2*10
+    duration = 24.0 * 60.0 ** 2 * 1
 
     # set the sc initial state
     a = 5_500.0e3  # semi major axis (m)
-    e = 0.00001  # eccentricity
+    e = 0.01  # eccentricity
     i = radians(0.001)  # inclination
-    omega = radians(0.001)  # perigee argument
-    raan = radians(0.001)  # right ascension of ascending node
+    omega = radians(0.01)  # perigee argument
+    raan = radians(0.01)  # right ascension of ascending node
     lM = 0.0  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 
@@ -348,38 +352,21 @@ def main():
     lM_targ = lM
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
-    env.create_orbit(state, env._initial_date, target=False)
+    env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass)
 
-    env.set_spacecraft(mass, fuel_mass)
-    env.create_Propagator()
-    env.setForceModel()
-
-    final_date = env._initial_date.shiftedBy(duration)
-    env.create_orbit(state_targ, final_date, target=True)
-    env._extrap_Date = env._initial_date
-    stepT = 500.0
+    stepT = 100.0
     thrust_mag = 1.0
     isp = 1200.0
 
     a, lv = [], []
-    while env._extrap_Date.compareTo(final_date) <= 0:
+
+    while env._extrap_Date.compareTo(env.final_date) <= 0:
         position, r, done, _ = env.step(thrust_mag, stepT)
         a.append(position[0])
         lv.append(position[1])
 
-        # reward.append(r)
-
     print("done")
-    a_final = env._currentOrbit.getA()
-    # print('orbit:{} km'.format(a_final/1e3))
-    # print('da:{} km'.format((a_final - a)/1e3))
-    plt.subplot(2,1,1)
-    plt.plot(a)
-    plt.subplot(2,1,2)
-    plt.plot(lv)
-    plt.show()
-    # print(lv)
-    # env.render_plots()
+    env.render_plots()
 
 
 if __name__ == '__main__':
