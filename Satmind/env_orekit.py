@@ -28,6 +28,8 @@ from orekit.pyhelpers import setup_orekit_curdir
 from org.orekit.forces.gravity import NewtonianAttraction
 from org.orekit.utils import Constants
 
+from math import isclose
+
 setup_orekit_curdir()
 
 FUEL_MASS = "Fuel Mass"
@@ -41,23 +43,22 @@ MU = Constants.EGM96_EARTH_MU
 class OrekitEnv:
     """
     This class uses Orekit to create an environment to propagate a satellite
+    """
+
+    def __init__(self, state, state_targ, date, duration, mass, fuel_mass):
+        """
+        initializes the orekit VM and included libraries
         Params:
         _prop: The propagation object
         _initial_date: The initial start date of the propagation
         _orbit: The orbit type (Keplerian, Circular, etc...)
         _currentDate: The current date during propagation
-        _currentorbit: The current orbit paramenters
+        _currentOrbit: The current orbit paramenters
         _px: spacecraft position in the x-direction
         _py: spacecraft position in the y-direction
         _sc_fuel: The spacecraft with fuel accounted for
         _extrap_Date: changing date during propagation state
         _sc_state: The spacecraft without fuel
-
-    """
-
-    def __init__(self):
-        """
-        initializes the orekit VM and included libraries
         """
 
         self._prop = None
@@ -68,8 +69,16 @@ class OrekitEnv:
         self._px = []
         self._py = []
         self._sc_fuel = None
-        self._extrap_Date = None
         self._targetOrbit = None
+
+        self.set_date(date)
+        self._extrap_Date = self._initial_date
+        self.create_orbit(state, self._initial_date, target=False)
+        self.set_spacecraft(mass, fuel_mass)
+        self.create_Propagator()
+        self.setForceModel()
+        self.final_date = self._initial_date.shiftedBy(duration)
+        self.create_orbit(state_targ, self.final_date, target=True)
 
     def set_date(self, date=None, absolute_date=None, step=0):
         """
@@ -314,14 +323,12 @@ class OutputHandler(PythonOrekitFixedStepHandler):
 
 def main():
 
-    env = OrekitEnv()
     year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
     date = [year, month, day, hr, minute, sec]
-    env.set_date(date)
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration = 24.0*60.0**2*1
+    duration = 24.0 * 60.0 ** 2 * 1
 
     # set the sc initial state
     a = 5_500.0e3  # semi major axis (m)
@@ -341,38 +348,23 @@ def main():
     lM_targ = lM
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
-    env.create_orbit(state, env._initial_date, target=False)
+    env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass)
 
-    env.set_spacecraft(mass, fuel_mass)
-    env.create_Propagator()
-    env.setForceModel()
-
-    final_date = env._initial_date.shiftedBy(duration)
-    env.create_orbit(state_targ, final_date, target=True)
-    env._extrap_Date = env._initial_date
     stepT = 100.0
     thrust_mag = 1.0
     isp = 1200.0
 
     a, lv = [], []
-    while env._extrap_Date.compareTo(final_date) <= 0:
+
+    while env._extrap_Date.compareTo(env.final_date) <= 0:
         position, r, done, _ = env.step(thrust_mag, stepT)
         a.append(position[0])
         lv.append(position[1])
 
-        # reward.append(r)
 
     print("done")
-    a_final = env._currentOrbit.getA()
-    # print('orbit:{} km'.format(a_final/1e3))
-    # print('da:{} km'.format((a_final - a)/1e3))
-    plt.subplot(2,1,1)
-    plt.plot(a)
-    plt.subplot(2,1,2)
-    plt.plot(lv)
-    plt.show()
-    # print(lv)
-    # env.render_plots()
+
+    env.render_plots()
 
 
 if __name__ == '__main__':
