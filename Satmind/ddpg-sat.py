@@ -1,20 +1,20 @@
 import numpy as np
 import tensorflow as tf
-import gym
+from collections import  deque
+from env_orekit import OrekitEnv
 
 
 class Actor:
 
-    def __init__(self, features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, learning_rate):
+    def __init__(self, features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, learning_rate, name):
 
         self.tau = tau
         self.action_bound = action_bound
 
         # create the actor network
         self.input = tf.placeholder(tf.float32, shape=[1, features])
-        self.action = tf.placeholder(tf.int32, None, "action")
 
-        with tf.variable_scope('layer1'):
+        with tf.variable_scope(name + '_layer1'):
             layer_1 = tf.layers.dense(inputs=self.input,
                                       units=layer_1_nodes,
                                       activation=tf.nn.relu,
@@ -23,7 +23,7 @@ class Actor:
                                       name='layer_1'
                                       )
 
-        with tf.variable_scope('layer2'):
+        with tf.variable_scope(name+'_layer2'):
             layer_2 = tf.layers.dense(inputs=layer_1,
                                       units=layer_2_nodes,
                                       activation=tf.nn.relu,
@@ -32,10 +32,10 @@ class Actor:
                                       name='layer_2'
                                       )
 
-        with tf.variable_scope('output'):
+        with tf.variable_scope(name+'_output'):
             self.action_prob = tf.layers.dense(inputs=layer_2,
                                                units=n_actions,
-                                               activation=tf.nn.tanh,
+                                               activation=tf.nn.sigmoid,
                                                kernel_initializer=tf.random_normal_initializer(0.,.1),
                                                bias_initializer=tf.constant_initializer(0.1),
                                                name='action_probability')
@@ -47,16 +47,16 @@ class Actor:
         # This is retrived from the critic network
         self.action_gradient = tf.placeholder(tf.float32, [None, n_actions])
 
-        self.actor_gradient = tf.gradients(self.scaled_output, -self.action_gradient)
+        self.actor_gradient = tf.gradients(self.scaled_output, self.network_parameters, -self.action_gradient)
 
-        self.train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(self.actor_gradient)
+        self.train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(self.actor_gradient, self.network_parameters))
 
     def train(self, state, action_gradient, sess):
-        action = sess.run(self.train_op, {self.input: state,
+        action = sess.run(self.train_op, {self.input: [state],
                                           self.action_gradient: action_gradient})
 
     def predict(self, state, sess):
-        action = sess.run(self.scaled_output, {self.input: state})
+        action = sess.run(self.scaled_output, {self.input: [state]})
         return action
 
     def update_target_network(self, actor_network, sess):
@@ -71,15 +71,17 @@ class Actor:
 
 class Critic:
 
-    def __init__(self, n_features, n_actions, layer_1_nodes, layer_2_nodes, learning_rate, tau):
+    def __init__(self, n_features, n_actions, layer_1_nodes, layer_2_nodes, learning_rate, tau, name):
 
         self.tau = tau
+        self.n_features = n_features
+        self.n_actions = n_actions
 
         self.input = tf.placeholder(tf.float32, shape=[None, n_features])
         self.action = tf.placeholder(tf.float32, shape=[None, n_actions])
-        self.q_value = tf.placeholder(tf.float32, shape=[None,1])
+        self.q_value = tf.placeholder(tf.float32, shape=[None, 1])
 
-        with tf.variable_scope('layer_1'):
+        with tf.variable_scope(name +'_layer_1'):
             layer_1 = tf.layers.dense(inputs=self.input,
                                       units=layer_1_nodes,
                                       activation=tf.nn.relu,
@@ -90,10 +92,10 @@ class Critic:
         t1_layer_2 = tf.layers.dense(inputs=layer_1, units=layer_2_nodes, activation=None, use_bias=False)
         t2_layer_2 = tf.layers.dense(inputs=self.action, units=layer_2_nodes, activation=None, use_bias=False)
 
-        with tf.variable_scope('layer_2'):
+        with tf.variable_scope(name + '_layer_2'):
             layer_2 = tf.nn.relu(tf.matmul(layer_1, t1_layer_2) + tf.matmul(self.action, t2_layer_2))
 
-        with tf.variable_scope('output'):
+        with tf.variable_scope(name + '_output'):
             self.output = tf.layers.dense(inputs=layer_2,
                                          units=1,
                                          kernel_initializer=tf.random_normal_initializer(0., .1),
@@ -109,12 +111,13 @@ class Critic:
         self.action_gradient = tf.gradients(self.output, self.action)
 
     def train(self, state, action, q_value, sess):
-        return sess.run([self.output, self.train_op], {self.input: state,
+        return sess.run([self.output, self.train_op], {self.input: state.reshape(1,self.n_features),
                                           self.action: action, self.q_value: q_value})
 
     def predict(self, state, action, sess):
-        return sess.run([self.output, self.train_op], {self.input: state,
-                                                       self.action: action})
+
+        return sess.run(self.output, {self.input: state.reshape((1,self.n_features)),
+                                                       self.action: np.array(action).reshape((1,self.n_actions))})
 
     def action_gradient(self, state, action, sess):
         return sess.run(self.action_gradient, {self.input: state,
@@ -199,36 +202,57 @@ class Experience:
         for e in self.buffer: print(e)
 
 
-
 def main():
     
     # initialize enviornment
+    year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
+    date = [year, month, day, hr, minute, sec]
 
-    # env = gym.make('Pendulum-v0')
+    mass = 1000.0
+    fuel_mass = 500.0
+    duration = 2 * 24.0 * 60.0 ** 2
 
-    env = Orekit_env()
-    stepT = 100
+    # initial state
+    sma = 40_000.0e3
+    e = 0.001
+    i = 0.0
+    omega = 0.1
+    rann = 0.01
+    lv = 0.01
+    state = [sma, e, i, omega, rann, lv]
+
+    # target state
+    a_targ = 45_000_000.0
+    e_targ = e
+    i_targ = i
+    omega_targ = omega
+    raan_targ = rann
+    lM_targ = lv
+    state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
+
+    env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass)
+    stepT = 100.0
     num_episodes = 100
     iter_per_episode = 1000
 
-    features = env.observation_space.shape[0]
-    n_actions = env.action_space.shape[0]
-    action_bound = env.action_space.high
+    # Network inputs and outputs
+    features = 2
+    n_actions = 1
+    action_bound = 9
 
     # features, n_actions = 2, 1
     layer_1_nodes, layer_2_nodes = 200, 300
-    # action_bound = 10
     tau = 0.02
     actor_lr, critic_lr = 0.001, 0.001
     GAMMA = 0.95
 
     # Initialize actor and critic network and targets
-    actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr)
-    actor_target = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr)
+    actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, 'actor')
+    actor_target = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, 'actor_target')
     actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
     
-    critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau)
-    critic_target = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau)
+    critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic')
+    critic_target = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic_target')
 
     # Replay memory buffer
     replay = Experience(buffer_size=500)
@@ -243,14 +267,12 @@ def main():
 
             for j in range(iter_per_episode):
                 # Select an action
-                a = actor.predict(s, sess) + actor_noise()
-                # a = actor.predict(s, sess) + actor_noise()
+                a = abs(np.linalg.norm(actor.predict(s, sess) + actor_noise()))
 
                 # Observe state and reward
-                # s1, r, done = env.step(a, stepT)
-                s1, r, done = env.step(a)
+                s1, r, done = env.step(float(a), stepT)
                 # Store in replay memory
-                replay.add(s, a, r, s1)
+                replay.add((s, a, r, s1))
                 # sample from random memory
                 s_rep, a_rep, r_rep, s1_rep = replay.experience_replay()
 
