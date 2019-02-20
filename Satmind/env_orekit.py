@@ -210,7 +210,7 @@ class OrekitEnv:
         lmdot = self._currentOrbit.getLMDot()
         state = [a, 0]
 
-        return np.array(state)
+        return np.array(state, ndmin=1)
 
 
     def getTotalMass(self):
@@ -261,7 +261,7 @@ class OrekitEnv:
         if reward == 100:
             done = True
 
-        return np.array(state), reward, done, {}
+        return np.array(state), reward, done
 
     def dist_reward(self, state):
         """
