@@ -125,11 +125,9 @@ if __name__ == '__main__':
 
     # Orekit env
     save = False
-    env = OrekitEnv()
 
     year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
     date = [year, month, day, hr, minute, sec]
-    env.set_date(date)
 
     mass = 1000.0
     fuel_mass = 500.0
@@ -152,6 +150,13 @@ if __name__ == '__main__':
     lM_targ = lv
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
+    env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass)
+
+    year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
+    date = [year, month, day, hr, minute, sec]
+
+    env.set_date(date)
+
     env.create_orbit(state, env._initial_date, target=False)
     env.set_spacecraft(mass, fuel_mass)
     env.create_Propagator()
@@ -171,6 +176,8 @@ if __name__ == '__main__':
     y = .95
     e = 0.10
     num_episodes = 5
+    e = 0.10
+    num_episodes = 100
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
@@ -186,8 +193,8 @@ if __name__ == '__main__':
     # TODO: one-hot encode output acitons
         # [[1,0,0,0,0,0],[0,1,0,0,0,0],...]
 
-    layer_1_nodes = 512
-    layer_2_nodes = 512
+    layer_1_nodes = 128
+    layer_2_nodes = 128
 
     deep_q = Q_Network(num_inputs, num_outputs, layer_1_nodes, layer_2_nodes, name='action')
 
@@ -221,8 +228,6 @@ if __name__ == '__main__':
             r = 0
             d = False
             j = 0
-            # Q-network
-            # while j < 99:
             actions = []
             loss_tot = []
             reward = []
@@ -239,17 +244,20 @@ if __name__ == '__main__':
                 # The state is the x-y coordinates, r =0 if not reached
 
                 action = thrust_values[int(a)]
-                s1, r, done, _ = env.step(action, stepT)
+                s1, r, done = env.step(action, stepT)
                 actions.append(action)
 
                 experience.add((s, action, r, s1))
 
                 # Grab the state from replay memory for training
-                memory = experience.experience_replay()
-                state_mem = np.asarray(memory[0:1]).flatten()
-                action_mem = memory[1]
-                reward_mem = memory[2]
-                next_state_mem = np.asarray(memory[3:4]).flatten()
+                if len(experience.buffer) < experience.buffer_size:
+                    state_mem, action_mem, reward_mem, next_state_mem = s, a, r, s1
+                else:
+                    memory = experience.experience_replay()
+                    state_mem = np.asarray(memory[0:1]).flatten()
+                    action_mem = memory[1]
+                    reward_mem = memory[2]
+                    next_state_mem = np.asarray(memory[3:4]).flatten()
 
                 # Obtain the Q value
                 Q1 = sess.run(deep_q.Q_output, feed_dict={deep_q.inputs: [s1]})
