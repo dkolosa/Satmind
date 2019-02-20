@@ -59,18 +59,19 @@ class Experience:
 class Q_Network:
     """ A Q-learning based neural network"""
 
-    def __init__(self, num_inputs, num_outputs, layer_1_nodes, layer_2_nodes):
+    def __init__(self, num_inputs, num_outputs, layer_1_nodes, layer_2_nodes, name):
         """
 
         :param num_inputs: number of inputs nodes (integer)
         :param num_outputs: number of output nodes (integer)
         :param layer_1_nodes: Number of nodes in the first hidden layer
         :param layer_2_nodes: number of nodes in the second hidden layer
+        :param name: name of network
         """
 
         # Establish feed-forward network
 
-        with tf.variable_scope('inputs'):
+        with tf.variable_scope(str(name) + '-inputs'):
             self.inputs = tf.placeholder(shape=[1, num_inputs], dtype=tf.float32)
 
         self.next_Q = tf.placeholder(shape=[1, num_outputs], dtype=tf.float32)
@@ -85,10 +86,10 @@ class Q_Network:
         #     # bias = tf.get_variable(name='bias1', shape=([layer_1_nodes]), initializer=tf.zeros_initializer())
         #     layer_1_output = tf.nn.tanh(tf.matmul(inputs, weights))
 
-        with tf.variable_scope('layer-1'):
+        with tf.variable_scope(str(name) + '-layer-1'):
             self.fc1 = tf.contrib.layers.fully_connected(self.inputs, layer_1_nodes)
 
-        with tf.variable_scope('layer-2'):
+        with tf.variable_scope(str(name) + '-layer-2'):
             self.fc2 = tf.contrib.layers.fully_connected(self.fc1, layer_2_nodes)
 
         # with tf.variable_scope('layer-3'):
@@ -100,7 +101,7 @@ class Q_Network:
         # with tf.variable_scope('layer-5'):
         #     self.fc5 = tf.contrib.layers.fully_connected(self.fc4, layer_2_nodes)
 
-        with tf.variable_scope('output'):
+        with tf.variable_scope(str(name) + '-output'):
             self.Q_output = tf.contrib.layers.fully_connected(self.fc2, num_outputs,activation_fn=None)
 
         self.predict = tf.argmax(self.Q_output, 1)
@@ -124,15 +125,13 @@ if __name__ == '__main__':
 
     # Orekit env
     save = False
-    env = OrekitEnv()
 
     year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
     date = [year, month, day, hr, minute, sec]
-    env.set_date(date)
 
     mass = 1000.0
     fuel_mass = 500.0
-    duration =2 * 24.0 * 60.0 ** 2
+    duration = 2 * 24.0 * 60.0 ** 2
 
     sma = 40_000.0e3
     e = 0.001
@@ -151,6 +150,13 @@ if __name__ == '__main__':
     lM_targ = lv
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
+    env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass)
+
+    year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
+    date = [year, month, day, hr, minute, sec]
+
+    env.set_date(date)
+
     env.create_orbit(state, env._initial_date, target=False)
     env.set_spacecraft(mass, fuel_mass)
     env.create_Propagator()
@@ -165,11 +171,11 @@ if __name__ == '__main__':
 
     # thrust_mag = 0.0
 
-    thrust_values = [0.0, 0.25, 0.50, 0.75, 1.0, 2.0]
+    thrust_values = [0.0, 0.25, 0.50, 0.75, 1.0]
     # learning parameters
     y = .95
-    e = 0.05
-    num_episodes = 500
+    e = 0.10
+    num_episodes = 100
     # steps and rewards per episode (respectively)
     j_list = []
     r_list = []
@@ -181,14 +187,16 @@ if __name__ == '__main__':
     experience.print_buffer()
     # Network Model
     num_inputs = 2
-    num_outputs = 6
+    num_outputs = 5
     # TODO: one-hot encode output acitons
         # [[1,0,0,0,0,0],[0,1,0,0,0,0],...]
 
-    layer_1_nodes = 512
-    layer_2_nodes = 512
+    layer_1_nodes = 128
+    layer_2_nodes = 128
 
-    deep_q = Q_Network(num_inputs, num_outputs, layer_1_nodes, layer_2_nodes)
+    deep_q = Q_Network(num_inputs, num_outputs, layer_1_nodes, layer_2_nodes, name='action')
+
+    target_q = Q_Network(num_inputs, num_outputs, 128, 128, name='target')
 
     # Initialize network nodes
     summary = tf.summary.merge_all()
@@ -218,12 +226,11 @@ if __name__ == '__main__':
             r = 0
             d = False
             j = 0
-            # Q-network
-            # while j < 99:
             actions = []
             loss_tot = []
             reward = []
-            while env._extrap_Date.compareTo(final_date) <= 0:
+            # while env._extrap_Date.compareTo(final_date) <= 0:
+            while j < 5000:
                 j += 1
                 # choose an action
                 # This value is thrust
@@ -235,35 +242,38 @@ if __name__ == '__main__':
                 # The state is the x-y coordinates, r =0 if not reached
 
                 action = thrust_values[int(a)]
-                s1, r, done, _ = env.step(action, stepT)
+                s1, r, done = env.step(action, stepT)
                 actions.append(action)
 
                 experience.add((s, action, r, s1))
 
                 # Grab the state from replay memory for training
-                memory = experience.experience_replay()
-                state_mem = np.asarray(memory[0:1]).flatten()
-                action_mem = memory[1]
-                reward_mem = memory[2]
-                next_state_mem = np.asarray(memory[3:4]).flatten()
+                if len(experience.buffer) < experience.buffer_size:
+                    state_mem, action_mem, reward_mem, next_state_mem = s, a, r, s1
+                else:
+                    memory = experience.experience_replay()
+                    state_mem = np.asarray(memory[0:1]).flatten()
+                    action_mem = memory[1]
+                    reward_mem = memory[2]
+                    next_state_mem = np.asarray(memory[3:4]).flatten()
 
                 # Obtain the Q value
-                # Q1 = sess.run(deep_q.Q_output, feed_dict={deep_q.inputs: [s1]})
-                Q1 = sess.run(deep_q.Q_output, feed_dict={deep_q.inputs: [next_state_mem]})
-
+                Q1 = sess.run(deep_q.Q_output, feed_dict={deep_q.inputs: [s1]})
+                target_Q1 = sess.run(target_q.Q_output, feed_dict={target_q.inputs: [next_state_mem]})
 
                 # Get maxQ and set target value for chosen action
-                maxQ1 = np.max(Q1)
+                maxQ1 = np.argmax(Q1)
                 targetQ = allQ
+
                 # targetQ[0, a[0]] = r + y * maxQ1
-                targetQ[0, a[0]] = reward_mem + y * maxQ1
+                targetQ[0, a[0]] = reward_mem + y * target_Q1[0,maxQ1]
+
 
                 # Train the NN using target and predicted Q values
-                _, W1 = sess.run([deep_q.update, deep_q.fc1], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
+                # _, W1 = sess.run([deep_q.update, deep_q.fc1], feed_dict={target_q.inputs: [s], target_q.next_Q: targetQ})
                 # _, W2 = sess.run([deep_q.update, deep_q.fc2], feed_dict={deep_q.inputs: [s], deep_q.next_Q: targetQ})
 
-                loss, _ = sess.run([deep_q.loss, deep_q.update], feed_dict={deep_q.inputs: [state_mem], deep_q.next_Q: targetQ})
-                # loss, _ = sess.run([deep_q.loss, deep_q.update], feed_dict=params)
+                loss, _ = sess.run([target_q.loss, target_q.update], feed_dict={target_q.inputs: [state_mem], target_q.next_Q: targetQ})
 
                 rall += r
                 s = s1
@@ -275,11 +285,17 @@ if __name__ == '__main__':
                     hit +=1
                     # Random action
                     # e = 1.0 / ((i / 50) + 10)
-                    e = 0.01
-                    print("Episode {}, Fuel Mass: {}".format(i, env.getTotalMass() - mass))
+                    e = 0.05
+                    reward.append(r)
+                    r_list.append(rall)
+
+                    pos_x = env._targetOrbit.getPVCoordinates().getPosition().getX()
+                    pos_y = env._targetOrbit.getPVCoordinates().getPosition().getY()
+                    pos = q = np.column_stack((env._px, env._py)) / 1e3
+                    print("Episode {}, Fuel Mass: {}, date: {}".format(i, env.getTotalMass() - mass, env._currentOrbit.getDate()))
                     plt.title('completed episode')
                     plt.subplot(2, 1, 1)
-                    plt.plot(np.asarray(env._px) / 1e3, np.asarray(env._py) / 1e3)
+                    plt.plot(pos[:,0], pos[:,1], 'b-', pos_x/1e3, pos_y/1e3, 'ro')
                     plt.xlabel('km')
                     plt.ylabel('km')
                     plt.subplot(2, 1, 2)
@@ -295,16 +311,16 @@ if __name__ == '__main__':
             j_list.append(j)
             r_list.append(rall)
 
-            plt.subplot(2,1,1)
-            plt.plot(reward)
-            plt.subplot(2,1,2)
-            plt.plot(actions)
-            plt.show()
+            # plt.subplot(2,1,1)
+            # plt.plot(reward)
+            # plt.subplot(2,1,2)
+            # plt.plot(actions)
+            # plt.show()
 
             # print('a final {}'.format(env._currentOrbit.getA()/1e3))
             track_a.append(env._currentOrbit.getA()/1e3)
 
-            if i % 5 == 0:
+            if i % 10 == 0:
                 plt.title('iteration {}'.format(i))
                 plt.subplot(2, 1, 1)
                 plt.plot(np.asarray(env._px)/1e3, np.asarray(env._py)/1e3)
@@ -318,6 +334,8 @@ if __name__ == '__main__':
                 plt.show()
             # print("episode {}, time {}".format(i, stop-start))
             print("episode {} of {}, orbit:{}".format(i, num_episodes, env._currentOrbit.getA()/1e3))
+            if hit == 100:
+                break
         if save:
             # Save the entire seesion just in case
             save_session = saver.save(sess, "log/complete_model/complete_model.ckpt")
