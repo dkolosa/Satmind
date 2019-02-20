@@ -11,107 +11,93 @@ class Actor:
         self.tau = tau
         self.action_bound = action_bound
 
-        # create the actor network
-        self.input = tf.placeholder(tf.float32, shape=[1, features])
+        # create the actor network and target network
+        self.input, self.output, self.scaled_output = self.build_network(features, n_actions, layer_1_nodes, layer_2_nodes, name)
+        self.target_input, self.target_output, self.target_scaled_output = self.build_network(features, n_actions, layer_1_nodes, layer_2_nodes, name='target_actor_')
 
-        with tf.variable_scope(name + '_layer1'):
-            layer_1 = tf.layers.dense(inputs=self.input,
+        self.network_parameters = tf.trainable_variables()
+        self.target_network_parameters = tf.trainable_variables()[len(self.network_parameters):]
+
+        # This is retrieved from the critic network
+        self.action_gradient = tf.placeholder(tf.float32, [None, n_actions])
+        self.actor_gradient = tf.gradients(self.scaled_output, self.network_parameters, -self.action_gradient)
+        self.train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(self.actor_gradient, self.network_parameters))
+
+        self.update_target_network_parameters = [self.target_network_parameters[i].assign(tf.multiply(self.network_parameters[i], self.tau) + \
+                                           tf.multiply(self.target_network_parameters[i], 1. - self.tau))
+         for i in range(len(self.target_network_parameters))]
+
+        self.trainable_variables = len(self.network_parameters) + len(self.target_network_parameters)
+
+    def build_network(self,features, n_actions, layer_1_nodes, layer_2_nodes,name):
+        input = tf.placeholder(tf.float32, shape=[1, features])
+        with tf.variable_scope(str(name) + '_layer_1'):
+            layer_1 = tf.layers.dense(inputs=input,
                                       units=layer_1_nodes,
                                       activation=tf.nn.relu,
                                       kernel_initializer=tf.random_normal_initializer(0., .1),
                                       bias_initializer=tf.constant_initializer(0.1),
-                                      name='layer_1'
                                       )
 
-        with tf.variable_scope(name+'_layer2'):
+        with tf.variable_scope(str(name) + '_layer_2'):
             layer_2 = tf.layers.dense(inputs=layer_1,
                                       units=layer_2_nodes,
                                       activation=tf.nn.relu,
                                       kernel_initializer=tf.random_normal_initializer(0., .1),
                                       bias_initializer=tf.constant_initializer(0.1),
-                                      name='layer_2'
                                       )
 
-        with tf.variable_scope(name+'_output'):
-            self.action_prob = tf.layers.dense(inputs=layer_2,
-                                               units=n_actions,
-                                               activation=tf.nn.sigmoid,
-                                               kernel_initializer=tf.random_normal_initializer(0.,.1),
-                                               bias_initializer=tf.constant_initializer(0.1),
-                                               name='action_probability')
+        with tf.variable_scope(str(name) + '_output'):
+            output = tf.layers.dense(inputs=layer_2,
+                                          units=n_actions,
+                                          activation=tf.nn.sigmoid,
+                                          kernel_initializer=tf.random_normal_initializer(0.,.1),
+                                          bias_initializer=tf.constant_initializer(0.1),
+                                     )
 
-        self.scaled_output = tf.multiply(self.action_prob, action_bound)
+        scaled_output = tf.multiply(output, self.action_bound)
 
-        self.network_parameters = tf.trainable_variables()
-
-        # This is retrived from the critic network
-        self.action_gradient = tf.placeholder(tf.float32, [None, n_actions])
-
-        self.actor_gradient = tf.gradients(self.scaled_output, self.network_parameters, -self.action_gradient)
-
-        self.train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(self.actor_gradient, self.network_parameters))
-
-    def train(self, state, action_gradient, sess):
-        action = sess.run(self.train_op, {self.input: [state],
-                                          self.action_gradient: action_gradient})
+        return input, output, scaled_output
 
     def predict(self, state, sess):
         action = sess.run(self.scaled_output, {self.input: [state]})
         return action
 
-    def update_target_network(self, actor_network, sess):
+    def predict_target(self, state, sess):
+        action = sess.run(self.target_scaled_output, {self.target_input: [state]})
+        return action
+
+    def train(self, state, action_gradient, sess):
+        action = sess.run(self.train_op, {self.input: [state],
+                                          self.action_gradient: action_gradient})
+
+    def update_target_network(self, sess):
         """
         theta^u' <- tau*theta^u + (1-tau)theta^u'
         :return:
         """
-        [self.network_parameters[i].assign(tf.multiply(actor_network[i], self.tau) +
-                                           tf.multiply(self.network_parameters[i], 1. - self.tau))
-            for i in range(len(self.network_parameters))]
-
+        sess.run(self.update_target_network_parameters)
 
 class Critic:
 
-    def __init__(self, n_features, n_actions, layer_1_nodes, layer_2_nodes, learning_rate, tau, name):
+    def __init__(self, n_features, n_actions, layer_1_nodes, layer_2_nodes, learning_rate, tau, name, actor_trainable_variables):
 
         self.tau = tau
         self.n_features = n_features
         self.n_actions = n_actions
 
-        self.input = tf.placeholder(tf.float32, shape=[None, n_features])
-        self.action = tf.placeholder(tf.float32, shape=[None, n_actions])
+        self.input, self.action, self.output  = self.build_network(n_features, n_actions, layer_1_nodes, layer_2_nodes, name)
+        self.input_target, self.action_target, self.output_target = self.build_network(n_features, n_actions, layer_1_nodes, layer_2_nodes, name='target_critic_')
+
         self.q_value = tf.placeholder(tf.float32, shape=[None, 1])
 
-        l1_init = tf.random_normal_initializer(0.0, 0.1)
-        b1_init = tf.constant_initializer(0.1)
+        self.network_parameters = tf.trainable_variables()[actor_trainable_variables:]
+        self.target_network_parameters = tf.trainable_variables()[(len(self.network_parameters) + actor_trainable_variables):]
 
-        with tf.variable_scope(name + '_layer_1'):
-            input_weight = tf.get_variable('l1_state', [self.n_features, layer_1_nodes], initializer=l1_init)
-            action_weight = tf.get_variable('l1_action', [self.n_actions, layer_1_nodes], initializer=l1_init)
-            bias = tf.get_variable('l1_bias', [1, layer_1_nodes], initializer=b1_init)
-            layer_1 = tf.nn.relu(tf.matmul(self.input, input_weight) + tf.matmul(self.action, action_weight) + bias)
-
-        # with tf.variable_scope(name +'_layer_1'):
-        #     layer_1 = tf.layers.dense(inputs=self.input,
-        #                               units=layer_1_nodes,
-        #                               activation=tf.nn.relu,
-        #                               kernel_initializer=tf.random_normal_initializer(0., .1),
-        #                               bias_initializer=tf.constant_initializer(0.1)
-        #                               )
-        #
-        # t1_layer_2 = tf.layers.dense(inputs=layer_1, units=layer_2_nodes, activation=None, use_bias=False)
-        # t2_layer_2 = tf.layers.dense(inputs=self.action, units=layer_2_nodes, activation=None, use_bias=False)
-
-        # with tf.variable_scope(name + '_layer_2'):
-        #     layer_2 = tf.nn.relu(tf.matmul(layer_1, t1_layer_2) + tf.matmul(self.action, t2_layer_2))
-
-        with tf.variable_scope(name + '_output'):
-            self.output = tf.layers.dense(inputs=layer_1,
-                                         units=1,
-                                         kernel_initializer=tf.random_normal_initializer(0., .1),
-                                         bias_initializer=tf.constant_initializer(0.1)
-                                         )
-
-        self.network_parameters = tf.trainable_variables()
+        self.update_target_network_parameters = \
+            [self.target_network_parameters[i].assign(tf.multiply(self.network_parameters[i], self.tau) \
+                                                  + tf.multiply(self.target_network_parameters[i], 1. - self.tau))
+             for i in range(len(self.target_network_parameters))]
 
         self.loss = tf.square(self.q_value-self.output)
         self.train_op = tf.train.AdamOptimizer(learning_rate).minimize(self.loss)
@@ -119,28 +105,60 @@ class Critic:
         # the action-value gradient to be used be the actor network
         self.action_grad = tf.gradients(self.output, self.action)
 
-    def train(self, state, action, q_value, sess):
-        return sess.run([self.output, self.train_op], {self.input: state.reshape(1,self.n_features),
-                                                       self.action: np.array(action).reshape(1,self.n_actions),
-                                                       self.q_value: q_value})
+    def build_network(self, n_features, n_actions, layer_1_nodes, layer_2_nodes, name):
+        l1_init = tf.random_normal_initializer(0.0, 0.1)
+        b1_init = tf.constant_initializer(0.1)
+
+        input = tf.placeholder(tf.float32, shape=[None, n_features])
+        action = tf.placeholder(tf.float32, shape=[None, n_actions])
+
+        with tf.variable_scope(str(name) + '_layer_1'):
+            input_weight = tf.get_variable('l1_state', [n_features, layer_1_nodes], initializer=l1_init)
+            action_weight = tf.get_variable('l1_action', [n_actions, layer_1_nodes], initializer=l1_init)
+            bias = tf.get_variable('l1_bias', [1, layer_1_nodes], initializer=b1_init)
+            layer_1 = tf.nn.relu(tf.matmul(input, input_weight) + tf.matmul(action, action_weight) + bias)
+
+        with tf.variable_scope(str(name) + '_layer_2'):
+            layer_2 = tf.layers.dense(inputs=layer_1,
+                                      units=layer_2_nodes,
+                                      activation=tf.nn.relu,
+                                      kernel_initializer=tf.random_normal_initializer(0., .1),
+                                      bias_initializer=tf.constant_initializer(0.1),
+                                      )
+
+        with tf.variable_scope(str(name) + '_output'):
+            output = tf.layers.dense(inputs=layer_2,
+                                          units=1,
+                                          kernel_initializer=tf.random_normal_initializer(0., .1),
+                                          bias_initializer=tf.constant_initializer(0.1)
+                                          )
+
+        return input, action, output
 
     def predict(self, state, action, sess):
         return sess.run(self.output, {self.input: state.reshape((1,self.n_features)),
                                                        self.action: np.array(action).reshape((1,self.n_actions))})
 
+    def predict_target(self, state, action, sess):
+        return sess.run(self.output_target, {self.input_target: state.reshape((1,self.n_features)),
+                                                       self.action_target: np.array(action).reshape((1,self.n_actions))})
+
+    def train(self, state, action, q_value, sess):
+        return sess.run([self.output, self.train_op], {self.input: state.reshape(1,self.n_features),
+                                                       self.action: np.array(action).reshape(1,self.n_actions),
+                                                       self.q_value: q_value})
+
     def action_gradient(self, state, action, sess):
         return sess.run(self.action_grad, {self.input: [state],
                                                self.action: action})
 
-    def update_target_network(self, critic_network, sess):
+    def update_target_network(self, sess):
         """
         theta^Q' <- tau*theta^Q + (1-tau)theta^Q'
         where theta are all of the weights of the target network
         :return:
         """
-        sess.run([self.network_parameters[i].assign(tf.multiply(critic_network[i], self.tau) +
-                                            tf.multiply(self.network_parameters[i], 1. - self.tau))
-                  for i in range(len(self.network_parameters))])
+        sess.run(self.update_target_network_parameters)
 
 
 class OrnsteinUhlenbeck():
@@ -240,7 +258,7 @@ def main():
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass)
-    stepT = 100.0
+    stepT = 10.0
     num_episodes = 100
     iter_per_episode = 1000
 
@@ -257,11 +275,8 @@ def main():
 
     # Initialize actor and critic network and targets
     actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, 'actor')
-    actor_target = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, 'actor_target')
     actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
-    
-    critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic')
-    critic_target = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic_target')
+    critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
 
     # Replay memory buffer
     replay = Experience(buffer_size=500)
@@ -286,11 +301,12 @@ def main():
                 if len(replay.buffer) < replay.buffer_size:
                     s_rep, a_rep, r_rep, s1_rep = s, a, r, s1
                 else:
-                    s_rep, a_rep, r_rep, s1_rep = replay.experience_replay()
+                    mem = replay.experience_replay()
+                    s_rep, a_rep, r_rep, s1_rep = np.asarray(mem[0:1]).flatten(), mem[1], mem[2], np.asarray(mem[3:4]).flatten()
 
                 # Get q-value from the critic target
-                act_target = actor_target.predict(s1_rep, sess)
-                target_q = critic_target.predict(s1_rep, act_target, sess)
+                act_target = actor.predict_target(s1_rep, sess)
+                target_q = critic.predict_target(s1_rep, act_target, sess)
 
                 y_i = r_rep + GAMMA * target_q
 
@@ -303,8 +319,8 @@ def main():
                 actor.train(s_rep, grad[0], sess)
 
                 # update target networks
-                actor_target.update_target_network(actor.network_parameters, sess)
-                critic_target.update_target_network(critic.network_parameters, sess)
+                actor.update_target_network(sess)
+                critic.update_target_network(sess)
 
                 sum_reward += r
 
