@@ -142,12 +142,12 @@ class OrekitEnv:
         maxStep = 1.e+3
 
         position_tolerance = 10.0
-        tolerances = NumericalPropagator.tolerances(position_tolerance, self._orbit, self._orbit.getType())
-        abs_tolerance = JArray_double.cast_(tolerances[0])
-        rel_telerance = JArray_double.cast_(tolerances[1])
+        # tolerances = NumericalPropagator.tolerances(position_tolerance, self._orbit, self._orbit.getType())
+        # abs_tolerance = JArray_double.cast_(tolerances[0])
+        # rel_telerance = JArray_double.cast_(tolerances[1])
 
-        # integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
-        integrator = DormandPrince853Integrator(minStep, maxStep, abs_tolerance, rel_telerance)
+        integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
+        # integrator = DormandPrince853Integrator(minStep, maxStep, abs_tolerance, rel_telerance)
 
         integrator.setInitialStepSize(100.0)
 
