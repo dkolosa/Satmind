@@ -4,6 +4,7 @@ from collections import  deque
 from env_orekit import OrekitEnv
 import gym
 import tflearn
+import matplotlib.pyplot as plt
 
 class Actor:
 
@@ -248,29 +249,33 @@ def orekit_setup():
     lM_targ = lv
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
-    stepT = 10.0
+    stepT = 1000.0
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env
 
 def main():
 
-    env = gym.make('Pendulum-v0')
+    # env = gym.make('Pendulum-v0')
     # env = gym.make('MountainCarContinuous-v0')
-    env.seed(1234)
+    env = orekit_setup()
+
+    # env.seed(1234)
     np.random.seed(1234)
 
     num_episodes = 800
     iter_per_episode = 1000
 
-    # Network inputs and outputs
-    # features = 2
-    # n_actions = 1
-    # action_bound = 9
+    stepT = 100.0
 
-    features = env.observation_space.shape[0]
-    n_actions = env.action_space.shape[0]
-    action_bound = env.action_space.high
+    # Network inputs and outputs
+    features = 2
+    n_actions = 1
+    action_bound = 1
+
+    # features = env.observation_space.shape[0]
+    # n_actions = env.action_space.shape[0]
+    # action_bound = env.action_space.high
 
     layer_1_nodes, layer_2_nodes = 400, 300
     tau = 0.001
@@ -296,16 +301,17 @@ def main():
             sum_reward = 0
             sum_q = 0
 
+            actions = []
+
             for j in range(iter_per_episode):
 
-                env.render()
-
                 # Select an action
-                # a = abs(np.linalg.norm(actor.predict(s, sess) + actor_noise()))
-                a = actor.predict(s, sess) + actor_noise()
+                a = abs(np.linalg.norm(actor.predict(s, sess) + actor_noise()))
+                # a = actor.predict(s, sess) + actor_noise()
 
                 # Observe state and reward
-                s1, r, done, _ = env.step(a[0])
+                s1, r, done = env.step(float(a))
+                actions.append(a)
                 # Store in replay memory
                 replay.add((s, a, r, s1.flatten(), done))
                 # sample from random memory
@@ -342,7 +348,24 @@ def main():
                 s = s1.flatten()
                 if done:
                     print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
+                    print('a:' + str(env._currentOrbit.getA()) + 'ecc: ' + str(env._currentOrbit.getE()))
+                    print('===========')
                     break
+            if i % 20 == 0:
+                pos_x = env._targetOrbit.getPVCoordinates().getPosition().getX()
+                pos_y = env._targetOrbit.getPVCoordinates().getPosition().getY()
+                pos = q = np.column_stack((env._px, env._py)) / 1e3
+                plt.subplot(2, 1, 1)
+                plt.title('Episode: ' + str(i) + ' a_final:' + str(int(env._currentOrbit.getA() / 1e3)) + ' km')
+                plt.plot(pos[:, 0], pos[:, 1], 'b-', pos_x / 1e3, pos_y / 1e3, 'ro')
+                plt.xlabel('km')
+                plt.ylabel('km')
+                plt.subplot(2, 1, 2)
+                plt.plot(actions)
+                plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
+                plt.ylabel('Thrust (N)')
+                plt.tight_layout()
+            plt.show()
 
 
 
