@@ -46,7 +46,7 @@ class OrekitEnv:
     This class uses Orekit to create an environment to propagate a satellite
     """
 
-    def __init__(self, state, state_targ, date, duration, mass, fuel_mass):
+    def __init__(self, state, state_targ, date, duration, mass, fuel_mass, stepT):
         """
         initializes the orekit VM and included libraries
         Params:
@@ -81,6 +81,8 @@ class OrekitEnv:
         self.setForceModel()
         self.final_date = self._initial_date.shiftedBy(duration)
         self.create_orbit(state_targ, self.final_date, target=True)
+
+        self.stepT = stepT
 
     def set_date(self, date=None, absolute_date=None, step=0):
         """
@@ -220,7 +222,7 @@ class OrekitEnv:
         """
         return self._sc_fuel.getAdditionalState(FUEL_MASS)[0] + self._sc_fuel.getMass()
 
-    def step(self, thrust_mag, stepT):
+    def step(self, thrust_mag):
         """
         Take a propagation step
         :param thrust_mag: Thrust magnitude (Newtons, float)
@@ -232,9 +234,9 @@ class OrekitEnv:
         reward = 0
         isp = 1200.0
         # start date, duration, thrust, isp, direction
-        thrust = ConstantThrustManeuver(self._extrap_Date, stepT, thrust_mag, isp, attitude, DIRECTION)
+        thrust = ConstantThrustManeuver(self._extrap_Date, self.stepT, thrust_mag, isp, attitude, DIRECTION)
         self._prop.addForceModel(thrust)
-        currentState = self._prop.propagate(self._extrap_Date.shiftedBy(stepT))
+        currentState = self._prop.propagate(self._extrap_Date.shiftedBy(self.stepT))
         # print('step {}: time {} {}\n'.format(cpt, currentState.getDate(), currentState.getOrbit()))
         self._currentDate = currentState.getDate()
         self._extrap_Date = self._currentDate
@@ -242,7 +244,7 @@ class OrekitEnv:
         coord = currentState.getPVCoordinates().getPosition()
         # Calculate the fuel used and update spacecraft fuel mass
         self._sc_fuel = self._sc_fuel.addAdditionalState(FUEL_MASS, self._sc_fuel.getAdditionalState(FUEL_MASS)[0]
-                                                         + thrust.getFlowRate() * stepT)
+                                                         + thrust.getFlowRate() * self.stepT)
         self._px.append(coord.getX())
         self._py.append(coord.getY())
 
@@ -287,11 +289,12 @@ class OrekitEnv:
             reward = -100
             done = True
             # print('Overshoot')
-        elif -100 <= dist <= 100 and -100 <= self._currentDate.compareTo(self._targetOrbit.getDate()) <= 100:
-            reward = 100
-            done = True
+        elif -100 <= dist <= 100:
+            if abs(self._currentOrbit.getE() - self._targetOrbit.getE()) <= 0.1:
+                reward = 100
+                done = True
         else:
-            reward = -(target_a/current_a)
+            reward = (current_a/target_a)*(self._currentOrbit.getE()/self._targetOrbit.getE())
             done = False
             # reward = 1 - dist**.4
         return reward, done
@@ -351,17 +354,18 @@ def main():
     raan_targ = raan
     lM_targ = lM
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
-
-    env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass)
-
     stepT = 100.0
+
+
+    env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
+
     thrust_mag = 1.0
     isp = 1200.0
 
     a, lv = [], []
 
     while env._extrap_Date.compareTo(env.final_date) <= 0:
-        position, r, done, _ = env.step(thrust_mag, stepT)
+        position, r, done, _ = env.step(thrust_mag)
         a.append(position[0])
         lv.append(position[1])
 
