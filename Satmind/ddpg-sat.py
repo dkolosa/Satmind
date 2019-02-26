@@ -5,10 +5,11 @@ from env_orekit import OrekitEnv
 import gym
 import tflearn
 import matplotlib.pyplot as plt
+import random
 
 class Actor:
 
-    def __init__(self, features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, learning_rate, name):
+    def __init__(self, features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, learning_rate, batch_size, name):
 
         self.tau = tau
         self.action_bound = action_bound
@@ -23,7 +24,10 @@ class Actor:
 
         # This is retrieved from the critic network
         self.action_gradient = tf.placeholder(tf.float32, [None, n_actions])
-        self.actor_gradient = tf.gradients(self.scaled_output, self.network_parameters, -self.action_gradient)
+
+        self.unnorm_actor_grad = tf.gradients(self.scaled_output, self.network_parameters, -self.action_gradient)
+        self.actor_gradient = list(map(lambda x: tf.div(x, batch_size), self.unnorm_actor_grad))
+
         self.train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(self.actor_gradient, self.network_parameters))
 
         self.update_target_network_parameters = [self.target_network_parameters[i].assign(tf.multiply(self.network_parameters[i], self.tau) +
@@ -32,8 +36,8 @@ class Actor:
 
         self.trainable_variables = len(self.network_parameters) + len(self.target_network_parameters)
 
-    def build_network(self,features, n_actions, layer_1_nodes, layer_2_nodes,name):
-        input = tf.placeholder(tf.float32, shape=[1, features])
+    def build_network(self, features, n_actions, layer_1_nodes, layer_2_nodes,name):
+        input = tf.placeholder(tf.float32, shape=[None, features])
         with tf.variable_scope(str(name) + '_layer_1'):
             layer_1 = tf.layers.dense(inputs=input,
                                       units=layer_1_nodes,
@@ -59,16 +63,15 @@ class Actor:
         return input, output, scaled_output
 
     def predict(self, state, sess):
-        action = sess.run(self.scaled_output, {self.input: state.reshape(1,self.features)})
+        action = sess.run(self.scaled_output, {self.input: state})
         return action
 
     def predict_target(self, state, sess):
-        action = sess.run(self.target_scaled_output, {self.target_input: state.reshape(1,self.features)})
+        action = sess.run(self.target_scaled_output, {self.target_input: state})
         return action
 
     def train(self, state, action_gradient, sess):
-        action = sess.run(self.train_op, {self.input: state.reshape(1,self.features),
-                                          self.action_gradient: action_gradient})
+        sess.run(self.train_op, {self.input: state, self.action_gradient: action_gradient})
 
     def update_target_network(self, sess):
         """
@@ -111,15 +114,22 @@ class Critic:
         input = tf.placeholder(tf.float32, shape=[None, n_features])
         action = tf.placeholder(tf.float32, shape=[None, n_actions])
 
-        with tf.variable_scope(str(name) + '_layer_1'):
-            input_weight = tf.get_variable('l1_state', [n_features, layer_1_nodes], initializer=l1_init)
+        layer_1 = tf.contrib.layers.fully_connected(input, layer_1_nodes)
 
-            action_weight = tf.get_variable('l1_action', [n_actions, layer_1_nodes], initializer=l1_init)
-            bias = tf.get_variable('l1_bias', [1, layer_1_nodes], initializer=b1_init)
-            layer_1 = tf.nn.relu(tf.matmul(input, input_weight) + tf.matmul(action, action_weight) + bias)
+        t1 = tflearn.fully_connected(layer_1, layer_2_nodes)
+        t2 = tflearn.fully_connected(action, layer_2_nodes)
+
+        layer_2 = tf.nn.relu(tf.matmul(layer_1, t1.W) + tf.matmul(action, t2.W) + t2.b)
+        #
+        # with tf.variable_scope(str(name) + '_layer_1'):
+        #     input_weight = tf.get_variable('l1_state', [n_features, layer_1_nodes], initializer=l1_init)
+        #
+        #     action_weight = tf.get_variable('l1_action', [n_actions, layer_1_nodes], initializer=l1_init)
+        #     bias = tf.get_variable('l1_bias', [1, layer_1_nodes], initializer=b1_init)
+        #     layer_1 = tf.nn.relu(tf.matmul(input, input_weight) + tf.matmul(action, action_weight) + bias)
 
         with tf.variable_scope(str(name) + '_output'):
-            output = tf.layers.dense(inputs=layer_1,
+            output = tf.layers.dense(inputs=layer_2,
                                      units=1,
                                      activation=None,
                                      use_bias=False,
@@ -129,21 +139,21 @@ class Critic:
         return input, action, output
 
     def predict(self, state, action, sess):
-        return sess.run(self.output, {self.input: state.reshape((1,self.n_features)),
-                                                       self.action: np.array(action).reshape((1,self.n_actions))})
+        return sess.run(self.output, {self.input: state,
+                                      self.action: action})
 
     def predict_target(self, state, action, sess):
-        return sess.run(self.output_target, {self.input_target: state.reshape((1,self.n_features)),
-                                                       self.action_target: np.array(action).reshape((1,self.n_actions))})
+        return sess.run(self.output_target, {self.input_target: state,
+                                             self.action_target: action})
 
     def train(self, state, action, q_value, sess):
-        return sess.run([self.output, self.train_op], {self.input: state.reshape(1,self.n_features),
-                                                       self.action: np.array(action).reshape(1,self.n_actions),
+        return sess.run([self.output, self.train_op], {self.input: state,
+                                                       self.action: action,
                                                        self.q_value: q_value})
 
     def action_gradient(self, state, action, sess):
-        return sess.run(self.action_grad, {self.input: [state],
-                                               self.action: action})
+        return sess.run(self.action_grad, {self.input: state,
+                                           self.action: action})
 
     def update_target_network(self, sess):
         """
@@ -180,6 +190,7 @@ class Experience:
     def __init__(self, buffer_size):
         self.buffer_size = buffer_size
         self.buffer = deque(maxlen=buffer_size)
+        self.count = 0
 
     def add(self, experience):
         """
@@ -187,15 +198,23 @@ class Experience:
         :param experience: (state, action, reward, next state)
         :return:
         """
-        self.buffer.append(experience)
+        if self.count < self.buffer_size:
+            self.buffer.append(experience)
+            self.count += 1
+        else:
+            self.buffer.popleft()
+            self.buffer.append(experience)
 
-    def experience_replay(self):
+
+    def experience_replay(self, batch_size):
         """
         Get a random experience from the deque
         :return:  experience: (state, action, reward, next state, terminal(done))
         """
-        index = np.random.choice(np.arange(len(self.buffer)), replace=False)
-        return self.buffer[index]
+        if self.count < batch_size:
+            return random.sample(self.buffer, self.count)
+        else:
+            return random.sample(self.buffer, batch_size)
 
     def populate_memory(self, env, thrust_values, stepT):
         """
@@ -213,13 +232,18 @@ class Experience:
             self.add(e)
             state = state_1
 
+    @property
+    def get_count(self):
+        return self.count
+
+    @property
     def print_buffer(self):
         '''
         Prints all of the experience data stored in the buffer
 
         :return: Printed list of the experience in the buffer
         '''
-        for e in self.buffer: print(e)
+        for e in self.buffer: return e
 
 
 def orekit_setup():
@@ -256,34 +280,35 @@ def orekit_setup():
 
 def main():
 
-    # env = gym.make('Pendulum-v0')
+    env = gym.make('Pendulum-v0')
     # env = gym.make('MountainCarContinuous-v0')
-    env = orekit_setup()
+    # env = orekit_setup()
 
-    # env.seed(1234)
+    env.seed(1234)
     np.random.seed(1234)
 
     num_episodes = 800
     iter_per_episode = 1000
+    batch_size = 100
 
     stepT = 100.0
 
     # Network inputs and outputs
-    features = 2
-    n_actions = 1
-    action_bound = 1
+    # features = 2
+    # n_actions = 1
+    # action_bound = 1
 
-    # features = env.observation_space.shape[0]
-    # n_actions = env.action_space.shape[0]
-    # action_bound = env.action_space.high
+    features = env.observation_space.shape[0]
+    n_actions = env.action_space.shape[0]
+    action_bound = env.action_space.high
 
-    layer_1_nodes, layer_2_nodes = 400, 300
+    layer_1_nodes, layer_2_nodes = 600, 500
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
 
     # Initialize actor and critic network and targets
-    actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, 'actor')
+    actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size, 'actor')
     actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
     critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
 
@@ -305,67 +330,73 @@ def main():
 
             for j in range(iter_per_episode):
 
+                env.render()
+
                 # Select an action
-                a = abs(np.linalg.norm(actor.predict(s, sess) + actor_noise()))
-                # a = actor.predict(s, sess) + actor_noise()
+                # a = abs(np.linalg.norm(actor.predict(s, sess) + actor_noise()))
+                a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
 
                 # Observe state and reward
-                s1, r, done = env.step(float(a))
-                actions.append(a)
+                s1, r, done, _ = env.step(a[0])
+
+                # actions.append(a)
                 # Store in replay memory
-                replay.add((s, a, r, s1.flatten(), done))
+                replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
                 # sample from random memory
-                if len(replay.buffer) < replay.buffer_size:
-                    s_rep, a_rep, r_rep, s1_rep, d_rep = s, a, r, s1, done
-                else:
-                    mem = replay.experience_replay()
-                    s_rep, a_rep, r_rep, s1_rep, d_rep = mem[0], mem[1],  mem[2], mem[3],  mem[4]
+                if batch_size < replay.get_count:
+                    mem = replay.experience_replay(batch_size)
+                    s_rep = np.array([_[0] for _ in mem])
+                    a_rep = np.array([_[1] for _ in mem])
+                    r_rep = np.array([_[2] for _ in mem])
+                    s1_rep = np.array([_[3] for _ in mem])
+                    d_rep = np.array([_[4] for _ in mem])
 
-                # Get q-value from the critic target
-                act_target = actor.predict_target(s1_rep, sess)
-                target_q = critic.predict_target(s1_rep, act_target, sess)
+                    # Get q-value from the critic target
+                    act_target = actor.predict_target(s1_rep, sess)
+                    target_q = critic.predict_target(s1_rep, act_target, sess)
 
-                y_i = []
-                if d_rep:
-                    y_i.append(r_rep)
-                else:
-                    y_i.append(r_rep + GAMMA * target_q)
+                    y_i = []
+                    for x in range(batch_size):
+                        if d_rep[x]:
+                            y_i.append(r_rep[x])
+                        else:
+                            y_i.append(r_rep[x] + GAMMA * target_q[x])
 
-                # update the critic network
-                predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (1,1)), sess)
-                sum_q += np.amax(predicted_q)
-                # update actor policy
-                a_output = actor.predict(s_rep, sess)
-                grad = critic.action_gradient(s_rep, a_output, sess)
-                actor.train(s_rep, grad[0], sess)
+                    # update the critic network
+                    predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (batch_size,1)), sess)
+                    sum_q += np.amax(predicted_q)
+                    # update actor policy
+                    a_output = actor.predict(s_rep, sess)
+                    grad = critic.action_gradient(s_rep, a_output, sess)
+                    actor.train(s_rep, grad[0], sess)
 
-                # update target networks
-                actor.update_target_network(sess)
-                critic.update_target_network(sess)
+                    # update target networks
+                    actor.update_target_network(sess)
+                    critic.update_target_network(sess)
 
                 sum_reward += r
 
-                s = s1.flatten()
+                s = s1
                 if done:
                     print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
-                    print('a:' + str(env._currentOrbit.getA()) + 'ecc: ' + str(env._currentOrbit.getE()))
+                    # print('a:' + str(env._currentOrbit.getA()) + 'ecc: ' + str(env._currentOrbit.getE()))
                     print('===========')
                     break
-            if i % 20 == 0:
-                pos_x = env._targetOrbit.getPVCoordinates().getPosition().getX()
-                pos_y = env._targetOrbit.getPVCoordinates().getPosition().getY()
-                pos = q = np.column_stack((env._px, env._py)) / 1e3
-                plt.subplot(2, 1, 1)
-                plt.title('Episode: ' + str(i) + ' a_final:' + str(int(env._currentOrbit.getA() / 1e3)) + ' km')
-                plt.plot(pos[:, 0], pos[:, 1], 'b-', pos_x / 1e3, pos_y / 1e3, 'ro')
-                plt.xlabel('km')
-                plt.ylabel('km')
-                plt.subplot(2, 1, 2)
-                plt.plot(actions)
-                plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
-                plt.ylabel('Thrust (N)')
-                plt.tight_layout()
-            plt.show()
+            # if i % 20 == 0:
+            #     pos_x = env._targetOrbit.getPVCoordinates().getPosition().getX()
+            #     pos_y = env._targetOrbit.getPVCoordinates().getPosition().getY()
+            #     pos = q = np.column_stack((env._px, env._py)) / 1e3
+            #     plt.subplot(2, 1, 1)
+            #     plt.title('Episode: ' + str(i) + ' a_final:' + str(int(env._currentOrbit.getA() / 1e3)) + ' km')
+            #     plt.plot(pos[:, 0], pos[:, 1], 'b-', pos_x / 1e3, pos_y / 1e3, 'ro')
+            #     plt.xlabel('km')
+            #     plt.ylabel('km')
+            #     plt.subplot(2, 1, 2)
+            #     plt.plot(actions)
+            #     plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
+            #     plt.ylabel('Thrust (N)')
+            #     plt.tight_layout()
+            # plt.show()
 
 
 
