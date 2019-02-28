@@ -311,8 +311,8 @@ def main():
     # n_actions = 1
     # action_bound = 1
 
-    features = env.observation_space.shape[0]
-    n_actions = env.action_space.shape[0]
+    # features = env.observation_space.shape[0]
+    # n_actions = env.action_space.shape[0]
     action_bound = env.action_space.high
 
     layer_1_nodes, layer_2_nodes = 600, 500
