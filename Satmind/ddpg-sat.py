@@ -6,6 +6,8 @@ import gym
 import tflearn
 import matplotlib.pyplot as plt
 import random
+import json
+from math import radians, degrees
 
 class Actor:
 
@@ -258,10 +260,10 @@ def orekit_setup():
     # initial state
     sma = 40_000.0e3
     e = 0.001
-    i = 0.0
-    omega = 0.1
-    rann = 0.01
-    lv = 0.01
+    i = radians(0.1)
+    omega = radians(0.1)
+    rann = radians(0.01)
+    lv = radians(0.01)
     state = [sma, e, i, omega, rann, lv]
 
     # target state
@@ -273,18 +275,29 @@ def orekit_setup():
     lM_targ = lv
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
+
+    # input_file = 'input.json'
+    # with open(input_file) as input:
+    #     data = json.load(input)
+    #     state = list(data['initial_orbit'].values())
+    #     state_targ = list(data['target_orbit'].values())
+    #     date = list(data['initial_date'].values())
+    #     mass = data['spacecraft_parameters']['dry_mass']
+    #     fuel_mass = data['spacecraft_parameters']['fuel_mass']
+
     stepT = 1000.0
+    duration = 2 * 24.0 * 60.0 ** 2
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env
 
 def main():
 
-    env = gym.make('Pendulum-v0')
+    # env = gym.make('Pendulum-v0')
     # env = gym.make('MountainCarContinuous-v0')
-    # env = orekit_setup()
+    env = orekit_setup()
 
-    env.seed(1234)
+    # env.seed(1234)
     np.random.seed(1234)
 
     num_episodes = 800

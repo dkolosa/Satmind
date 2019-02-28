@@ -1,0 +1,40 @@
+{
+
+  "initial_orbit":
+  {
+    "sma": 41000,
+    "ecc":  0.01,
+    "incl": 0.01,
+    "omega": 0.01,
+    "rann": 0.01,
+    "true_anomaly": 0.01
+  },
+
+  "initial_date":
+  {
+    "year": 2018,
+    "month": 2,
+    "day": 28,
+    "hour": 12,
+    "minute": 10,
+    "second": 0.0
+  },
+
+  "spacecraft_parameters":
+  {
+    "dry_mass": 1000,
+    "fuel_mass": 150
+  },
+
+  "target_orbit":
+  {
+    "sma": 45000,
+    "ecc":  0.01,
+    "incl": 0.01,
+    "omega": 0.01,
+    "rann": 0.01,
+    "true_anomaly": 0.01
+  }
+
+}
+
