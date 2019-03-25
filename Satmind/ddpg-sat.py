@@ -6,6 +6,7 @@ import gym
 import tflearn
 import matplotlib.pyplot as plt
 import random
+import os, sys
 
 class Actor:
 
@@ -79,6 +80,7 @@ class Actor:
         :return:
         """
         sess.run(self.update_target_network_parameters)
+
 
 class Critic:
 
@@ -278,6 +280,7 @@ def orekit_setup():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env
 
+
 def main():
 
     env = gym.make('Pendulum-v0')
@@ -315,89 +318,111 @@ def main():
     # Replay memory buffer
     replay = Experience(buffer_size=2000)
 
+    # Save model directory
+    checkpoint_path = "models/pen_model.ckpt"
+    saver = tf.train.Saver()
+    TRAIN = False
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
-        actor.update_target_network(sess)
-        critic.update_target_network(sess)
+        if TRAIN:
+            actor.update_target_network(sess)
+            critic.update_target_network(sess)
 
-        for i in range(num_episodes):
-            s = env.reset()
-            sum_reward = 0
-            sum_q = 0
+            for i in range(num_episodes):
+                s = env.reset()
+                sum_reward = 0
+                sum_q = 0
 
-            actions = []
+                actions = []
 
-            for j in range(iter_per_episode):
+                for j in range(iter_per_episode):
 
-                env.render()
+                    env.render()
 
-                # Select an action
-                # a = abs(np.linalg.norm(actor.predict(s, sess) + actor_noise()))
-                a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
+                    # Select an action
+                    # a = abs(np.linalg.norm(actor.predict(s, sess) + actor_noise()))
+                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
 
-                # Observe state and reward
-                s1, r, done, _ = env.step(a[0])
+                    # Observe state and reward
+                    s1, r, done, _ = env.step(a[0])
 
-                # actions.append(a)
-                # Store in replay memory
-                replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
-                # sample from random memory
-                if batch_size < replay.get_count:
-                    mem = replay.experience_replay(batch_size)
-                    s_rep = np.array([_[0] for _ in mem])
-                    a_rep = np.array([_[1] for _ in mem])
-                    r_rep = np.array([_[2] for _ in mem])
-                    s1_rep = np.array([_[3] for _ in mem])
-                    d_rep = np.array([_[4] for _ in mem])
+                    # actions.append(a)
+                    # Store in replay memory
+                    replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
+                    # sample from random memory
+                    if batch_size < replay.get_count:
+                        mem = replay.experience_replay(batch_size)
+                        s_rep = np.array([_[0] for _ in mem])
+                        a_rep = np.array([_[1] for _ in mem])
+                        r_rep = np.array([_[2] for _ in mem])
+                        s1_rep = np.array([_[3] for _ in mem])
+                        d_rep = np.array([_[4] for _ in mem])
 
-                    # Get q-value from the critic target
-                    act_target = actor.predict_target(s1_rep, sess)
-                    target_q = critic.predict_target(s1_rep, act_target, sess)
+                        # Get q-value from the critic target
+                        act_target = actor.predict_target(s1_rep, sess)
+                        target_q = critic.predict_target(s1_rep, act_target, sess)
 
-                    y_i = []
-                    for x in range(batch_size):
-                        if d_rep[x]:
-                            y_i.append(r_rep[x])
-                        else:
-                            y_i.append(r_rep[x] + GAMMA * target_q[x])
+                        y_i = []
+                        for x in range(batch_size):
+                            if d_rep[x]:
+                                y_i.append(r_rep[x])
+                            else:
+                                y_i.append(r_rep[x] + GAMMA * target_q[x])
 
-                    # update the critic network
-                    predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (batch_size,1)), sess)
-                    sum_q += np.amax(predicted_q)
-                    # update actor policy
-                    a_output = actor.predict(s_rep, sess)
-                    grad = critic.action_gradient(s_rep, a_output, sess)
-                    actor.train(s_rep, grad[0], sess)
+                        # update the critic network
+                        predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (batch_size,1)), sess)
+                        sum_q += np.amax(predicted_q)
+                        # update actor policy
+                        a_output = actor.predict(s_rep, sess)
+                        grad = critic.action_gradient(s_rep, a_output, sess)
+                        actor.train(s_rep, grad[0], sess)
 
-                    # update target networks
-                    actor.update_target_network(sess)
-                    critic.update_target_network(sess)
+                        # update target networks
+                        actor.update_target_network(sess)
+                        critic.update_target_network(sess)
 
-                sum_reward += r
+                    sum_reward += r
 
-                s = s1
-                if done:
-                    print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
-                    # print('a:' + str(env._currentOrbit.getA()) + 'ecc: ' + str(env._currentOrbit.getE()))
-                    print('===========')
-                    break
-            # if i % 20 == 0:
-            #     pos_x = env._targetOrbit.getPVCoordinates().getPosition().getX()
-            #     pos_y = env._targetOrbit.getPVCoordinates().getPosition().getY()
-            #     pos = q = np.column_stack((env._px, env._py)) / 1e3
-            #     plt.subplot(2, 1, 1)
-            #     plt.title('Episode: ' + str(i) + ' a_final:' + str(int(env._currentOrbit.getA() / 1e3)) + ' km')
-            #     plt.plot(pos[:, 0], pos[:, 1], 'b-', pos_x / 1e3, pos_y / 1e3, 'ro')
-            #     plt.xlabel('km')
-            #     plt.ylabel('km')
-            #     plt.subplot(2, 1, 2)
-            #     plt.plot(actions)
-            #     plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
-            #     plt.ylabel('Thrust (N)')
-            #     plt.tight_layout()
-            # plt.show()
+                    s = s1
+                    if done:
+                        print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
+                        # print('a:' + str(env._currentOrbit.getA()) + 'ecc: ' + str(env._currentOrbit.getE()))
+                        print('===========')
+                        break
+                # if i % 20 == 0:
+                #     pos_x = env._targetOrbit.getPVCoordinates().getPosition().getX()
+                #     pos_y = env._targetOrbit.getPVCoordinates().getPosition().getY()
+                #     pos = q = np.column_stack((env._px, env._py)) / 1e3
+                #     plt.subplot(2, 1, 1)
+                #     plt.title('Episode: ' + str(i) + ' a_final:' + str(int(env._currentOrbit.getA() / 1e3)) + ' km')
+                #     plt.plot(pos[:, 0], pos[:, 1], 'b-', pos_x / 1e3, pos_y / 1e3, 'ro')
+                #     plt.xlabel('km')
+                #     plt.ylabel('km')
+                #     plt.subplot(2, 1, 2)
+                #     plt.plot(actions)
+                #     plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
+                #     plt.ylabel('Thrust (N)')
+                #     plt.tight_layout()
+                # plt.show()
+            # Save the trained model
+                if i % 50 == 0:
+                    saver.save(sess, checkpoint_path, write_meta_graph=False)
+        else:
+            saver.restore(sess, tf.train.latest_checkpoint("models/"))
+            for i in range(num_episodes):
+                s = env.reset()
+                sum_reward = 0
+                while True:
+                    env.render()
+                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
+                    s1, r, done, _ = env.step(a[0])
+                    s = s1
+                    sum_reward += r
+                    if done:
+                        print(f'Episode: {i}, reward: {int(sum_reward)}')
 
+                        break
 
 
 if __name__ == "__main__":
