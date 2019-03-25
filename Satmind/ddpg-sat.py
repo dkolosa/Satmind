@@ -288,8 +288,8 @@ def main():
     np.random.seed(1234)
 
     num_episodes = 800
-    iter_per_episode = 1000
-    batch_size = 100
+    iter_per_episode = 200
+    batch_size = 200
 
     stepT = 100.0
 
