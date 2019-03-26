@@ -315,8 +315,9 @@ def orekit_setup():
 
 
 def main(args):
-
-    env = gym.make('Pendulum-v0')
+    ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'OrekitEnv-v0')
+    ENV = ENVS[0]
+    env = gym.make(ENV)
     # env = gym.make('MountainCarContinuous-v0')
     # env = orekit_setup()
 
@@ -360,7 +361,10 @@ def main(args):
     else:
         TRAIN = True
         today = datetime.date.today()
-        checkpoint_path = './models'
+        path = '/tmp/ddpg_models/'
+        checkpoint_path =path+str(today)+ENV
+        os.makedirs(checkpoint_path, exist_ok=True)
+        print(f'Model will be saved in: {checkpoint_path}')
 
 
     with tf.Session() as sess:
