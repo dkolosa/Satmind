@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import random
 import os, sys
 import argparse
+import datetime
 
 class Actor:
 
@@ -17,11 +18,16 @@ class Actor:
         self.action_bound = action_bound
         self.features = features
         self.n_actions = n_actions
+        self.layer_1_nodes = layer_1_nodes
+        self.layer_2_nodes = layer_2_nodes
+        self.learning_rate = learning_rate
+        self.batch_size = batch_size
+        self.name = name
 
         # create the actor network and target network
-        self.input, self.output, self.scaled_output = self.build_network(features, n_actions, layer_1_nodes, layer_2_nodes, name)
+        self.input, self.output, self.scaled_output = self.build_network(name)
         self.network_parameters = tf.trainable_variables()
-        self.target_input, self.target_output, self.target_scaled_output = self.build_network(features, n_actions, layer_1_nodes, layer_2_nodes, name='target_actor_')
+        self.target_input, self.target_output, self.target_scaled_output = self.build_network(name='target_actor_')
         self.target_network_parameters = tf.trainable_variables()[len(self.network_parameters):]
 
         # This is retrieved from the critic network
@@ -38,23 +44,23 @@ class Actor:
 
         self.trainable_variables = len(self.network_parameters) + len(self.target_network_parameters)
 
-    def build_network(self, features, n_actions, layer_1_nodes, layer_2_nodes,name):
-        input = tf.placeholder(tf.float32, shape=[None, features])
+    def build_network(self, name):
+        input = tf.placeholder(tf.float32, shape=[None, self.features])
         with tf.variable_scope(str(name) + '_layer_1'):
             layer_1 = tf.layers.dense(inputs=input,
-                                      units=layer_1_nodes,
+                                      units=self.layer_1_nodes,
                                       activation=tf.nn.relu,
                                       )
 
         with tf.variable_scope(str(name) + '_layer_2'):
             layer_2 = tf.layers.dense(inputs=layer_1,
-                                      units=layer_2_nodes,
+                                      units=self.layer_2_nodes,
                                       activation=tf.nn.relu,
                                       )
 
         with tf.variable_scope(str(name) + '_output'):
             output = tf.layers.dense(inputs=layer_2,
-                                          units=n_actions,
+                                          units=self.n_actions,
                                           activation=tf.nn.tanh,
                                           kernel_initializer=tf.random_uniform_initializer(-0.003,0.003),
                                           use_bias=False,
@@ -82,6 +88,17 @@ class Actor:
         """
         sess.run(self.update_target_network_parameters)
 
+    def __str__(self):
+        return (f'Actor neural Network:\n'
+                f'Inputs: {self.features} \t Actions: {self.n_actions} \t Action bound: {self.action_bound}\n'
+                f'Layer 1 nodes: {self.layer_1_nodes} \t layer 2 nodes: {self.layer_2_nodes}\n'
+                f'learning rate: {self.learning_rate} \t target network update (tau): {self.tau}\n')
+
+    def __repr__(self):
+        return (f'{self.__class__.__name__}('
+                f'{self.features!r}, {self.n_actions!r},{self.layer_1_nodes!r}, {self.layer_2_nodes!r},'
+                f'{self.action_bound!r}, {self.tau!r}, {self.learning_rate!r}, {self.batch_size!r}, {self.name!r})')
+
 
 class Critic:
 
@@ -90,11 +107,16 @@ class Critic:
         self.tau = tau
         self.n_features = n_features
         self.n_actions = n_actions
+        self.layer_1_nodes = layer_1_nodes
+        self.layer_2_nodes = layer_2_nodes
+        self.learning_rate = learning_rate
+        self.name = name
+        self.actor_trainable_variables = actor_trainable_variables
 
-        self.input, self.action, self.output  = self.build_network(n_features, n_actions, layer_1_nodes, layer_2_nodes, name)
+        self.input, self.action, self.output  = self.build_network(name)
         self.network_parameters = tf.trainable_variables()[actor_trainable_variables:]
 
-        self.input_target, self.action_target, self.output_target = self.build_network(n_features, n_actions, layer_1_nodes, layer_2_nodes, name='target_critic_')
+        self.input_target, self.action_target, self.output_target = self.build_network(name='target_critic_')
         self.target_network_parameters = tf.trainable_variables()[(len(self.network_parameters) + actor_trainable_variables):]
 
         self.q_value = tf.placeholder(tf.float32, shape=[None, 1])
@@ -110,17 +132,17 @@ class Critic:
         # the action-value gradient to be used be the actor network
         self.action_grad = tf.gradients(self.output, self.action)
 
-    def build_network(self, n_features, n_actions, layer_1_nodes, layer_2_nodes, name):
+    def build_network(self, name):
         l1_init = tf.random_normal_initializer(0.0, 0.1)
         b1_init = tf.constant_initializer(0.1)
 
-        input = tf.placeholder(tf.float32, shape=[None, n_features])
-        action = tf.placeholder(tf.float32, shape=[None, n_actions])
+        input = tf.placeholder(tf.float32, shape=[None, self.n_features])
+        action = tf.placeholder(tf.float32, shape=[None, self.n_actions])
 
-        layer_1 = tf.contrib.layers.fully_connected(input, layer_1_nodes)
+        layer_1 = tf.contrib.layers.fully_connected(input, self.layer_1_nodes)
 
-        t1 = tflearn.fully_connected(layer_1, layer_2_nodes)
-        t2 = tflearn.fully_connected(action, layer_2_nodes)
+        t1 = tflearn.fully_connected(layer_1, self.layer_2_nodes)
+        t2 = tflearn.fully_connected(action, self.layer_2_nodes)
 
         layer_2 = tf.nn.relu(tf.matmul(layer_1, t1.W) + tf.matmul(action, t2.W) + t2.b)
         #
@@ -137,7 +159,7 @@ class Critic:
                                      activation=None,
                                      use_bias=False,
                                      kernel_initializer=tf.random_uniform_initializer(-0.003,0.003)
-                                          )
+                                     )
 
         return input, action, output
 
@@ -165,6 +187,17 @@ class Critic:
         :return:
         """
         sess.run(self.update_target_network_parameters)
+
+    def __str__(self):
+        return (f'Critic Neural Network:\n'
+                f'Inputs: {self.n_features} \t Actions: {self.n_actions}\n'
+                f'Layer 1 nodes: {self.layer_1_nodes} \t layer 2 nodes: {self.layer_2_nodes}\n'
+                f'learning rate: {self.learning_rate} \t target network update (tau): {self.tau}')
+
+    def __repr__(self):
+        return (f'{self.__class__.__name__}('
+                f'{self.n_features!r}, {self.n_actions!r},{self.layer_1_nodes!r}, {self.layer_2_nodes!r},'
+                f'{self.learning_rate!r}, {self.tau!r}, {self.name!r}, {self.actor_trainable_variables!r})')
 
 
 class OrnsteinUhlenbeck():
@@ -320,12 +353,15 @@ def main(args):
     saver = tf.train.Saver()
 
     # Save model directory
-    if args['model_dir'] is not None and args['test']:
+    if args['model_dir'] is not None:
         checkpoint_path = args['model_dir']
-        TRAIN = False
+        if args['test']:
+            TRAIN = False
     else:
         TRAIN = True
+        today = datetime.date.today()
         checkpoint_path = './models'
+
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
