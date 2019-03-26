@@ -7,6 +7,7 @@ import tflearn
 import matplotlib.pyplot as plt
 import random
 import os, sys
+import argparse
 
 class Actor:
 
@@ -207,7 +208,6 @@ class Experience:
             self.buffer.popleft()
             self.buffer.append(experience)
 
-
     def experience_replay(self, batch_size):
         """
         Get a random experience from the deque
@@ -281,7 +281,7 @@ def orekit_setup():
     return env
 
 
-def main():
+def main(args):
 
     env = gym.make('Pendulum-v0')
     # env = gym.make('MountainCarContinuous-v0')
@@ -317,11 +317,16 @@ def main():
 
     # Replay memory buffer
     replay = Experience(buffer_size=2000)
+    saver = tf.train.Saver()
 
     # Save model directory
-    checkpoint_path = "models/pen_model.ckpt"
-    saver = tf.train.Saver()
-    TRAIN = False
+    if args['model_dir'] is not None and args['test']:
+        checkpoint_path = args['model_dir']
+        TRAIN = False
+    else:
+        TRAIN = True
+        checkpoint_path = './models'
+
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
@@ -407,9 +412,12 @@ def main():
                 # plt.show()
             # Save the trained model
                 if i % 50 == 0:
-                    saver.save(sess, checkpoint_path, write_meta_graph=False)
+                    if args['model_dir'] is not None:
+                        saver.save(sess, checkpoint_path, write_meta_graph=False)
+                        print(f'Model Saved and Updated')
         else:
-            saver.restore(sess, tf.train.latest_checkpoint("models/"))
+            if args['model_dir'] is not None:
+                saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
             for i in range(num_episodes):
                 s = env.reset()
                 sum_reward = 0
@@ -421,9 +429,12 @@ def main():
                     sum_reward += r
                     if done:
                         print(f'Episode: {i}, reward: {int(sum_reward)}')
-
                         break
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model_dir', help="path of a trained tensorlfow model (str: path)", type=str)
+    parser.add_argument('--test', help="pass if testing a model", action='store_true')
+    args = vars(parser.parse_args())
+    main(args)
