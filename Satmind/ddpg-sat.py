@@ -275,18 +275,19 @@ def orekit_setup():
     lM_targ = lv
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
-
-    # input_file = 'input.json'
-    # with open(input_file) as input:
-    #     data = json.load(input)
-    #     state = list(data['initial_orbit'].values())
-    #     state_targ = list(data['target_orbit'].values())
-    #     date = list(data['initial_date'].values())
-    #     mass = data['spacecraft_parameters']['dry_mass']
-    #     fuel_mass = data['spacecraft_parameters']['fuel_mass']
+    input_file = 'input.json'
+    with open(input_file) as input:
+        data = json.load(input)
+        mission = data['GEO_sma_change']
+        state = list(mission['initial_orbit'].values())
+        state_targ = list(mission['target_orbit'].values())
+        date = list(mission['initial_date'].values())
+        mass = mission['spacecraft_parameters']['dry_mass']
+        fuel_mass = mission['spacecraft_parameters']['fuel_mass']
+        duration = mission['duration']
 
     stepT = 1000.0
-    duration = 2 * 24.0 * 60.0 ** 2
+    duration = (24.0 * 60.0 ** 2) * duration
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env
