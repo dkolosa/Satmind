@@ -362,10 +362,9 @@ def main(args):
         TRAIN = True
         today = datetime.date.today()
         path = '/tmp/ddpg_models/'
-        checkpoint_path =path+str(today)+ENV
+        checkpoint_path =path+str(today)+'-'+ENV
         os.makedirs(checkpoint_path, exist_ok=True)
         print(f'Model will be saved in: {checkpoint_path}')
-
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
