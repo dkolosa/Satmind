@@ -139,6 +139,11 @@ class OrekitEnv:
         """
         a, e, i, omega, raan, lM = state
 
+        i = radians(i)
+        omega = radians(omega)
+        raan = radians(raan)
+        lM = radians(lM)
+
         aDot, eDot, iDot, paDot, rannDot, anomalyDot = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
         # Set inertial frame
@@ -228,12 +233,9 @@ class OrekitEnv:
         plt.plot(np.array(self.px) / 1000, np.array(self.py) / 1000)
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
-        # earth = Circle(xy=(0,0), radius=6371.0)
-        # plt.figimage(earth)
-
         plt.figure(2)
         plt.subplot(3,2,1)
-        plt.plot(self.a_orbit)
+        plt.plot(np.asarray(self.a_orbit)/1e3)
         plt.ylabel('sma')
         plt.subplot(3,2,2)
         plt.plot(self.ex_orbit)
@@ -250,7 +252,7 @@ class OrekitEnv:
         plt.subplot(3,2,6)
         plt.plot(self.lv_orbit)
         plt.xlabel('lv')
-
+        plt.tight_layout()
         plt.show()
 
     def setForceModel(self):
@@ -328,8 +330,6 @@ class OrekitEnv:
 
         return state
 
-
-
     def step(self, thrust):
         """
         Take a propagation step
@@ -343,14 +343,14 @@ class OrekitEnv:
         if CONTINEOUS:
             thrust_mag = np.linalg.norm(thrust)
             thrust_dir = thrust / thrust_mag
-            # DIRECTION = Vector3D(float(thrust_dir[0]), float(thrust_dir[1]), float(thrust_dir[2]))
+            DIRECTION = Vector3D(float(thrust_dir[0]), float(thrust_dir[1]), float(thrust_dir[2]))
 
             if thrust_mag <= 0:
-                DIRECTION = Vector3D.MINUS_J
+                # DIRECTION = Vector3D.MINUS_J
                 # DIRECTION = Vector3D(float(thrust_dir[0]), float(thrust_dir[1]), float(thrust_dir[2]))
                 thrust_mag = abs(float(thrust_mag))
             else:
-                DIRECTION = Vector3D.PLUS_J
+                # DIRECTION = Vector3D.PLUS_J
                 # DIRECTION = Vector3D(float(thrust_dir[0]), float(thrust_dir[1]), float(thrust_dir[2]))
                 thrust_mag = float(thrust_mag)
 
@@ -401,22 +401,28 @@ class OrekitEnv:
         state = np.array([self._currentOrbit.getA(), self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
                           self._currentOrbit.getHx(), self._currentOrbit.getHy(), self._currentOrbit.getLv()])
 
-        target_state = np.asarray(self.get_state(self._targetOrbit, with_derivatives=False))
-
-        initial_state = np.asarray(self.get_state(self._orbit, with_derivatives=False))
 
         if self._sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
             print("Ran out of fuel")
             done = True
             reward = -100
 
-        # reward = -np.sum(np.nan_to_num((self.r_target_state-state)**2 / state)) - .001*thrust
-        # reward = -np.sum(np.nan_to_num((target_state - state) ** 2 / initial_state)) - .01 * thrust
-        reward = -np.sum(np.nan_to_num(abs(target_state - state) / initial_state)) - .01 * thrust
+        reward = -abs(self.r_target_state[0] - state[0]) / self._orbit.getA() - \
+                 np.nan_to_num(abs(self.r_target_state[1] - state[1])) - \
+                 np.nan_to_num(abs(self.r_target_state[2] - state[2])) - \
+                 np.nan_to_num(abs(self.r_target_state[3] - state[3]) / self._orbit.getHx()) - \
+                 np.nan_to_num(abs(self.r_target_state[4] - state[4]) / self._orbit.getHy()) - \
+                 0.001 * abs(thrust)
 
-        if abs(self.r_target_state[0] - state[0]) < self._orbit_tolerance['a']:
+        if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
+           abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
+           abs(self.r_target_state[2] - state[2]) <= self._orbit_tolerance['ey'] and \
+           abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
+           abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
+            # self.final_date.durationFrom(self._extrap_Date) <= 360:
             reward = 100
             done = True
+            print('hit')
 
         if self.r_target_state[0] - state[0] <= -10000:
             reward = -100
