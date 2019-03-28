@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 from collections import  deque
 from env_orekit import OrekitEnv
-import gym
+# import gym
 import tflearn
 import matplotlib.pyplot as plt
 import random
@@ -285,35 +285,35 @@ class Experience:
 
 def orekit_setup():
     # initialize enviornment
-    year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
-    date = [year, month, day, hr, minute, sec]
-
-    mass = 1000.0
-    fuel_mass = 500.0
-    duration = 2 * 24.0 * 60.0 ** 2
-
-    # initial state
-    sma = 40_000.0e3
-    e = 0.001
-    i = radians(0.1)
-    omega = radians(0.1)
-    rann = radians(0.01)
-    lv = radians(0.01)
-    state = [sma, e, i, omega, rann, lv]
-
-    # target state
-    a_targ = 45_000_000.0
-    e_targ = e
-    i_targ = i
-    omega_targ = omega
-    raan_targ = rann
-    lM_targ = lv
-    state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
+    # year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
+    # date = [year, month, day, hr, minute, sec]
+    #
+    # mass = 1000.0
+    # fuel_mass = 500.0
+    # duration = 2 * 24.0 * 60.0 ** 2
+    #
+    # # initial state
+    # sma = 40_000.0e3
+    # e = 0.001
+    # i = radians(0.1)
+    # omega = radians(0.1)
+    # rann = radians(0.01)
+    # lv = radians(0.01)
+    # state = [sma, e, i, omega, rann, lv]
+    #
+    # # target state
+    # a_targ = 45_000_000.0
+    # e_targ = e
+    # i_targ = i
+    # omega_targ = omega
+    # raan_targ = rann
+    # lM_targ = lv
+    # state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data['GEO_sma_change']
+        mission = data['Orbit_Raising']
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
@@ -321,8 +321,8 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
 
-    stepT = 1000.0
-    duration = (24.0 * 60.0 ** 2) * duration
+    stepT = 100.0
+    duration = (24.0 * 60.0 ** 2) * .5
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env
@@ -330,10 +330,10 @@ def orekit_setup():
 
 def main(args):
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'OrekitEnv-v0')
-    ENV = ENVS[0]
+    ENV = ENVS[3]
     # env = gym.make(ENV)
     # env = gym.make('MountainCarContinuous-v0')
-    # env = orekit_setup()
+    env = orekit_setup()
 
     # env.seed(1234)
     np.random.seed(1234)
@@ -345,13 +345,13 @@ def main(args):
     stepT = 100.0
 
     # Network inputs and outputs
-    # features = 2
-    # n_actions = 1
-    # action_bound = 1
+    features = env.observation_space
+    n_actions = 3
+    action_bound = env.action_bound
 
-    features = env.observation_space.shape[0]
-    n_actions = env.action_space.shape[0]
-    action_bound = env.action_space.high
+    # features = env.observation_space.shape[0]
+    # n_actions = env.action_space.shape[0]
+    # action_bound = env.action_space.high
 
     layer_1_nodes, layer_2_nodes = 600, 500
     tau = 0.001
@@ -396,16 +396,16 @@ def main(args):
 
                 for j in range(iter_per_episode):
 
-                    env.render()
+                    # env.render()
 
                     # Select an action
                     # a = abs(np.linalg.norm(actor.predict(s, sess) + actor_noise()))
                     a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
 
                     # Observe state and reward
-                    s1, r, done, _ = env.step(a[0])
+                    s1, r, done = env.step(a[0])
 
-                    # actions.append(a)
+                    actions.append(a)
                     # Store in replay memory
                     replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
                     # sample from random memory
@@ -448,7 +448,7 @@ def main(args):
                         # print('a:' + str(env._currentOrbit.getA()) + 'ecc: ' + str(env._currentOrbit.getE()))
                         print('===========')
                         break
-                # if i % 20 == 0:
+                if i % 5 == 0:
                 #     pos_x = env._targetOrbit.getPVCoordinates().getPosition().getX()
                 #     pos_y = env._targetOrbit.getPVCoordinates().getPosition().getY()
                 #     pos = q = np.column_stack((env._px, env._py)) / 1e3
@@ -463,6 +463,7 @@ def main(args):
                 #     plt.ylabel('Thrust (N)')
                 #     plt.tight_layout()
                 # plt.show()
+                    env.render_plots()
             # Save the trained model
                 if i % 50 == 0:
                     if args['model_dir'] is not None:
