@@ -9,6 +9,8 @@ import random
 import os, sys
 import argparse
 import datetime
+import json
+from math import radians, degrees
 
 class Actor:
 
@@ -293,10 +295,10 @@ def orekit_setup():
     # initial state
     sma = 40_000.0e3
     e = 0.001
-    i = 0.0
-    omega = 0.1
-    rann = 0.01
-    lv = 0.01
+    i = radians(0.1)
+    omega = radians(0.1)
+    rann = radians(0.01)
+    lv = radians(0.01)
     state = [sma, e, i, omega, rann, lv]
 
     # target state
@@ -308,7 +310,19 @@ def orekit_setup():
     lM_targ = lv
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
+    input_file = 'input.json'
+    with open(input_file) as input:
+        data = json.load(input)
+        mission = data['GEO_sma_change']
+        state = list(mission['initial_orbit'].values())
+        state_targ = list(mission['target_orbit'].values())
+        date = list(mission['initial_date'].values())
+        mass = mission['spacecraft_parameters']['dry_mass']
+        fuel_mass = mission['spacecraft_parameters']['fuel_mass']
+        duration = mission['duration']
+
     stepT = 1000.0
+    duration = (24.0 * 60.0 ** 2) * duration
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env
@@ -317,16 +331,16 @@ def orekit_setup():
 def main(args):
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'OrekitEnv-v0')
     ENV = ENVS[0]
-    env = gym.make(ENV)
+    # env = gym.make(ENV)
     # env = gym.make('MountainCarContinuous-v0')
     # env = orekit_setup()
 
-    env.seed(1234)
+    # env.seed(1234)
     np.random.seed(1234)
 
     num_episodes = 800
     iter_per_episode = 200
-    batch_size = 200
+    batch_size = 64
 
     stepT = 100.0
 
