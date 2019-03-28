@@ -60,10 +60,9 @@ class Actor:
                                       units=self.layer_2_nodes,
                                       activation=tf.nn.relu,
                                       )
-            l2_batch = tf.layers.batch_normalization(layer_2)
 
         with tf.variable_scope(str(name) + '_output'):
-            output = tf.layers.dense(inputs=l2_batch,
+            output = tf.layers.dense(inputs=layer_2,
                                           units=self.n_actions,
                                           activation=tf.nn.tanh,
                                           kernel_initializer=tf.random_uniform_initializer(-0.003,0.003),
@@ -144,11 +143,13 @@ class Critic:
         action = tf.placeholder(tf.float32, shape=[None, self.n_actions])
 
         layer_1 = tf.contrib.layers.fully_connected(input, self.layer_1_nodes)
+        l1_batch = tf.contrib.layers.batch_norm(layer_1)
+        # t1 = tflearn.fully_connected(layer_1, self.layer_2_nodes)
+        # t2 = tflearn.fully_connected(action, self.layer_2_nodes)
 
-        t1 = tflearn.fully_connected(layer_1, self.layer_2_nodes)
-        t2 = tflearn.fully_connected(action, self.layer_2_nodes)
+        # layer_2 = tf.nn.relu(tf.matmul(layer_1, t1.W) + tf.matmul(action, t2.W) + t2.b)
 
-        layer_2 = tf.nn.relu(tf.matmul(layer_1, t1.W) + tf.matmul(action, t2.W) + t2.b)
+        layer_2 = tf.contrib.layers.fully_connected(tf.concat((l1_batch, action), axis=1), self.layer_2_nodes)
         #
         # with tf.variable_scope(str(name) + '_layer_1'):
         #     input_weight = tf.get_variable('l1_state', [n_features, layer_1_nodes], initializer=l1_init)
@@ -332,28 +333,28 @@ def orekit_setup():
 
 def main(args):
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'OrekitEnv-v0')
-    ENV = ENVS[0]
-    env = gym.make(ENV)
-    # env, duration = orekit_setup()
+    ENV = ENVS[3]
+    # env = gym.make(ENV)
+    env, duration = orekit_setup()
 
-    env.seed(1234)
+    # env.seed(1234)
     np.random.seed(1234)
 
     num_episodes = 800
-    # stepT = 100.0
-    # iter_per_episode = int(duration / stepT)
-    batch_size = 64
-    iter_per_episode = 200
+    stepT = 100.0
+    iter_per_episode = int(duration / stepT)
+    batch_size = 1
+    # iter_per_episode = 200
 
 
     # Network inputs and outputs
-    # features = env.observation_space
-    # n_actions = 3
-    # action_bound = 0.7
+    features = env.observation_space
+    n_actions = 3
+    action_bound = 0.7
 
-    features = env.observation_space.shape[0]
-    n_actions = env.action_space.shape[0]
-    action_bound = env.action_space.high
+    # features = env.observation_space.shape[0]
+    # n_actions = env.action_space.shape[0]
+    # action_bound = env.action_space.high
 
     layer_1_nodes, layer_2_nodes = 600, 500
     tau = 0.001
@@ -389,22 +390,23 @@ def main(args):
             actor.update_target_network(sess)
             critic.update_target_network(sess)
 
+            rewards = []
+
             for i in range(num_episodes):
                 s = env.reset()
                 sum_reward = 0
                 sum_q = 0
 
                 actions = []
-
                 for j in range(iter_per_episode):
 
-                    env.render()
+                    # env.render()
 
                     # Select an action
                     a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
 
                     # Observe state and reward
-                    s1, r, done, _ = env.step(a[0])
+                    s1, r, done = env.step(a[0])
 
                     actions.append(a)
                     # Store in replay memory
@@ -442,19 +444,25 @@ def main(args):
                         critic.update_target_network(sess)
 
                     sum_reward += r
+                    rewards.append(sum_reward)
                     s = s1
-                    if done:
-                    # if done or j >= iter_per_episode - 1:
+                    # if done:
+                    if done or j >= iter_per_episode - 1:
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
+                        print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
+                              f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
+                              f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
+                              f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
+                              f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}')
                         print('===========')
                         break
-                # if i % 5 == 0:
-                #     plt.plot(np.linalg.norm(np.asarray(actions), axis=1))
-                #     plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
-                #     plt.ylabel('Thrust (N)')
-                #     plt.tight_layout()
-                #     plt.show()
-                #     env.render_plots()
+                if i % 50 == 0:
+                    # plt.plot(np.linalg.norm(np.asarray(actions), axis=1))
+                    # plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
+                    # plt.ylabel('Thrust (N)')
+                    # plt.tight_layout()
+                    # plt.show()
+                    env.render_plots()
             # Save the trained model
                 if i % 50 == 0:
                     if args['model_dir'] is not None:
@@ -475,6 +483,8 @@ def main(args):
                     if done:
                         print(f'Episode: {i}, reward: {int(sum_reward)}')
                         break
+        plt.plot(rewards)
+        plt.show()
 
 
 if __name__ == "__main__":

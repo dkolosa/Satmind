@@ -41,6 +41,7 @@ inertial_frame = FramesFactory.getEME2000()
 attitude = LofOffset(inertial_frame, LOFType.LVLH)
 MU = Constants.EGM96_EARTH_MU
 CONTINEOUS = True
+EARTH_RADIUS = 6378e3
 
 class OrekitEnv:
     """
@@ -288,7 +289,7 @@ class OrekitEnv:
         self.hy_orbit = []
         self.lv_orbit = []
 
-        state = np.array([self._orbit.getA(), self._orbit.getEquinoctialEx(), self._orbit.getEquinoctialEy(),
+        state = np.array([self._orbit.getA()/self._orbit.getA(), self._orbit.getEquinoctialEx(), self._orbit.getEquinoctialEy(),
                                   self._orbit.getHx(), self._orbit.getHy(), self._orbit.getLv(), 0, 0, 0, 0, 0, 0])
         return state
 
@@ -376,15 +377,14 @@ class OrekitEnv:
 
         reward, done = self.dist_reward(thrust_mag)
 
-        # state = self.get_keplerian(self._currentOrbit)
-        state_1 = [self._currentOrbit.getA(), self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
+        state_1 = [self._currentOrbit.getA()/self._orbit.getA(), self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
                    self._currentOrbit.getHx(), self._currentOrbit.getHy(), self._currentOrbit.getLv(),
                    self._currentOrbit.getADot(), self._currentOrbit.getEquinoctialExDot(),
                    self._currentOrbit.getEquinoctialEyDot(),
                    self._currentOrbit.getHxDot(), self._currentOrbit.getHyDot(), self._currentOrbit.getLvDot()
                    ]
 
-        state_1 = self.get_state(self._currentOrbit)
+        # state_1 = self.get_state(self._currentOrbit)
 
         return state_1, reward, done
 
