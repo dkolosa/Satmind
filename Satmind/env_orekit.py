@@ -1,7 +1,7 @@
 
 import orekit
 from math import radians, degrees
-import os, sys, datetime
+import datetime
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -412,7 +412,7 @@ class OrekitEnv:
                  np.nan_to_num(abs(self.r_target_state[2] - state[2])) - \
                  np.nan_to_num(abs(self.r_target_state[3] - state[3]) / self._orbit.getHx()) - \
                  np.nan_to_num(abs(self.r_target_state[4] - state[4]) / self._orbit.getHy()) - \
-                 0.001 * abs(thrust)
+                 0.01 * abs(thrust)
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
            abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
