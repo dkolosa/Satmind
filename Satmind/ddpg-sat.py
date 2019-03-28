@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 from collections import  deque
 from env_orekit import OrekitEnv
-# import gym
+import gym
 import tflearn
 import matplotlib.pyplot as plt
 import random
@@ -321,33 +321,32 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
 
-    stepT = 100.0
-    duration = (24.0 * 60.0 ** 2) * .5
+    stepT = 10.0
+    duration = (24.0 * 60.0 ** 2) * duration
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
-    return env
+    return env, duration
 
 
 def main(args):
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'OrekitEnv-v0')
     ENV = ENVS[3]
     # env = gym.make(ENV)
-    # env = gym.make('MountainCarContinuous-v0')
-    env = orekit_setup()
+    env, duration = orekit_setup()
 
     # env.seed(1234)
     np.random.seed(1234)
 
     num_episodes = 800
-    iter_per_episode = 200
+    stepT = 10.0
+    iter_per_episode = int(duration / stepT)
     batch_size = 64
 
-    stepT = 100.0
 
     # Network inputs and outputs
     features = env.observation_space
     n_actions = 3
-    action_bound = env.action_bound
+    action_bound = 0.7
 
     # features = env.observation_space.shape[0]
     # n_actions = env.action_space.shape[0]
@@ -364,7 +363,7 @@ def main(args):
     critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
 
     # Replay memory buffer
-    replay = Experience(buffer_size=2000)
+    replay = Experience(buffer_size=20000)
     saver = tf.train.Saver()
 
     # Save model directory
@@ -399,7 +398,6 @@ def main(args):
                     # env.render()
 
                     # Select an action
-                    # a = abs(np.linalg.norm(actor.predict(s, sess) + actor_noise()))
                     a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
 
                     # Observe state and reward
@@ -441,29 +439,20 @@ def main(args):
                         critic.update_target_network(sess)
 
                     sum_reward += r
-
                     s = s1
-                    if done:
+
+                    if done or j >= iter_per_episode - 1:
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                         # print('a:' + str(env._currentOrbit.getA()) + 'ecc: ' + str(env._currentOrbit.getE()))
                         print('===========')
                         break
                 if i % 5 == 0:
-                #     pos_x = env._targetOrbit.getPVCoordinates().getPosition().getX()
-                #     pos_y = env._targetOrbit.getPVCoordinates().getPosition().getY()
-                #     pos = q = np.column_stack((env._px, env._py)) / 1e3
-                #     plt.subplot(2, 1, 1)
-                #     plt.title('Episode: ' + str(i) + ' a_final:' + str(int(env._currentOrbit.getA() / 1e3)) + ' km')
-                #     plt.plot(pos[:, 0], pos[:, 1], 'b-', pos_x / 1e3, pos_y / 1e3, 'ro')
-                #     plt.xlabel('km')
-                #     plt.ylabel('km')
-                #     plt.subplot(2, 1, 2)
-                #     plt.plot(actions)
-                #     plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
-                #     plt.ylabel('Thrust (N)')
-                #     plt.tight_layout()
-                # plt.show()
-                    env.render_plots()
+                    plt.plot(np.linalg.norm(np.asarray(actions), axis=1))
+                    plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
+                    plt.ylabel('Thrust (N)')
+                    plt.tight_layout()
+                    plt.show()
+                    # env.render_plots()
             # Save the trained model
                 if i % 50 == 0:
                     if args['model_dir'] is not None:
