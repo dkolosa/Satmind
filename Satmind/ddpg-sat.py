@@ -334,29 +334,29 @@ def orekit_setup():
 def main(args):
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'OrekitEnv-v0')
     ENV = ENVS[0]
-    env = gym.make(ENV)
-    # env, duration = orekit_setup()
+    # env = gym.make(ENV)
+    env, duration = orekit_setup()
 
     # env.seed(1234)
     np.random.seed(1234)
 
     num_episodes = 800
-    stepT = 100.0
-    # iter_per_episode = int(duration / stepT)
+    stepT = 1000.0
+    iter_per_episode = int(duration / stepT)
     batch_size = 1
-    iter_per_episode = 200
+    # iter_per_episode = 200
 
 
     # Network inputs and outputs
-    # features = env.observation_space
-    # n_actions = 3
-    # action_bound = 3.0
+    features = env.observation_space
+    n_actions = 3
+    action_bound = 3.0
 
-    features = env.observation_space.shape[0]
-    n_actions = env.action_space.shape[0]
-    action_bound = env.action_space.high
+    # features = env.observation_space.shape[0]
+    # n_actions = env.action_space.shape[0]
+    # action_bound = env.action_space.high
 
-    layer_1_nodes, layer_2_nodes = 800, 750
+    layer_1_nodes, layer_2_nodes = 2048, 1500
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
@@ -367,7 +367,7 @@ def main(args):
     critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
 
     # Replay memory buffer
-    replay = Experience(buffer_size=20000)
+    replay = Experience(buffer_size=2000)
     saver = tf.train.Saver()
 
     # Save model directory
@@ -400,13 +400,13 @@ def main(args):
                 actions = []
                 for j in range(iter_per_episode):
 
-                    env.render()
+                    # env.render()
 
                     # Select an action
-                    a = actor.predict(np.reshape(s, (1, features)), sess)
+                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
 
                     # Observe state and reward
-                    s1, r, done, _ = env.step(a[0])
+                    s1, r, done = env.step(a[0])
 
                     actions.append(a)
                     # Store in replay memory
@@ -449,15 +449,12 @@ def main(args):
                     # if done:
                     if done or j >= iter_per_episode - 1:
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
-                        # print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
-                        #       f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
-                        #       f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
-                        #       f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
-                        #       f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}')
+                        print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
+                              f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
+                              f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
+                              f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
+                              f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}')
                         print('===========')
-                        # thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
-                        # plt.plot(np.arange(len(thrust_mag)),thrust_mag)
-                        # plt.show()
                         break
                 if i % 50 == 0:
                     # plt.plot(np.linalg.norm(np.asarray(actions), axis=1))
@@ -467,7 +464,10 @@ def main(args):
                     # plt.show()
                     saver.save(sess, checkpoint_path)
                     print(f'Model Saved and Updated')
-                    # env.render_plots()
+                    env.render_plots()
+                    thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
+                    plt.plot(np.arange(len(thrust_mag)), thrust_mag)
+                    plt.show()
             # Save the trained model
                 if i % 50 == 0:
                     if args['model_dir'] is not None:

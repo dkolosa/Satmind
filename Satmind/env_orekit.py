@@ -289,7 +289,7 @@ class OrekitEnv:
         self.hy_orbit = []
         self.lv_orbit = []
 
-        state = np.array([self._orbit.getA()/self._orbit.getA(), self._orbit.getEquinoctialEx(), self._orbit.getEquinoctialEy(),
+        state = np.array([self._orbit.getA()/self.r_target_state[0], self._orbit.getEquinoctialEx(), self._orbit.getEquinoctialEy(),
                                   self._orbit.getHx(), self._orbit.getHy(), self._orbit.getLv(), 0, 0, 0, 0, 0, 0])
         return state
 
@@ -375,7 +375,7 @@ class OrekitEnv:
 
         reward, done = self.dist_reward(thrust_mag)
 
-        state_1 = [self._currentOrbit.getA()/self._orbit.getA(), self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
+        state_1 = [self._currentOrbit.getA()/self.r_target_state[0], self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
                    self._currentOrbit.getHx(), self._currentOrbit.getHy(), self._currentOrbit.getLv(),
                    self._currentOrbit.getADot(), self._currentOrbit.getEquinoctialExDot(),
                    self._currentOrbit.getEquinoctialEyDot(),
@@ -405,10 +405,12 @@ class OrekitEnv:
             done = True
             reward = -100
 
-        reward = -abs(self.r_target_state[0] - state[0]) / self._orbit.getA() - \
-                 np.nan_to_num(abs(self._targetOrbit.getE() - self._currentOrbit.getE())) - \
-                 np.nan_to_num(abs(self._targetOrbit.getI() - self._currentOrbit.getI())) - \
-                 0.001 * thrust
+        # reward = -abs(self.r_target_state[0] - state[0]) / self._orbit.getA() - \
+        #          np.nan_to_num(abs(self._targetOrbit.getE() - self._currentOrbit.getE())) - \
+        #          np.nan_to_num(abs(self._targetOrbit.getI() - self._currentOrbit.getI())) - \
+        #          0.001 * thrust
+
+        reward = 0
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
             print(f'sma hit!!')
