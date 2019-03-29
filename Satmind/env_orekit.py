@@ -348,11 +348,9 @@ class OrekitEnv:
 
             if thrust_mag <= 0:
                 # DIRECTION = Vector3D.MINUS_J
-                # DIRECTION = Vector3D(float(thrust_dir[0]), float(thrust_dir[1]), float(thrust_dir[2]))
                 thrust_mag = abs(float(thrust_mag))
             else:
                 # DIRECTION = Vector3D.PLUS_J
-                # DIRECTION = Vector3D(float(thrust_dir[0]), float(thrust_dir[1]), float(thrust_dir[2]))
                 thrust_mag = float(thrust_mag)
 
         thrust_force = ConstantThrustManeuver(self._extrap_Date, self.stepT, thrust_mag, self._isp, attitude, DIRECTION)
@@ -408,11 +406,13 @@ class OrekitEnv:
             reward = -100
 
         reward = -abs(self.r_target_state[0] - state[0]) / self._orbit.getA() - \
-                 np.nan_to_num(abs(self.r_target_state[1] - state[1])) - \
-                 np.nan_to_num(abs(self.r_target_state[2] - state[2])) - \
-                 np.nan_to_num(abs(self.r_target_state[3] - state[3]) / self._orbit.getHx()) - \
-                 np.nan_to_num(abs(self.r_target_state[4] - state[4]) / self._orbit.getHy()) - \
-                 0.01 * abs(thrust)
+                 np.nan_to_num(abs(self._targetOrbit.getE() - self._currentOrbit.getE())) - \
+                 np.nan_to_num(abs(self._targetOrbit.getI() - self._currentOrbit.getI())) - \
+                 0.001 * thrust
+
+        if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
+            print(f'sma hit!!')
+            reward = 10
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
            abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
@@ -424,9 +424,9 @@ class OrekitEnv:
             done = True
             print('hit')
 
-        if self.r_target_state[0] - state[0] <= -10000:
-            reward = -100
-            done = True
+        # if self.r_target_state[0] - state[0] <= -10000:
+        #     reward = -100
+        #     done = True
 
         return reward, done
 
