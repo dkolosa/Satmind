@@ -149,10 +149,9 @@ class OrekitEnv:
         aDot, eDot, iDot, paDot, rannDot, anomalyDot = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
         # Set inertial frame
-        inertialFrame = FramesFactory.getEME2000()
         set_orbit = KeplerianOrbit(a, e, i, omega, raan, lM,
                                    aDot, eDot, iDot, paDot, rannDot, anomalyDot,
-                                   PositionAngle.MEAN, inertialFrame, date, MU)
+                                   PositionAngle.MEAN, inertial_frame, date, MU)
 
         if target:
             self._targetOrbit = set_orbit
@@ -201,10 +200,10 @@ class OrekitEnv:
         :return:
         """
         # tol = NumericalPropagator.tolerances(1.0, self._orbit, self._orbit.getType())
-        minStep = 1.e-3
-        maxStep = 1.e+3
+        minStep = 0.001
+        maxStep = 500.0
 
-        position_tolerance = 10.0
+        # position_tolerance = 10.0
         # tolerances = NumericalPropagator.tolerances(position_tolerance, self._orbit, self._orbit.getType())
         # abs_tolerance = JArray_double.cast_(tolerances[0])
         # rel_telerance = JArray_double.cast_(tolerances[1])
@@ -212,10 +211,11 @@ class OrekitEnv:
         integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
         # integrator = DormandPrince853Integrator(minStep, maxStep, abs_tolerance, rel_telerance)
 
-        integrator.setInitialStepSize(100.0)
+        integrator.setInitialStepSize(10.0)
 
         numProp = NumericalPropagator(integrator)
         numProp.setInitialState(self._sc_fuel)
+        # numProp.setOrbitType(OrbitType.KEPLERIAN)
 
         if prop_master_mode:
             output_step = 5.0
@@ -225,7 +225,7 @@ class OrekitEnv:
             numProp.setSlaveMode()
 
         self._prop = numProp
-        # self._prop.setAttitudeProvider(attitude)
+        self._prop.setAttitudeProvider(attitude)
 
     def render_plots(self):
         """
@@ -263,12 +263,13 @@ class OrekitEnv:
         Set up environment force models
         """
         # force model gravity field
-        # provider = GravityFieldFactory.getNormalizedProvider(10, 10)
-        # holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True),
-        #                                                        provider)
-        # self._prop.addForceModel(holmesFeatherstone)
-        earth = NewtonianAttraction(MU)
-        self._prop.addForceModel(earth)
+        provider = GravityFieldFactory.getNormalizedProvider(10, 10)
+        holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True),
+                                                               provider)
+        self._prop.addForceModel(holmesFeatherstone)
+        # earth = NewtonianAttraction(MU)
+        # self._prop.addForceModel(earth)
+        self._prop.addForceModel(holmesFeatherstone)
 
     def reset(self):
         """
@@ -324,9 +325,6 @@ class OrekitEnv:
         :return: spacecraft state (np.array), reward value (float), don\
         e (bbol)
         """
-        # Keep track of fuel, thrust, position, date
-        # start date, duration, thrust, isp, direction
-
         if CONTINEOUS:
             thrust_mag = np.linalg.norm(thrust)
             thrust_dir = thrust / thrust_mag
@@ -339,7 +337,7 @@ class OrekitEnv:
                 # DIRECTION = Vector3D.PLUS_J
                 thrust_mag = float(thrust_mag)
 
-        thrust_force = ConstantThrustManeuver(self._extrap_Date, self.stepT, thrust_mag, self._isp, attitude, DIRECTION)
+        thrust_force = ConstantThrustManeuver(self._extrap_Date, self.stepT, thrust_mag, self._isp, DIRECTION)
         self._prop.addForceModel(thrust_force)
         currentState = self._prop.propagate(self._extrap_Date.shiftedBy(self.stepT))
         # print('step {}: time {} {}\n'.format(cpt, currentState.getDate(), currentState.getOrbit()))
@@ -443,7 +441,6 @@ class OrekitEnv:
 
         # Orbit time for one orbit regardless of semi-major axis
         orbit_time = sqrt(4 * pi**2 * self._targetOrbit.getA()**3 / MU)
-        print(orbit_time)
         minStep = 1.e-3
         maxStep = 1.e+3
 
@@ -504,21 +501,21 @@ def main():
     year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
     date = [year, month, day, hr, minute, sec]
 
-    mass = 1000.0
-    fuel_mass = 500.0
-    duration = 24.0 * 60.0 ** 2 * .5
+    mass = 100.0
+    fuel_mass = 100.0
+    duration = 24.0 * 60.0 ** 2 * 1
 
     # set the sc initial state
     a = 5_500.0e3  # semi major axis (m)
-    e = 0.00  # eccentricity
+    e = 0.001  # eccentricity
     i = 0.001  # inclination
     omega = 0.01  # perigee argument
     raan = 0.01  # right ascension of ascending node
-    lM = 0.0  # mean anomaly
+    lM = 0.01  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 
     # target state
-    a_targ = 10_000.0e3
+    a_targ = 6600.0e3
     e_targ = e
     i_targ = i
     omega_targ = omega
@@ -530,12 +527,14 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([.2,.5,.1])
+    thrust_mag = np.array([0.0, 2.0, 0.0])
 
     while env._extrap_Date.compareTo(env.final_date) <= 0:
+    # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
         position, r, done = env.step(thrust_mag)
 
-    print(f'Done \n sma final: {env._currentOrbit.getA()}')
+    print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
+    print(f'time taken (hours): {env._currentDate.durationFrom(env.final_date)/60**2}')
     env.render_plots()
 
 if __name__ == '__main__':
