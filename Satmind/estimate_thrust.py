@@ -4,6 +4,7 @@ import numpy as np
 
 mu = 398600.0
 
+
 def get_sma(state, thrust_s, duration):
 
     a, e, E = state
@@ -13,18 +14,18 @@ def get_sma(state, thrust_s, duration):
 
 def get_thrust(state, da, duration):
     a = state[0]
-    return da/duration / (2*np.sqrt(a/mu)* a)
+    return da/(duration*np.sqrt(a/mu)*a)
 
 
 if __name__ == '__main__':
-#TODO: given a circular orbit, determine the required time delta-a and thrust required
 
-    a, e, E = 41_000.0, 0.0001, 0.0001
+    a, e, E = 55000.0, 0.0001, 0.0001
     state = [a, e, E]
-    F_s = 0.10
-    duration = 10*24*60**2
-    da = 1372.0
-    # print(get_sma(state, F_s, duration))
-    thrust = get_thrust(state,da, duration)
+    F_s = 1.0
+    duration = 1*24*60**2
+    da = 1100.0
+    print(get_sma(state, F_s, duration))
+    # thrust = get_thrust(state,da, duration)
     mass = 1500.0
-    print('tangential thrust accl:{} m/s^2 \nthrust: {} N'.format(thrust, thrust * mass))
+    # print(f'sma: {}')
+    # print('tangential thrust accl:{} m/s^2 \nthrust: {} N'.format(thrust, thrust * mass))
