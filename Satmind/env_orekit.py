@@ -1,6 +1,6 @@
 
 import orekit
-from math import radians, degrees
+from math import radians, degrees, sqrt, pi
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
@@ -82,6 +82,8 @@ class OrekitEnv:
         self._sc_fuel = None
         self._extrap_Date = None
         self._targetOrbit = None
+        self.target_px = []
+        self.target_py = []
 
         self._orbit_tolerance = {'a': 1000, 'ex': 0.01, 'ey': 0.01, 'hx': 0.01, 'hy': 0.01, 'lv': 0.01}
 
@@ -93,7 +95,6 @@ class OrekitEnv:
         self.setForceModel()
         self.final_date = self._initial_date.shiftedBy(duration)
         self.create_orbit(state_targ, self.final_date, target=True)
-        # ko_tar = KeplerianOrbit(self._targetOrbit)
 
         self.stepT = stepT
         self.action_space = 3  # output thrust
@@ -231,7 +232,8 @@ class OrekitEnv:
         Renders the x-y plots of the spacecraft trajectory
         :return:
         """
-        plt.plot(np.array(self.px) / 1000, np.array(self.py) / 1000)
+        plt.plot(np.array(self.px) / 1000, np.array(self.py) / 1000,
+                 np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000)
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
         plt.figure(2)
@@ -300,22 +302,6 @@ class OrekitEnv:
         :return: dry mass + fuel mass (kg)
         """
         return self._sc_fuel.getAdditionalState(FUEL_MASS)[0] + self._sc_fuel.getMass()
-
-    # @property
-    # def _orbit_tolerance(self):
-    #     return self._orbit_tolerance
-    #
-    # @_orbit_tolerance.setter
-    # def _orbit_tolerance(self, element, value):
-    #     self._orbit_tolerance[element] = float(value)
-
-    # @property
-    # def _isp(self):
-    #     return self._isp
-    #
-    # @_isp.setter
-    # def _isp(self, value):
-    #     self._isp = value
 
     def get_state(self, orbit, with_derivatives=True):
 
@@ -405,12 +391,11 @@ class OrekitEnv:
             done = True
             reward = -100
 
-        # reward = -abs(self.r_target_state[0] - state[0]) / self._orbit.getA() - \
-        #          np.nan_to_num(abs(self._targetOrbit.getE() - self._currentOrbit.getE())) - \
-        #          np.nan_to_num(abs(self._targetOrbit.getI() - self._currentOrbit.getI())) - \
-        #          0.001 * thrust
+        reward = -abs(self.r_target_state[0] - state[0]) / self._orbit.getA() - \
+                 np.nan_to_num(abs(self._targetOrbit.getE() - self._currentOrbit.getE())) - \
+                 np.nan_to_num(abs(self._targetOrbit.getI() - self._currentOrbit.getI())) - thrust
 
-        reward = 0
+        # reward = 0
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
             print(f'sma hit!!')
@@ -451,6 +436,39 @@ class OrekitEnv:
         # return float(thrust), float(direction)
 
         return float(thrust)
+
+    def render_target(self):
+
+        target_sc = SpacecraftState(self._targetOrbit)
+
+        # Orbit time for one orbit regardless of semi-major axis
+        orbit_time = sqrt(4 * pi**2 * self._targetOrbit.getA()**3 / MU)
+        print(orbit_time)
+        minStep = 1.e-3
+        maxStep = 1.e+3
+
+        integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
+        integrator.setInitialStepSize(100.0)
+
+        numProp = NumericalPropagator(integrator)
+        numProp.setInitialState(target_sc)
+        numProp.setSlaveMode()
+
+        target_prop = numProp
+        earth = NewtonianAttraction(MU)
+        target_prop.addForceModel(earth)
+
+        target_date = self.final_date.shiftedBy(orbit_time)
+        extrapDate = self.final_date
+        stepT = 100.0
+
+        # know this is the state for final_date + time for orbit
+        while extrapDate.compareTo(target_date) <= 0:
+            currentState = target_prop.propagate(extrapDate)
+            coord = currentState.getPVCoordinates().getPosition()
+            self.target_px.append(coord.getX())
+            self.target_py.append(coord.getY())
+            extrapDate = extrapDate.shiftedBy(stepT)
 
 
 class OutputHandler(PythonOrekitFixedStepHandler):
@@ -493,9 +511,9 @@ def main():
     # set the sc initial state
     a = 5_500.0e3  # semi major axis (m)
     e = 0.00  # eccentricity
-    i = radians(0.001)  # inclination
-    omega = radians(0.01)  # perigee argument
-    raan = radians(0.01)  # right ascension of ascending node
+    i = 0.001  # inclination
+    omega = 0.01  # perigee argument
+    raan = 0.01  # right ascension of ascending node
     lM = 0.0  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 
@@ -511,17 +529,14 @@ def main():
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
+    env.render_target()
     thrust_mag = np.array([.2,.5,.1])
 
     while env._extrap_Date.compareTo(env.final_date) <= 0:
         position, r, done = env.step(thrust_mag)
-        # a.append(position[0])
-        # lv.append(position[1])
 
     print(f'Done \n sma final: {env._currentOrbit.getA()}')
     env.render_plots()
-
-
 
 if __name__ == '__main__':
     main()
