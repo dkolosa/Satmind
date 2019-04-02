@@ -232,29 +232,17 @@ class OrekitEnv:
         Renders the x-y plots of the spacecraft trajectory
         :return:
         """
+        oe_params = ('sma', 'e_x', 'e_y', 'h_x', 'h_y', 'lv')
+        oe = [np.asarray(self.a_orbit)/1e3, self.ex_orbit, self.ey_orbit, self.hx_orbit, self.hy_orbit, self.lv_orbit]
         plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000,
                  np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000)
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
         plt.figure(2)
-        plt.subplot(3,2,1)
-        plt.plot(np.asarray(self.a_orbit)/1e3)
-        plt.ylabel('sma')
-        plt.subplot(3,2,2)
-        plt.plot(self.ex_orbit)
-        plt.xlabel('e_x')
-        plt.subplot(3,2,3)
-        plt.plot(self.ey_orbit)
-        plt.xlabel('e_y')
-        plt.subplot(3,2,4)
-        plt.plot(self.hx_orbit)
-        plt.xlabel('h_x')
-        plt.subplot(3,2,5)
-        plt.plot(self.hy_orbit)
-        plt.xlabel('h_y')
-        plt.subplot(3,2,6)
-        plt.plot(self.lv_orbit)
-        plt.xlabel('lv')
+        for i in range(len(oe_params)):
+            plt.subplot(3,2,i+1)
+            plt.plot(oe[i])
+            plt.ylabel(oe_params[i])
         plt.tight_layout()
         plt.show()
 
@@ -385,9 +373,11 @@ class OrekitEnv:
             done = True
             reward = -10
 
-        reward = -abs(self.r_target_state[0] - state[0]) / self._orbit.getA() - \
-                 np.nan_to_num(abs(self._targetOrbit.getE()) - abs(self._currentOrbit.getE())) - \
-                 np.nan_to_num(abs(self._targetOrbit.getI()) - abs(self._currentOrbit.getI())) - thrust*0.01
+        reward = -100*abs(self.r_target_state[0] - state[0]) / self._orbit.getA() - \
+                 100*(abs(self._targetOrbit.getE()) - abs(self._currentOrbit.getE())) - \
+                 100*(abs(self._targetOrbit.getI()) - abs(self._currentOrbit.getI()))
+
+        reward -= thrust*0.30
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
             print(f'sma hit!!')
