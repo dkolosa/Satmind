@@ -232,8 +232,8 @@ class OrekitEnv:
         Renders the x-y plots of the spacecraft trajectory
         :return:
         """
-        plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000 ,
-                 np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000))
+        plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000,
+                 np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000)
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
         plt.figure(2)
