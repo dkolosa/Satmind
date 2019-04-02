@@ -85,7 +85,7 @@ class OrekitEnv:
         self.target_px = []
         self.target_py = []
 
-        self._orbit_tolerance = {'a': 1000, 'ex': 0.01, 'ey': 0.01, 'hx': 0.01, 'hy': 0.01, 'lv': 0.01}
+        self._orbit_tolerance = {'a': 10000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.09, 'hy': 0.09, 'lv': 0.01}
 
         self.set_date(date)
         self._extrap_Date = self._initial_date
@@ -99,7 +99,7 @@ class OrekitEnv:
         self.stepT = stepT
         self.action_space = 3  # output thrust
         self.observation_space = 12  # states
-        self.action_bound = .7  # TFC coefficient
+        self.action_bound = 10.0  # TFC coefficient
         self._isp = 1200.0
 
         self.r_target_state = np.array(
@@ -232,8 +232,8 @@ class OrekitEnv:
         Renders the x-y plots of the spacecraft trajectory
         :return:
         """
-        plt.plot(np.array(self.px) / 1000, np.array(self.py) / 1000,
-                 np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000)
+        plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000 ,
+                 np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000))
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
         plt.figure(2)
@@ -267,9 +267,6 @@ class OrekitEnv:
         holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True),
                                                                provider)
         self._prop.addForceModel(holmesFeatherstone)
-        # earth = NewtonianAttraction(MU)
-        # self._prop.addForceModel(earth)
-        self._prop.addForceModel(holmesFeatherstone)
 
     def reset(self):
         """
@@ -292,7 +289,7 @@ class OrekitEnv:
         self.hy_orbit = []
         self.lv_orbit = []
 
-        state = np.array([self._orbit.getA()/self.r_target_state[0], self._orbit.getEquinoctialEx(), self._orbit.getEquinoctialEy(),
+        state = np.array([self._orbit.getA()/self._orbit.getA(), self._orbit.getEquinoctialEx(), self._orbit.getEquinoctialEy(),
                                   self._orbit.getHx(), self._orbit.getHy(), self._orbit.getLv(), 0, 0, 0, 0, 0, 0])
         return state
 
@@ -359,7 +356,7 @@ class OrekitEnv:
 
         reward, done = self.dist_reward(thrust_mag)
 
-        state_1 = [self._currentOrbit.getA()/self.r_target_state[0], self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
+        state_1 = [self._currentOrbit.getA()/self._orbit.getA(), self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
                    self._currentOrbit.getHx(), self._currentOrbit.getHy(), self._currentOrbit.getLv(),
                    self._currentOrbit.getADot(), self._currentOrbit.getEquinoctialExDot(),
                    self._currentOrbit.getEquinoctialEyDot(),
@@ -383,17 +380,14 @@ class OrekitEnv:
         state = np.array([self._currentOrbit.getA(), self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
                           self._currentOrbit.getHx(), self._currentOrbit.getHy(), self._currentOrbit.getLv()])
 
-
         if self._sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
             print("Ran out of fuel")
             done = True
-            reward = -100
+            reward = -10
 
         reward = -abs(self.r_target_state[0] - state[0]) / self._orbit.getA() - \
-                 np.nan_to_num(abs(self._targetOrbit.getE() - self._currentOrbit.getE())) - \
-                 np.nan_to_num(abs(self._targetOrbit.getI() - self._currentOrbit.getI())) - thrust
-
-        # reward = 0
+                 np.nan_to_num(abs(self._targetOrbit.getE()) - abs(self._currentOrbit.getE())) - \
+                 np.nan_to_num(abs(self._targetOrbit.getI()) - abs(self._currentOrbit.getI())) - thrust*0.01
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
             print(f'sma hit!!')
@@ -408,10 +402,6 @@ class OrekitEnv:
             reward = 100
             done = True
             print('hit')
-
-        # if self.r_target_state[0] - state[0] <= -10000:
-        #     reward = -100
-        #     done = True
 
         return reward, done
 
@@ -440,7 +430,7 @@ class OrekitEnv:
         target_sc = SpacecraftState(self._targetOrbit)
 
         # Orbit time for one orbit regardless of semi-major axis
-        orbit_time = sqrt(4 * pi**2 * self._targetOrbit.getA()**3 / MU)
+        orbit_time = sqrt(4 * pi**2 * self._targetOrbit.getA()**3 / MU) * 1.1
         minStep = 1.e-3
         maxStep = 1.e+3
 
@@ -527,7 +517,7 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.0, 2.0, 0.0])
+    thrust_mag = np.array([0.50, 1.0, 0.50])
 
     while env._extrap_Date.compareTo(env.final_date) <= 0:
     # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
