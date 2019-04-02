@@ -285,6 +285,7 @@ class Experience:
         '''
         for e in self.buffer: return e
 
+stepT = 100.0
 
 def orekit_setup():
     # initialize enviornment
@@ -324,8 +325,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
 
-    stepT = 100.0
-    duration = (24.0 * 60.0 ** 2) * 4
+    duration = (24.0 * 60.0 ** 2) * 1
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env, duration
@@ -333,7 +333,7 @@ def orekit_setup():
 
 def main(args):
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'OrekitEnv-v0')
-    ENV = ENVS[0]
+    ENV = ENVS[3]
     # env = gym.make(ENV)
     env, duration = orekit_setup()
 
@@ -341,22 +341,20 @@ def main(args):
     np.random.seed(1234)
 
     num_episodes = 800
-    stepT = 1000.0
     iter_per_episode = int(duration / stepT)
-    batch_size = 1
-    # iter_per_episode = 200
+    batch_size = 20
 
 
     # Network inputs and outputs
     features = env.observation_space
     n_actions = 3
-    action_bound = 3.0
+    action_bound = 10.0
 
     # features = env.observation_space.shape[0]
     # n_actions = env.action_space.shape[0]
     # action_bound = env.action_space.high
 
-    layer_1_nodes, layer_2_nodes = 2048, 1500
+    layer_1_nodes, layer_2_nodes = 512, 480
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
@@ -367,14 +365,20 @@ def main(args):
     critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
 
     # Replay memory buffer
-    replay = Experience(buffer_size=2000)
+    replay = Experience(buffer_size=500)
     saver = tf.train.Saver()
 
     # Save model directory
+
     if args['model_dir'] is not None:
         checkpoint_path = args['model_dir']
         if args['test']:
             TRAIN = False
+        else:
+            TRAIN = True
+    elif not os.path.exists(args['model_dir']):
+        checkpoint_path = args['model_dir']
+        os.makedirs(checkpoint_path,exist_ok=True)
     else:
         TRAIN = True
         today = datetime.date.today()
@@ -382,6 +386,9 @@ def main(args):
         checkpoint_path =path+str(today)+'-'+ENV+'/'
         os.makedirs(checkpoint_path, exist_ok=True)
         print(f'Model will be saved in: {checkpoint_path}')
+
+    # Render target
+    env.render_target()
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -403,12 +410,12 @@ def main(args):
                     # env.render()
 
                     # Select an action
-                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
+                    a = actor.predict(np.reshape(s, (1, features)), sess)
 
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
 
-                    actions.append(a)
+                    actions.append(a[0])
                     # Store in replay memory
                     replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
                     # sample from random memory
@@ -457,22 +464,25 @@ def main(args):
                         print('===========')
                         break
                 if i % 50 == 0:
-                    # plt.plot(np.linalg.norm(np.asarray(actions), axis=1))
-                    # plt.xlabel('Mission Step ' + str(stepT) + 'sec per step')
-                    # plt.ylabel('Thrust (N)')
-                    # plt.tight_layout()
-                    # plt.show()
                     saver.save(sess, checkpoint_path)
                     print(f'Model Saved and Updated')
                     env.render_plots()
                     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
-                    plt.plot(np.arange(len(thrust_mag)), thrust_mag)
+                    plt.subplot(2,1,1)
+                    plt.plot(thrust_mag)
+                    plt.title('Thrust Magnitude (N)')
+                    plt.subplot(2,1,2)
+                    plt.plot(actions)
+                    plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
+                    plt.title('Thrust (N)')
+                    plt.legend(('R', 'S', 'W'))
+                    plt.tight_layout()
                     plt.show()
             # Save the trained model
-                if i % 50 == 0:
-                    if args['model_dir'] is not None:
-                        saver.save(sess, checkpoint_path)
-                        print(f'Model Saved and Updated')
+            #     if i % 50 == 0:
+            #         if args['model_dir'] is not None:
+            #             saver.save(sess, checkpoint_path)
+            #             print(f'Model Saved and Updated')
         else:
             if args['model_dir'] is not None:
                 saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
