@@ -8,6 +8,7 @@ import numpy as np
 orekit.initVM()
 
 from org.orekit.frames import FramesFactory, Frame
+from org.orekit.bodies import OneAxisEllipsoid
 from org.orekit.orbits import KeplerianOrbit, Orbit
 from org.orekit.propagation import SpacecraftState
 from org.orekit.propagation.analytical import KeplerianPropagator
@@ -39,9 +40,9 @@ FUEL_MASS = "Fuel Mass"
 UTC = TimeScalesFactory.getUTC()
 inertial_frame = FramesFactory.getEME2000()
 attitude = LofOffset(inertial_frame, LOFType.LVLH)
-MU = Constants.EGM96_EARTH_MU
 CONTINEOUS = True
-EARTH_RADIUS = 6378e3
+EARTH_RADIUS = Constants.WGS84_EARTH_EQUATORIAL_RADIUS
+MU = Constants.WGS84_EARTH_MU
 
 class OrekitEnv:
     """
@@ -141,6 +142,7 @@ class OrekitEnv:
         """
         a, e, i, omega, raan, lM = state
 
+        a += EARTH_RADIUS
         i = radians(i)
         omega = radians(omega)
         raan = radians(raan)
@@ -151,7 +153,7 @@ class OrekitEnv:
         # Set inertial frame
         set_orbit = KeplerianOrbit(a, e, i, omega, raan, lM,
                                    aDot, eDot, iDot, paDot, rannDot, anomalyDot,
-                                   PositionAngle.MEAN, inertial_frame, date, MU)
+                                   PositionAngle.TRUE, inertial_frame, date, MU)
 
         if target:
             self._targetOrbit = set_orbit
@@ -263,10 +265,20 @@ class OrekitEnv:
         Set up environment force models
         """
         # force model gravity field
-        provider = GravityFieldFactory.getNormalizedProvider(10, 10)
-        holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True),
-                                                               provider)
-        self._prop.addForceModel(holmesFeatherstone)
+        # provider = GravityFieldFactory.getNormalizedProvider(8, 8)
+
+        # holmesFeatherstone = HolmesFeatherstoneAttractionModel(FramesFactory.getITRF(IERSConventions.IERS_2010, True),
+        #                                                        provider)
+
+        itrf = FramesFactory.getITRF(IERSConventions.IERS_2010, True)  # International Terrestrial Reference Frame, earth fixed
+
+        earth = OneAxisEllipsoid(Constants.WGS84_EARTH_EQUATORIAL_RADIUS,
+                                Constants.WGS84_EARTH_FLATTENING,
+                                itrf)
+        gravityProvider = GravityFieldFactory.getNormalizedProvider(8, 8)
+        self._prop.addForceModel(HolmesFeatherstoneAttractionModel(earth.getBodyFrame(), gravityProvider))
+
+        # self._prop.addForceModel(holmesFeatherstone)
 
     def reset(self):
         """
@@ -383,11 +395,11 @@ class OrekitEnv:
         if self._sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
             print("Ran out of fuel")
             done = True
-            reward = -10
+            reward = -100
 
-        reward = -abs(self.r_target_state[0] - state[0]) / self._orbit.getA() - \
-                 np.nan_to_num(abs(self._targetOrbit.getE()) - abs(self._currentOrbit.getE())) - \
-                 np.nan_to_num(abs(self._targetOrbit.getI()) - abs(self._currentOrbit.getI())) - thrust*0.01
+        reward = -100*(abs(self.r_target_state[0] - state[0]) / self._orbit.getA()) - \
+                  100*(abs(self._targetOrbit.getE()) - abs(self._currentOrbit.getE())) - \
+                  100*(abs(self._targetOrbit.getI()) - abs(self._currentOrbit.getI())) - thrust*0.30
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
             print(f'sma hit!!')
@@ -399,7 +411,7 @@ class OrekitEnv:
            abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
            abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
             # self.final_date.durationFrom(self._extrap_Date) <= 360:
-            reward = 100
+            reward = 1000
             done = True
             print('hit')
 
@@ -517,7 +529,7 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.50, 1.0, 0.50])
+    thrust_mag = np.array([0.00, 0.50, 0.00])
 
     while env._extrap_Date.compareTo(env.final_date) <= 0:
     # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
