@@ -10,7 +10,6 @@ import os, sys
 import argparse
 import datetime
 import json
-from math import radians, degrees
 
 class Actor:
 
