@@ -1,13 +1,13 @@
-{"GEO_sma_change":
+{"inclination_change":
   {
     "initial_orbit":
     {
-      "sma": 41000000.0,
-      "ecc":  0.01,
-      "incl": 0.01,
-      "omega": 0.01,
-      "rann": 0.01,
-      "true_anomaly": 0.01
+      "sma": 5500000.0,
+      "ecc":  0.10,
+      "incl": 2.0,
+      "omega": 10.0,
+      "rann": 10.0,
+      "true_anomaly": 20.0
     },
 
     "initial_date":
@@ -28,12 +28,12 @@
 
     "target_orbit":
     {
-      "sma": 45000000.0,
-      "ecc":  0.01,
-      "incl": 0.01,
-      "omega": 0.01,
-      "rann": 0.01,
-      "true_anomaly": 0.01
+      "sma": 5500.0,
+      "ecc":  0.10,
+      "incl": 4.0,
+      "omega": 10.0,
+      "rann": 10.0,
+      "true_anomaly": 10.0
     },
     "duration": 5.0
   },
@@ -75,7 +75,7 @@
       "rann": 24.0,
       "true_anomaly": 12.0
     },
-    "duration": 2.0
+    "duration": 1.0
   },
 
   "LEO_to_GEO":
