@@ -239,14 +239,18 @@ class OrekitEnv:
         """
         oe_params = ('sma', 'e_x', 'e_y', 'h_x', 'h_y', 'lv')
         oe = [np.asarray(self.a_orbit)/1e3, self.ex_orbit, self.ey_orbit, self.hx_orbit, self.hy_orbit, self.lv_orbit]
-        plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000,
-                 np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000)
+        oe_target = [self._targetOrbit.getA()/1000, self._targetOrbit.getEquinoctialEx(),
+                     self._targetOrbit.getEquinoctialEy(), self._targetOrbit.getHx(), self._targetOrbit.getHy(),
+                     self._targetOrbit.getLv()]
+        plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000, 'b-',
+                 np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, 'r-')
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
         plt.show()
         fig = plt.figure()
         ax = fig.gca(projection='3d')
-        ax.plot(np.asarray(self.px)/1000, np.asarray(self.py)/1000, np.asarray(self.pz)/1000,label='Satellite Trajectory')
+        ax.plot(np.asarray(self.px)/1000, np.asarray(self.py)/1000, np.asarray(self.pz)/1000,
+                label='Satellite Trajectory')
         ax.plot(np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, np.asarray(self.target_pz)/1000,
                 color='red',label='Target trajectory')
         ax.legend()
@@ -258,6 +262,7 @@ class OrekitEnv:
         for i in range(len(oe_params)):
             plt.subplot(3,2,i+1)
             plt.plot(oe[i])
+            plt.scatter(len(oe[i])-1, oe_target[i], color='red')
             plt.ylabel(oe_params[i])
         plt.tight_layout()
         plt.show()
@@ -534,7 +539,7 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.00, 1.0, 0.00])
+    thrust_mag = np.array([0.00, 0.0, 10.00])
 
     while env._extrap_Date.compareTo(env.final_date) <= 0:
     # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
@@ -543,6 +548,7 @@ def main():
     print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
     # print(f'time taken (hours): {env._currentDate.durationFrom(env.final_date)/60**2}')
     env.render_plots()
+
 
 if __name__ == '__main__':
     main()
