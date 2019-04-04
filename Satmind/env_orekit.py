@@ -3,6 +3,7 @@ import orekit
 from math import radians, degrees, sqrt, pi
 import datetime
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 orekit.initVM()
@@ -73,6 +74,7 @@ class OrekitEnv:
 
         self.px = []
         self.py = []
+        self.pz = []
         self.a_orbit = []
         self.ex_orbit = []
         self.ey_orbit = []
@@ -85,6 +87,7 @@ class OrekitEnv:
         self._targetOrbit = None
         self.target_px = []
         self.target_py = []
+        self.target_pz = []
 
         self._orbit_tolerance = {'a': 1000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.09, 'hy': 0.09, 'lv': 0.01}
 
@@ -241,6 +244,16 @@ class OrekitEnv:
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
         plt.show()
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        ax.plot(np.asarray(self.px)/1000, np.asarray(self.py)/1000, np.asarray(self.pz)/1000,label='Satellite Trajectory')
+        ax.plot(np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, np.asarray(self.target_pz)/1000,
+                color='red',label='Target trajectory')
+        ax.legend()
+        ax.set_xlabel('X (km)')
+        ax.set_ylabel('Y (km)')
+        ax.set_zlabel('Z (km)')
+        ax.set_zlim(-1500, 1500)
         plt.figure(2)
         for i in range(len(oe_params)):
             plt.subplot(3,2,i+1)
@@ -283,6 +296,7 @@ class OrekitEnv:
         self.set_spacecraft(1000.0, 500.0)
         self.px = []
         self.py = []
+        self.pz = []
         self.a_orbit = []
         self.ex_orbit = []
         self.ey_orbit = []
@@ -348,6 +362,7 @@ class OrekitEnv:
                                                          + thrust_force.getFlowRate() * self.stepT)
         self.px.append(coord.getX())
         self.py.append(coord.getY())
+        self.pz.append(coord.getZ())
         self.a_orbit.append(currentState.getA())
         self.ex_orbit.append(currentState.getEquinoctialEx())
         self.ey_orbit.append(currentState.getEquinoctialEy())
@@ -456,6 +471,7 @@ class OrekitEnv:
             coord = currentState.getPVCoordinates().getPosition()
             self.target_px.append(coord.getX())
             self.target_py.append(coord.getY())
+            self.target_pz.append(coord.getZ())
             extrapDate = extrapDate.shiftedBy(stepT)
 
 
@@ -513,12 +529,12 @@ def main():
     raan_targ = raan
     lM_targ = lM
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
-    stepT = 1000.0
+    stepT = 100.0
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.050, 1.0, 0.00])
+    thrust_mag = np.array([0.00, 1.0, 0.00])
 
     while env._extrap_Date.compareTo(env.final_date) <= 0:
     # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
