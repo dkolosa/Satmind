@@ -379,32 +379,24 @@ def main(args):
     elif not os.path.exists(args['model']):
         checkpoint_path = args['model'] + '/'
         os.makedirs(checkpoint_path,exist_ok=True)
-        # Save the model parameters (for reproducibility)
-        params = checkpoint_path + 'model_params.txt'
-        with open(params, 'w+') as text_file:
-            text_file.write("enviornment params:")
-            text_file.write("enviornment: " + ENV)
-            text_file.write("episodes: {}, iterations per episode {}".format(num_episodes, iter_per_episode))
-            text_file.write("model parameters:")
-            text_file.write(actor.__str__())
-            text_file.write(critic.__str__())
+
     else:
         TRAIN = True
         today = datetime.date.today()
         path = '/tmp/ddpg_models/'
         checkpoint_path =path+str(today)+'-'+ENV+'/'
         os.makedirs(checkpoint_path, exist_ok=True)
-        # Save the model parameters (for reproducibility)
-        params = checkpoint_path + 'model_params.txt'
-        with open(params, 'w+') as text_file:
-            text_file.write("enviornment params:")
-            text_file.write("enviornment: " + ENV)
-            text_file.write("episodes: {}, iterations per episode {}".format(num_episodes, iter_per_episode))
-            text_file.write("model parameters:")
-            text_file.write(actor.__str__())
-            text_file.write(critic.__str__())
         print(f'Model will be saved in: {checkpoint_path}')
 
+    # Save the model parameters (for reproducibility)
+    params = checkpoint_path + 'model_params.txt'
+    with open(params, 'w+') as text_file:
+        text_file.write("enviornment params:\n")
+        text_file.write("enviornment: " + ENV + "\n")
+        text_file.write("episodes: {}, iterations per episode {}\n".format(num_episodes, iter_per_episode))
+        text_file.write("model parameters:\n")
+        text_file.write(actor.__str__())
+        text_file.write(critic.__str__() + "\n")
 
     # Render target
     env.render_target()

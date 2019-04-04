@@ -240,6 +240,7 @@ class OrekitEnv:
                  np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000)
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
+        plt.show()
         plt.figure(2)
         for i in range(len(oe_params)):
             plt.subplot(3,2,i+1)
@@ -512,19 +513,19 @@ def main():
     raan_targ = raan
     lM_targ = lM
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
-    stepT = 100.0
+    stepT = 1000.0
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.050, 0.1, 0.00])
+    thrust_mag = np.array([0.050, 1.0, 0.00])
 
     while env._extrap_Date.compareTo(env.final_date) <= 0:
     # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
         position, r, done = env.step(thrust_mag)
 
     print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
-    print(f'time taken (hours): {env._currentDate.durationFrom(env.final_date)/60**2}')
+    # print(f'time taken (hours): {env._currentDate.durationFrom(env.final_date)/60**2}')
     env.render_plots()
 
 if __name__ == '__main__':
