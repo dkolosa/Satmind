@@ -347,7 +347,7 @@ def main(args):
     # Network inputs and outputs
     features = env.observation_space
     n_actions = 3
-    action_bound = 10.0
+    action_bound = 5.0
 
     # features = env.observation_space.shape[0]
     # n_actions = env.action_space.shape[0]
@@ -370,13 +370,13 @@ def main(args):
     # Save model directory
 
     if args['model_dir'] is not None:
-        checkpoint_path = args['model_dir']
+        checkpoint_path = args['model_dir'] + '/'
         if args['test']:
             TRAIN = False
         else:
             TRAIN = True
-    elif not os.path.exists(args['model_dir']):
-        checkpoint_path = args['model_dir']
+    elif not os.path.exists(args['model']):
+        checkpoint_path = args['model'] + '/'
         os.makedirs(checkpoint_path,exist_ok=True)
     else:
         TRAIN = True
@@ -388,6 +388,16 @@ def main(args):
 
     # Render target
     env.render_target()
+
+    # Save the model parameters (for repoducability
+    params = checkpoint_path + 'model_params.txt'
+    with open(params, 'w') as text_file:
+        text_file.write("enviornment params:")
+        text_file.write("enviornment: " + ENV)
+        text_file.write("episodes: {}, iterations per episode {}".format(num_episodes, iter_per_episode))
+        text_file.write("model parameters:")
+        text_file.write(actor.__str__())
+        text_file.write(critic.__str__())
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -503,7 +513,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_dir', help="path of a trained tensorlfow model (str: path)", type=str)
+    parser.add_argument('--model', help="path of a trained tensorlfow model (str: path)", type=str)
     parser.add_argument('--test', help="pass if testing a model", action='store_true')
     args = vars(parser.parse_args())
     main(args)

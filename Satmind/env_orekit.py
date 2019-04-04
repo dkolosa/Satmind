@@ -86,7 +86,7 @@ class OrekitEnv:
         self.target_px = []
         self.target_py = []
 
-        self._orbit_tolerance = {'a': 10000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.09, 'hy': 0.09, 'lv': 0.01}
+        self._orbit_tolerance = {'a': 1000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.09, 'hy': 0.09, 'lv': 0.01}
 
         self.set_date(date)
         self._extrap_Date = self._initial_date
@@ -517,7 +517,7 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.00, 0.50, 0.00])
+    thrust_mag = np.array([0.050, 0.1, 0.00])
 
     while env._extrap_Date.compareTo(env.final_date) <= 0:
     # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
