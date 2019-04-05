@@ -89,7 +89,7 @@ class OrekitEnv:
         self.target_py = []
         self.target_pz = []
 
-        self._orbit_tolerance = {'a': 1000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.09, 'hy': 0.09, 'lv': 0.01}
+        self._orbit_tolerance = {'a': 1000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.01, 'hy': 0.01, 'lv': 0.01}
 
         self.set_date(date)
         self._extrap_Date = self._initial_date
@@ -205,16 +205,16 @@ class OrekitEnv:
         :return:
         """
         # tol = NumericalPropagator.tolerances(1.0, self._orbit, self._orbit.getType())
-        minStep = 0.001
+        minStep = 1e-6
         maxStep = 500.0
 
-        # position_tolerance = 10.0
-        # tolerances = NumericalPropagator.tolerances(position_tolerance, self._orbit, self._orbit.getType())
-        # abs_tolerance = JArray_double.cast_(tolerances[0])
-        # rel_telerance = JArray_double.cast_(tolerances[1])
+        position_tolerance = 10.0
+        tolerances = NumericalPropagator.tolerances(position_tolerance, self._orbit, self._orbit.getType())
+        abs_tolerance = JArray_double.cast_(tolerances[0])
+        rel_telerance = JArray_double.cast_(tolerances[1])
 
-        integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
-        # integrator = DormandPrince853Integrator(minStep, maxStep, abs_tolerance, rel_telerance)
+        # integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
+        integrator = DormandPrince853Integrator(minStep, maxStep, abs_tolerance, rel_telerance)
 
         integrator.setInitialStepSize(10.0)
 
@@ -280,7 +280,7 @@ class OrekitEnv:
         itrf = FramesFactory.getITRF(IERSConventions.IERS_2010, True)  # International Terrestrial Reference Frame, earth fixed
 
         earth = OneAxisEllipsoid(Constants.WGS84_EARTH_EQUATORIAL_RADIUS,
-                                Constants.WGS84_EARTH_FLATTENING,
+                                 Constants.WGS84_EARTH_FLATTENING,
                                 itrf)
         gravityProvider = GravityFieldFactory.getNormalizedProvider(8, 8)
         self._prop.addForceModel(HolmesFeatherstoneAttractionModel(earth.getBodyFrame(), gravityProvider))
@@ -410,16 +410,25 @@ class OrekitEnv:
                   100*(abs(self._targetOrbit.getE()) - abs(self._currentOrbit.getE())) - \
                   100*(abs(self._targetOrbit.getI()) - abs(self._currentOrbit.getI())) - thrust*0.30
 
-        if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
-            print(f'sma hit!!')
-            reward = 10
+        # if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
+        #     print(f'sma hit!!')
+        #     reward = 10
 
+        # if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
+        #    abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
+        #    abs(self.r_target_state[2] - state[2]) <= self._orbit_tolerance['ey'] and \
+        #    abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
+        #    abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
+        #     # self.final_date.durationFrom(self._extrap_Date) <= 360:
+        #     reward = 1000
+        #     done = True
+        #     print('hit')
+        # print(self._targetOrbit.getI())
+        # print(self._currentOrbit.getI())
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
            abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
            abs(self.r_target_state[2] - state[2]) <= self._orbit_tolerance['ey'] and \
-           abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
-           abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
-            # self.final_date.durationFrom(self._extrap_Date) <= 360:
+           abs(self._targetOrbit.getI() - self._currentOrbit.getI()) <= 0.001:
             reward = 1000
             done = True
             print('hit')
@@ -539,7 +548,7 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.00, 0.0, 10.00])
+    thrust_mag = np.array([0.00, 0.0, 5.00])
 
     while env._extrap_Date.compareTo(env.final_date) <= 0:
     # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:

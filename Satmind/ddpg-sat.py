@@ -10,6 +10,7 @@ import os, sys
 import argparse
 import datetime
 import json
+from math import degrees
 
 class Actor:
 
@@ -316,7 +317,7 @@ def orekit_setup():
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data['Orbit_Raising']
+        mission = data['inclination_change']
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
@@ -466,6 +467,7 @@ def main(args):
                     s = s1
                     # if done:
                     if done or j >= iter_per_episode - 1:
+                        print(f'I: {degrees(env._currentOrbit.getI())}')
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                         print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
                               f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
