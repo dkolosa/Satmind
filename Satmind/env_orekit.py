@@ -244,6 +244,8 @@ class OrekitEnv:
                      self._targetOrbit.getLv()]
         plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000, 'b-',
                  np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, 'r-')
+        # plt.rc('text', usetex=True)
+        # plt.rc('font', family='serif')
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
         plt.show()
@@ -258,12 +260,16 @@ class OrekitEnv:
         ax.set_ylabel('Y (km)')
         ax.set_zlabel('Z (km)')
         ax.set_zlim(-1500, 1500)
+        # plt.rc('text', usetex=True)
+        # plt.rc('font', family='serif')
         plt.figure(2)
         for i in range(len(oe_params)):
             plt.subplot(3,2,i+1)
             plt.plot(oe[i])
             plt.scatter(len(oe[i])-1, oe_target[i], color='red')
             plt.ylabel(oe_params[i])
+            # plt.rc('text', usetex=True)
+            # plt.rc('font', family='serif')
         plt.tight_layout()
         plt.show()
 
@@ -524,12 +530,12 @@ def main():
 
     mass = 100.0
     fuel_mass = 100.0
-    duration = 24.0 * 60.0 ** 2 * 1
+    duration = 24.0 * 60.0 ** 2 * 2
 
     # set the sc initial state
     a = 5_500.0e3  # semi major axis (m)
     e = 0.001  # eccentricity
-    i = 0.001  # inclination
+    i = 2.0  # inclination
     omega = 0.01  # perigee argument
     raan = 0.01  # right ascension of ascending node
     lM = 0.01  # mean anomaly
@@ -538,7 +544,7 @@ def main():
     # target state
     a_targ = 6600.0e3
     e_targ = e
-    i_targ = i
+    i_targ = 2.5
     omega_targ = omega
     raan_targ = raan
     lM_targ = lM
@@ -548,14 +554,14 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.00, 0.0, 5.00])
+    thrust_mag = np.array([0.00, 0.0, 1.0])
 
-    while env._extrap_Date.compareTo(env.final_date) <= 0:
-    # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
+    # while env._extrap_Date.compareTo(env.final_date) <= 0:
+    while abs(i_targ - degrees(env._currentOrbit.getI())) >= 0.001:
         position, r, done = env.step(thrust_mag)
 
-    print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
-    # print(f'time taken (hours): {env._currentDate.durationFrom(env.final_date)/60**2}')
+    print(f'Done \n sma: {degrees(env._currentOrbit.getI())}')
+    print(f'time taken (hours): {env._currentDate.durationFrom(env._orbit.getDate())/60**2}')
     env.render_plots()
 
 
