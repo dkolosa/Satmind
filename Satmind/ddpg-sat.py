@@ -281,31 +281,6 @@ class Experience:
 stepT = 100.0
 
 def orekit_setup():
-    # initialize enviornment
-    # year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
-    # date = [year, month, day, hr, minute, sec]
-    #
-    # mass = 1000.0
-    # fuel_mass = 500.0
-    # duration = 2 * 24.0 * 60.0 ** 2
-    #
-    # # initial state
-    # sma = 40_000.0e3
-    # e = 0.001
-    # i = radians(0.1)
-    # omega = radians(0.1)
-    # rann = radians(0.01)
-    # lv = radians(0.01)
-    # state = [sma, e, i, omega, rann, lv]
-    #
-    # # target state
-    # a_targ = 45_000_000.0
-    # e_targ = e
-    # i_targ = i
-    # omega_targ = omega
-    # raan_targ = rann
-    # lM_targ = lv
-    # state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
     input_file = 'input.json'
     with open(input_file) as input:
@@ -346,18 +321,7 @@ def main(args):
     np.random.seed(1234)
 
     num_episodes = 800
-    iter_per_episode = int(duration / stepT)
     batch_size = 20
-
-
-    # Network inputs and outputs
-    features = env.observation_space
-    n_actions = 3
-    action_bound = 5.0
-
-    # features = env.observation_space.shape[0]
-    # n_actions = env.action_space.shape[0]
-    # action_bound = env.action_space.high
 
     layer_1_nodes, layer_2_nodes = 512, 480
     tau = 0.001
@@ -374,18 +338,15 @@ def main(args):
     saver = tf.train.Saver()
 
     # Save model directory
+    LOAD = False
 
     if args['model'] is not None:
-        checkpoint_path = args['model'] + '/'
         os.makedirs(checkpoint_path,exist_ok=True)
         if args['test']:
             TRAIN = False
         else:
             TRAIN = True
             LOAD = True
-    # elif not os.path.exists(args['model']):
-    #     checkpoint_path = args['model'] + '/'
-    #     os.makedirs(checkpoint_path,exist_ok=True)
     else:
         TRAIN = True
         today = datetime.date.today()
@@ -406,7 +367,6 @@ def main(args):
 
     # Render target
     # env.render_target()
-    LOAD = False
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
