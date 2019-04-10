@@ -148,7 +148,6 @@ class Critic:
         t2 = tflearn.fully_connected(action, self.layer_2_nodes)
 
         layer_2 = tf.nn.relu(tf.matmul(layer_1, t1.W) + tf.matmul(action, t2.W) + t2.b)
-
         # layer_2 = tf.contrib.layers.fully_connected(tf.concat((l1_batch, action), axis=1), self.layer_2_nodes)
 
         with tf.variable_scope(str(name) + '_output'):
@@ -301,9 +300,9 @@ def orekit_setup():
 
 def main(args):
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'OrekitEnv-v0')
-    ENV = ENVS[0]
+    ENV = ENVS[2]
 
-    if ENV == ENV[3]:
+    if ENV == ENVS[3]:
         env, duration = orekit_setup()
         iter_per_episode = int(duration / stepT)
         # Network inputs and outputs

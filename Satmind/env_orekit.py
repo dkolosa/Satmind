@@ -5,6 +5,7 @@ import datetime
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+import time
 
 orekit.initVM()
 
@@ -81,6 +82,7 @@ class OrekitEnv:
         self.hx_orbit = []
         self.hy_orbit = []
         self.lv_orbit = []
+        self.coordinates = None
 
         self._sc_fuel = None
         self._extrap_Date = None
@@ -243,23 +245,23 @@ class OrekitEnv:
                      self._targetOrbit.getEquinoctialEy(), self._targetOrbit.getHx(), self._targetOrbit.getHy(),
                      self._targetOrbit.getLv()]
         plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000, 'b-',
-                 np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, 'r-')
+                 np.asarray(self.coordinates)[:,0]/1000, np.asarray(self.coordinates)[:,1]/1000, 'r-')
         # plt.rc('text', usetex=True)
         # plt.rc('font', family='serif')
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
-        plt.show()
         fig = plt.figure()
         ax = fig.gca(projection='3d')
         ax.plot(np.asarray(self.px)/1000, np.asarray(self.py)/1000, np.asarray(self.pz)/1000,
                 label='Satellite Trajectory')
-        ax.plot(np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, np.asarray(self.target_pz)/1000,
+        ax.plot(np.asarray(self.coordinates)[:,0]/1000, np.asarray(self.coordinates)[:,1]/1000, np.asarray(self.coordinates)[:,2]/1000,
                 color='red',label='Target trajectory')
         ax.legend()
         ax.set_xlabel('X (km)')
         ax.set_ylabel('Y (km)')
         ax.set_zlabel('Z (km)')
         ax.set_zlim(-1500, 1500)
+        plt.show()
         # plt.rc('text', usetex=True)
         # plt.rc('font', family='serif')
         plt.figure(2)
@@ -473,26 +475,35 @@ class OrekitEnv:
         integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
         integrator.setInitialStepSize(100.0)
 
-        numProp = NumericalPropagator(integrator)
-        numProp.setInitialState(target_sc)
-        numProp.setSlaveMode()
+        target_prop = NumericalPropagator(integrator)
+        target_prop.setInitialState(target_sc)
+        target_prop.setSlaveMode()
 
-        target_prop = numProp
         earth = NewtonianAttraction(MU)
         target_prop.addForceModel(earth)
 
-        target_date = self.final_date.shiftedBy(orbit_time)
-        extrapDate = self.final_date
+        # target_date = self.final_date.shiftedBy(orbit_time)
+        # extrapDate = self.final_date
         stepT = 100.0
 
+        prop_time = [self.final_date.shiftedBy(float(dt)) \
+                     for dt in np.arange(0, orbit_time, stepT)]
+
+        coords = [target_prop.propagate(tt).getPVCoordinates() for tt in prop_time]
+        self.coordinates = [[state.getPosition().getX(), state.getPosition().getY(), state.getPosition().getZ()] for state in coords]
+
         # know this is the state for final_date + time for orbit
-        while extrapDate.compareTo(target_date) <= 0:
-            currentState = target_prop.propagate(extrapDate)
-            coord = currentState.getPVCoordinates().getPosition()
-            self.target_px.append(coord.getX())
-            self.target_py.append(coord.getY())
-            self.target_pz.append(coord.getZ())
-            extrapDate = extrapDate.shiftedBy(stepT)
+        # lop_st= time.time()
+        # while extrapDate.compareTo(target_date) <= 0:
+        #     currentState = target_prop.propagate(extrapDate)
+        #     coord = currentState.getPVCoordinates().getPosition()
+        #     self.target_px.append(coord.getX())
+        #     self.target_py.append(coord.getY())
+        #     self.target_pz.append(coord.getZ())
+        #     extrapDate = extrapDate.shiftedBy(stepT)
+        # lop_sp = time.time()
+        #
+        # print(f'list time:{lc_stop-lc_start} \nloop time:{lop_sp-lop_st}')
 
 
 class OutputHandler(PythonOrekitFixedStepHandler):
@@ -554,7 +565,7 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.00, 0.0, 1.0])
+    thrust_mag = np.array([0.00, 0.0, 10.0])
 
     # while env._extrap_Date.compareTo(env.final_date) <= 0:
     while abs(i_targ - degrees(env._currentOrbit.getI())) >= 0.001:
