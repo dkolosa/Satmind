@@ -143,19 +143,11 @@ class Critic:
 
         layer_1 = tf.contrib.layers.fully_connected(input, self.layer_1_nodes)
         l1_batch = tf.contrib.layers.batch_norm(layer_1)
-        # t1 = tflearn.fully_connected(layer_1, self.layer_2_nodes)
-        # t2 = tflearn.fully_connected(action, self.layer_2_nodes)
+        t1 = tflearn.fully_connected(l1_batch, self.layer_2_nodes)
+        t2 = tflearn.fully_connected(action, self.layer_2_nodes)
 
-        # layer_2 = tf.nn.relu(tf.matmul(layer_1, t1.W) + tf.matmul(action, t2.W) + t2.b)
-
-        layer_2 = tf.contrib.layers.fully_connected(tf.concat((l1_batch, action), axis=1), self.layer_2_nodes)
-        #
-        # with tf.variable_scope(str(name) + '_layer_1'):
-        #     input_weight = tf.get_variable('l1_state', [n_features, layer_1_nodes], initializer=l1_init)
-        #
-        #     action_weight = tf.get_variable('l1_action', [n_actions, layer_1_nodes], initializer=l1_init)
-        #     bias = tf.get_variable('l1_bias', [1, layer_1_nodes], initializer=b1_init)
-        #     layer_1 = tf.nn.relu(tf.matmul(input, input_weight) + tf.matmul(action, action_weight) + bias)
+        layer_2 = tf.nn.relu(tf.matmul(layer_1, t1.W) + tf.matmul(action, t2.W) + t2.b)
+        # layer_2 = tf.contrib.layers.fully_connected(tf.concat((l1_batch, action), axis=1), self.layer_2_nodes)
 
         with tf.variable_scope(str(name) + '_output'):
             output = tf.layers.dense(inputs=layer_2,
@@ -287,36 +279,11 @@ class Experience:
 stepT = 100.0
 
 def orekit_setup():
-    # initialize enviornment
-    # year, month, day, hr, minute, sec = 2018, 8, 1, 9, 30, 00.00
-    # date = [year, month, day, hr, minute, sec]
-    #
-    # mass = 1000.0
-    # fuel_mass = 500.0
-    # duration = 2 * 24.0 * 60.0 ** 2
-    #
-    # # initial state
-    # sma = 40_000.0e3
-    # e = 0.001
-    # i = radians(0.1)
-    # omega = radians(0.1)
-    # rann = radians(0.01)
-    # lv = radians(0.01)
-    # state = [sma, e, i, omega, rann, lv]
-    #
-    # # target state
-    # a_targ = 45_000_000.0
-    # e_targ = e
-    # i_targ = i
-    # omega_targ = omega
-    # raan_targ = rann
-    # lM_targ = lv
-    # state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
 
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data['Orbit_Raising']
+        mission = data['inclination_change']
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
@@ -332,26 +299,27 @@ def orekit_setup():
 
 def main(args):
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'OrekitEnv-v0')
-    ENV = ENVS[3]
-    # env = gym.make(ENV)
-    env, duration = orekit_setup()
+    ENV = ENVS[0]
+
+    if ENV == ENVS[3]:
+        env, duration = orekit_setup()
+        iter_per_episode = int(duration / stepT)
+        # Network inputs and outputs
+        features = env.observation_space
+        n_actions = 3
+        action_bound = 5.0
+    else:
+        env = gym.make(ENV)
+        iter_per_episode = 200
+        features = env.observation_space.shape[0]
+        n_actions = env.action_space.shape[0]
+        action_bound = env.action_space.high
 
     # env.seed(1234)
     np.random.seed(1234)
 
     num_episodes = 800
-    iter_per_episode = int(duration / stepT)
     batch_size = 20
-
-
-    # Network inputs and outputs
-    features = env.observation_space
-    n_actions = 3
-    action_bound = 5.0
-
-    # features = env.observation_space.shape[0]
-    # n_actions = env.action_space.shape[0]
-    # action_bound = env.action_space.high
 
     layer_1_nodes, layer_2_nodes = 512, 480
     tau = 0.001
@@ -368,7 +336,7 @@ def main(args):
     saver = tf.train.Saver()
 
     # Save model directory
-
+    LOAD = False
     if args['model'] is not None:
         checkpoint_path = args['model'] + '/'
         os.makedirs(checkpoint_path,exist_ok=True)
@@ -376,10 +344,7 @@ def main(args):
             TRAIN = False
         else:
             TRAIN = True
-    elif not os.path.exists(args['model']):
-        checkpoint_path = args['model'] + '/'
-        os.makedirs(checkpoint_path,exist_ok=True)
-
+            LOAD = True
     else:
         TRAIN = True
         today = datetime.date.today()
@@ -399,12 +364,14 @@ def main(args):
         text_file.write(critic.__str__() + "\n")
 
     # Render target
-    env.render_target()
+    # env.render_target()
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
         if TRAIN:
+            if LOAD:
+                saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
             actor.update_target_network(sess)
             critic.update_target_network(sess)
 
@@ -418,13 +385,13 @@ def main(args):
                 actions = []
                 for j in range(iter_per_episode):
 
-                    # env.render()
+                    env.render()
 
                     # Select an action
-                    a = actor.predict(np.reshape(s, (1, features)), sess)
+                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
 
                     # Observe state and reward
-                    s1, r, done = env.step(a[0])
+                    s1, r, done, _ = env.step(a[0])
 
                     actions.append(a[0])
                     # Store in replay memory
@@ -466,49 +433,60 @@ def main(args):
                     s = s1
                     # if done:
                     if done or j >= iter_per_episode - 1:
+                        # print(f'I: {degrees(env._currentOrbit.getI())}')
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
-                        print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
-                              f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
-                              f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
-                              f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
-                              f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}')
+                        # print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
+                        #       f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
+                        #       f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
+                        #       f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
+                        #       f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}')
                         print('===========')
                         break
-                if i % 50 == 0:
-                    saver.save(sess, checkpoint_path)
-                    print(f'Model Saved and Updated')
-                    env.render_plots()
-                    thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
-                    plt.subplot(2,1,1)
-                    plt.plot(thrust_mag)
-                    plt.title('Thrust Magnitude (N)')
-                    plt.subplot(2,1,2)
-                    plt.plot(actions)
-                    plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
-                    plt.title('Thrust (N)')
-                    plt.legend(('R', 'S', 'W'))
-                    plt.tight_layout()
-                    plt.show()
+                # if i % 50 == 0:
+                #     saver.save(sess, checkpoint_path)
+                #     print(f'Model Saved and Updated')
+                #     env.render_plots()
+                #     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
+                #     plt.subplot(2,1,1)
+                #     plt.plot(thrust_mag)
+                #     plt.title('Thrust Magnitude (N)')
+                #     plt.subplot(2,1,2)
+                #     plt.plot(actions)
+                #     plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
+                #     plt.title('Thrust (N)')
+                #     plt.legend(('R', 'S', 'W'))
+                #     plt.tight_layout()
+                #     plt.show()
             # Save the trained model
             #     if i % 50 == 0:
             #         if args['model_dir'] is not None:
             #             saver.save(sess, checkpoint_path)
             #             print(f'Model Saved and Updated')
         else:
-            if args['model_dir'] is not None:
+            if args['model'] is not None:
                 saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
+            env.render_target()
             for i in range(num_episodes):
                 s = env.reset()
                 sum_reward = 0
-                while True:
-                    env.render()
-                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
-                    s1, r, done, _ = env.step(a[0])
+                actions = []
+                # while True:
+                for j in range(iter_per_episode):
+                    # env.render()
+                    a = actor.predict(np.reshape(s, (1, features)), sess)
+                    s1, r, done = env.step(a[0])
                     s = s1
                     sum_reward += r
-                    if done:
+                    # if done:
+                    actions.append(a[0])
+                    if done or j >= iter_per_episode - 1:
                         print(f'Episode: {i}, reward: {int(sum_reward)}')
+                        plt.plot(actions)
+                        plt.show()
+
+                        env.render_plots()
                         break
+
         plt.plot(rewards)
         plt.show()
 
