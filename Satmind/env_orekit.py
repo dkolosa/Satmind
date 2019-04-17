@@ -86,7 +86,7 @@ class OrekitEnv:
         self.target_px = []
         self.target_py = []
 
-        self._orbit_tolerance = {'a': 1000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.09, 'hy': 0.09, 'lv': 0.01}
+        self._orbit_tolerance = {'a': 1000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.001, 'hy': 0.001, 'lv': 0.01}
 
         self.set_date(date)
         self._extrap_Date = self._initial_date
@@ -389,10 +389,6 @@ class OrekitEnv:
         reward = -100*(abs(self.r_target_state[0] - state[0]) / self._orbit.getA()) - \
                   100*(abs(self._targetOrbit.getE()) - abs(self._currentOrbit.getE())) - \
                   100*(abs(self._targetOrbit.getI()) - abs(self._currentOrbit.getI())) - thrust*0.30
-
-        if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
-            print(f'sma hit!!')
-            reward = 10
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
            abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \

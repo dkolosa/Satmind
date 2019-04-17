@@ -43,14 +43,14 @@ class Actor:
                                       units=self.layer_1_nodes,
                                       activation=tf.nn.relu,
                                       )
-            l1_batch = tf.layers.batch_normalization(layer_1)
+            l1_batch = tf.layers.batch_normalization(layer_1, training=True)
 
         with tf.variable_scope(str(name) + '_layer_2'):
             layer_2 = tf.layers.dense(inputs=l1_batch,
                                       units=self.layer_2_nodes,
                                       activation=tf.nn.relu,
                                       )
-            l2_batch = tf.layers.batch_normalization(layer_2)
+            l2_batch = tf.layers.batch_normalization(layer_2, training=True)
 
         with tf.variable_scope(str(name) + '_output'):
             output = tf.layers.dense(inputs=l2_batch,

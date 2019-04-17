@@ -187,7 +187,7 @@ def main(args):
                     plt.show()
                 # Save the trained model
                 if i % 50 == 0:
-                    if args['model_dir'] is not None:
+                    if args['model'] is not None:
                         saver.save(sess, checkpoint_path)
                         print(f'Model Saved and Updated')
         else:
@@ -211,7 +211,6 @@ def main(args):
                         print(f'Episode: {i}, reward: {int(sum_reward)}')
                         plt.plot(actions)
                         plt.show()
-
                         env.render_plots()
                         break
         plt.plot(rewards)
