@@ -1,12 +1,11 @@
 import numpy as np
 import tensorflow as tf
-import gym
 import matplotlib.pyplot as plt
 import os
 import argparse
 import datetime
 import json
-
+from math import degrees
 import Satmind.actor_critic as models
 from Satmind.env_orekit import OrekitEnv
 import Satmind.utils
@@ -96,7 +95,7 @@ def main(args):
         text_file.write(critic.__str__() + "\n")
 
     # Render target
-    # env.render_target()
+    env.render_target()
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -117,13 +116,11 @@ def main(args):
                 actions = []
                 for j in range(iter_per_episode):
 
-                    env.render()
-
                     # Select an action
                     a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
 
                     # Observe state and reward
-                    s1, r, done, _ = env.step(a[0])
+                    s1, r, done = env.step(a[0])
 
                     actions.append(a[0])
                     # Store in replay memory
@@ -163,9 +160,8 @@ def main(args):
                     sum_reward += r
                     rewards.append(sum_reward)
                     s = s1
-                    # if done:
                     if done or j >= iter_per_episode - 1:
-                        # print(f'I: {degrees(env._currentOrbit.getI())}')
+                        print(f'I: {degrees(env._currentOrbit.getI())}')
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                         print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
                               f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
@@ -189,7 +185,7 @@ def main(args):
                     plt.legend(('R', 'S', 'W'))
                     plt.tight_layout()
                     plt.show()
-            Save the trained model
+                # Save the trained model
                 if i % 50 == 0:
                     if args['model_dir'] is not None:
                         saver.save(sess, checkpoint_path)
