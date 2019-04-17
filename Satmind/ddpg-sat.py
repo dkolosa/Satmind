@@ -1,9 +1,7 @@
 import numpy as np
 import tensorflow as tf
-from collections import  deque
 import gym
 import matplotlib.pyplot as plt
-import random
 import os
 import argparse
 import datetime
@@ -12,66 +10,11 @@ import json
 import Satmind.actor_critic as models
 from Satmind.env_orekit import OrekitEnv
 import Satmind.utils
+from Satmind.replay_memory import Experience
 
-class Experience:
-    def __init__(self, buffer_size):
-        self.buffer_size = buffer_size
-        self.buffer = deque(maxlen=buffer_size)
-        self.count = 0
-
-    def add(self, experience):
-        """
-        Add an experience to the buff-er
-        :param experience: (state, action, reward, next state)
-        :return:
-        """
-        if self.count < self.buffer_size:
-            self.buffer.append(experience)
-            self.count += 1
-        else:
-            self.buffer.popleft()
-            self.buffer.append(experience)
-
-    def experience_replay(self, batch_size):
-        """
-        Get a random experience from the deque
-        :return:  experience: (state, action, reward, next state, terminal(done))
-        """
-        if self.count < batch_size:
-            return random.sample(self.buffer, self.count)
-        else:
-            return random.sample(self.buffer, batch_size)
-
-    def populate_memory(self, env, thrust_values, stepT):
-        """
-        Populate with experiences by taking random actions
-        :param env: Agent enviornment object
-        :param thrust_values: Given list of possible thrust levels
-        :param stepT: Thrust step values
-        :return:
-        """
-        state = env.reset()
-        for e in self.buffer:
-            act = np.random.random_sample()*thrust_values
-            state_1, reward, done_mem, _ = env.state(act, stepT)
-            e = [state, act, reward, state_1]
-            self.add(e)
-            state = state_1
-
-    @property
-    def get_count(self):
-        return self.count
-
-    @property
-    def print_buffer(self):
-        '''
-        Prints all of the experience data stored in the buffer
-
-        :return: Printed list of the experience in the buffer
-        '''
-        for e in self.buffer: return e
 
 stepT = 100.0
+
 
 def orekit_setup():
 
@@ -94,21 +37,15 @@ def orekit_setup():
 
 def main(args):
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'OrekitEnv-v0')
-    ENV = ENVS[0]
+    ENV = ENVS[3]
 
-    if ENV == ENVS[3]:
-        env, duration = orekit_setup()
-        iter_per_episode = int(duration / stepT)
-        # Network inputs and outputs
-        features = env.observation_space
-        n_actions = 3
-        action_bound = 5.0
-    else:
-        env = gym.make(ENV)
-        iter_per_episode = 200
-        features = env.observation_space.shape[0]
-        n_actions = env.action_space.shape[0]
-        action_bound = env.action_space.high
+    env, duration = orekit_setup()
+    iter_per_episode = int(duration / stepT)
+    # Network inputs and outputs
+    features = env.observation_space
+    n_actions = 3
+    action_bound = 5.0
+
 
     # env.seed(1234)
     np.random.seed(1234)
@@ -230,33 +167,33 @@ def main(args):
                     if done or j >= iter_per_episode - 1:
                         # print(f'I: {degrees(env._currentOrbit.getI())}')
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
-                        # print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
-                        #       f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
-                        #       f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
-                        #       f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
-                        #       f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}')
+                        print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
+                              f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
+                              f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
+                              f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
+                              f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}')
                         print('===========')
                         break
-                # if i % 50 == 0:
-                #     saver.save(sess, checkpoint_path)
-                #     print(f'Model Saved and Updated')
-                #     env.render_plots()
-                #     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
-                #     plt.subplot(2,1,1)
-                #     plt.plot(thrust_mag)
-                #     plt.title('Thrust Magnitude (N)')
-                #     plt.subplot(2,1,2)
-                #     plt.plot(actions)
-                #     plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
-                #     plt.title('Thrust (N)')
-                #     plt.legend(('R', 'S', 'W'))
-                #     plt.tight_layout()
-                #     plt.show()
-            # Save the trained model
-            #     if i % 50 == 0:
-            #         if args['model_dir'] is not None:
-            #             saver.save(sess, checkpoint_path)
-            #             print(f'Model Saved and Updated')
+                if i % 50 == 0:
+                    saver.save(sess, checkpoint_path)
+                    print(f'Model Saved and Updated')
+                    env.render_plots()
+                    thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
+                    plt.subplot(2,1,1)
+                    plt.plot(thrust_mag)
+                    plt.title('Thrust Magnitude (N)')
+                    plt.subplot(2,1,2)
+                    plt.plot(actions)
+                    plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
+                    plt.title('Thrust (N)')
+                    plt.legend(('R', 'S', 'W'))
+                    plt.tight_layout()
+                    plt.show()
+            Save the trained model
+                if i % 50 == 0:
+                    if args['model_dir'] is not None:
+                        saver.save(sess, checkpoint_path)
+                        print(f'Model Saved and Updated')
         else:
             if args['model'] is not None:
                 saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
@@ -281,7 +218,6 @@ def main(args):
 
                         env.render_plots()
                         break
-
         plt.plot(rewards)
         plt.show()
 
