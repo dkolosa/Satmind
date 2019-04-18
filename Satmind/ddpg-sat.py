@@ -50,7 +50,7 @@ def main(args):
     np.random.seed(1234)
 
     num_episodes = 800
-    batch_size = 20
+    batch_size = 120
 
     layer_1_nodes, layer_2_nodes = 512, 480
     tau = 0.001
