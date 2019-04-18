@@ -86,7 +86,7 @@ class OrekitEnv:
         self.target_px = []
         self.target_py = []
 
-        self._orbit_tolerance = {'a': 1000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.001, 'hy': 0.001, 'lv': 0.01}
+        self._orbit_tolerance = {'a': 1000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.01, 'hy': 0.0001, 'lv': 0.01}
 
         self.set_date(date)
         self._extrap_Date = self._initial_date
