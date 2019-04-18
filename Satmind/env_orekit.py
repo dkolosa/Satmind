@@ -80,6 +80,12 @@ class OrekitEnv:
         self.hy_orbit = []
         self.lv_orbit = []
 
+        self.adot_orbit = []
+        self.exdot_orbit = []
+        self.eydot_orbit = []
+        self.hxdot_orbit = []
+        self.hydot_orbit = []
+
         self._sc_fuel = None
         self._extrap_Date = None
         self._targetOrbit = None
@@ -281,14 +287,22 @@ class OrekitEnv:
         self.create_Propagator()
         self.setForceModel()
         self.set_spacecraft(1000.0, 500.0)
+
         self.px = []
         self.py = []
+
         self.a_orbit = []
         self.ex_orbit = []
         self.ey_orbit = []
         self.hx_orbit = []
         self.hy_orbit = []
         self.lv_orbit = []
+
+        self.adot_orbit = []
+        self.exdot_orbit = []
+        self.eydot_orbit = []
+        self.hxdot_orbit = []
+        self.hydot_orbit = []
 
         state = np.array([self._orbit.getA()/self._orbit.getA(), self._orbit.getEquinoctialEx(), self._orbit.getEquinoctialEy(),
                                   self._orbit.getHx(), self._orbit.getHy(), self._orbit.getLv(), 0, 0, 0, 0, 0, 0])
@@ -363,6 +377,13 @@ class OrekitEnv:
                    self._currentOrbit.getEquinoctialEyDot(),
                    self._currentOrbit.getHxDot(), self._currentOrbit.getHyDot(), self._currentOrbit.getLvDot()
                    ]
+
+        self.adot_orbit.append(self._currentOrbit.getADot())
+        self.exdot_orbit.append(self._currentOrbit.getEquinoctialExDot())
+        self.eydot_orbit.append(self._currentOrbit.getEquinoctialEyDot())
+        self.hxdot_orbit.append(self._currentOrbit.getHxDot())
+        self.hydot_orbit.append(self._currentOrbit.getHyDot())
+
 
         # state_1 = self.get_state(self._currentOrbit)
 
@@ -454,6 +475,19 @@ class OrekitEnv:
             self.target_py.append(coord.getY())
             extrapDate = extrapDate.shiftedBy(stepT)
 
+    def oe_plots(self):
+        oe_params = ('sma', 'e_x', 'e_y', 'h_x', 'h_y')
+
+        oedot = [self.adot_orbit, self.exdot_orbit, self.eydot_orbit, self.hxdot_orbit,
+                 self.hydot_orbit]
+
+        for i in range(len(oe_params)):
+            plt.subplot(3,2,i+1)
+            plt.plot(oedot[i])
+            plt.ylabel(oe_params[i])
+        plt.show()
+
+
 
 class OutputHandler(PythonOrekitFixedStepHandler):
     """
@@ -520,9 +554,11 @@ def main():
     # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
         position, r, done = env.step(thrust_mag)
 
+    env.oe_plots()
+
     print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
     # print(f'time taken (hours): {env._currentDate.durationFrom(env.final_date)/60**2}')
-    env.render_plots()
+    # env.render_plots()
 
 if __name__ == '__main__':
     main()
