@@ -17,7 +17,7 @@ def test_training():
     action_bound = env.action_space.high
 
     actor = Actor(features, n_actions, 128, 128, action_bound, 0.0001, .001,1, 'actor')
-    critic = Critic(features, n_actions, 64, 64,0.001, 0.001,'critic', actor.trainable_variables)
+    critic = Critic(features, n_actions, 128, 128, 0.001, 0.001,'critic', actor.trainable_variables)
 
     s = env.reset()
     with tf.Session() as sess:
@@ -53,7 +53,7 @@ def test_rl():
     num_episodes = 800
     batch_size = 64
 
-    layer_1_nodes, layer_2_nodes = 256, 150
+    layer_1_nodes, layer_2_nodes = 300, 200
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
