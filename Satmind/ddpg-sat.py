@@ -45,16 +45,14 @@ def main(args):
     n_actions = 3
     action_bound = 5.0
 
-
-    # env.seed(1234)
     np.random.seed(1234)
 
     num_episodes = 800
-    batch_size = 20
+    batch_size = 64
 
-    layer_1_nodes, layer_2_nodes = 512, 480
+    layer_1_nodes, layer_2_nodes = 300, 280
     tau = 0.001
-    actor_lr, critic_lr = 0.0001, 0.001
+    actor_lr, critic_lr = 0.0001, 0.01
     GAMMA = 0.99
 
     # Initialize actor and critic network and targets
@@ -63,7 +61,7 @@ def main(args):
     critic = models.Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
 
     # Replay memory buffer
-    replay = Experience(buffer_size=500)
+    replay = Experience(buffer_size=1000000)
     saver = tf.train.Saver()
 
     # Save model directory
@@ -167,7 +165,8 @@ def main(args):
                               f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
                               f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
                               f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
-                              f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}')
+                              f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}\n'
+                              f'Fuel Mass: {env._sc_fuel.getAdditionalState("Fuel Mass")[0]}')
                         print('===========')
                         break
                 if i % 50 == 0:

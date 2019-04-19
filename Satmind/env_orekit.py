@@ -40,9 +40,9 @@ FUEL_MASS = "Fuel Mass"
 UTC = TimeScalesFactory.getUTC()
 inertial_frame = FramesFactory.getEME2000()
 attitude = LofOffset(inertial_frame, LOFType.LVLH)
-CONTINEOUS = True
 EARTH_RADIUS = Constants.WGS84_EARTH_EQUATORIAL_RADIUS
 MU = Constants.WGS84_EARTH_MU
+
 
 class OrekitEnv:
     """
@@ -323,29 +323,27 @@ class OrekitEnv:
         :return: spacecraft state (np.array), reward value (float), don\
         e (bbol)
         """
-        if CONTINEOUS:
-            thrust_mag = np.linalg.norm(thrust)
-            thrust_dir = thrust / thrust_mag
-            DIRECTION = Vector3D(float(thrust_dir[0]), float(thrust_dir[1]), float(thrust_dir[2]))
+        thrust_mag = np.linalg.norm(thrust)
+        thrust_dir = thrust / thrust_mag
+        DIRECTION = Vector3D(float(thrust_dir[0]), float(thrust_dir[1]), float(thrust_dir[2]))
 
-            if thrust_mag <= 0:
-                # DIRECTION = Vector3D.MINUS_J
-                thrust_mag = abs(float(thrust_mag))
-            else:
-                # DIRECTION = Vector3D.PLUS_J
-                thrust_mag = float(thrust_mag)
+        if thrust_mag <= 0:
+            # DIRECTION = Vector3D.MINUS_J
+            thrust_mag = abs(float(thrust_mag))
+        else:
+            # DIRECTION = Vector3D.PLUS_J
+            thrust_mag = float(thrust_mag)
 
         thrust_force = ConstantThrustManeuver(self._extrap_Date, self.stepT, thrust_mag, self._isp, DIRECTION)
         self._prop.addForceModel(thrust_force)
         currentState = self._prop.propagate(self._extrap_Date.shiftedBy(self.stepT))
-        # print('step {}: time {} {}\n'.format(cpt, currentState.getDate(), currentState.getOrbit()))
         self._currentDate = currentState.getDate()
         self._extrap_Date = self._currentDate
         self._currentOrbit = currentState.getOrbit()
         coord = currentState.getPVCoordinates().getPosition()
-        # Calculate the fuel used and update spacecraft fuel mass
+
         self._sc_fuel = self._sc_fuel.addAdditionalState(FUEL_MASS, self._sc_fuel.getAdditionalState(FUEL_MASS)[0]
-                                                         + thrust_force.getFlowRate() * self.stepT)
+                                                         + (thrust_force.getFlowRate() * self.stepT))
         self.px.append(coord.getX())
         self.py.append(coord.getY())
         self.a_orbit.append(currentState.getA())
@@ -386,9 +384,26 @@ class OrekitEnv:
             done = True
             reward = -100
 
-        reward = -100*(abs(self.r_target_state[0] - state[0]) / self._orbit.getA()) - \
-                  100*(abs(self._targetOrbit.getE()) - abs(self._currentOrbit.getE())) - \
-                  100*(abs(self._targetOrbit.getI()) - abs(self._currentOrbit.getI())) - thrust*0.30
+        # reward = -(abs(self.r_target_state[0] - state[0]) / self._orbit.getA()) - \
+        #           (abs(self._targetOrbit.getE()) - abs(self._currentOrbit.getE()))/self._orbit.getE() - \
+        #           (abs(self._targetOrbit.getI()) - abs(self._currentOrbit.getI()))/self._orbit.getI() - \
+        #           thrust*0.30
+        #
+        # reward = -abs(self.r_target_state[3] - state[3])/self._orbit.getHx() \
+        #          -abs(self.r_target_state[4] - state[4])/self._orbit.getHy()
+        #          -abs(self.r_target_state[3] - state[3])/self._orbit.getHx() \
+        #          -abs(self.r_target_state[4] - state[4])/self._orbit.getHy() \
+        #
+        # if abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
+        #    abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
+        #     reward -= abs(self.r_target_state[0] - state[0]) / self._orbit.getA()
+
+        reward = - 0.1*abs(self.r_target_state[0] - state[0]) / self._orbit.getA() - \
+                   abs(self.r_target_state[1] - state[1]) / self._orbit.getEquinoctialEx() - \
+                   abs(self.r_target_state[2] - state[2]) / self._orbit.getEquinoctialEy() - \
+                   10*abs(self.r_target_state[3] - state[3]) / self._orbit.getHx() - \
+                   10*abs(self.r_target_state[4] - state[4]) / self._orbit.getHy() - \
+                   thrust*.1
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
            abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
