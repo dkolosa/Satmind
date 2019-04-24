@@ -43,7 +43,7 @@ def main(args):
     # Network inputs and outputs
     features = env.observation_space
     n_actions = 3
-    action_bound = 5.0
+    action_bound = 4.0
 
     np.random.seed(1234)
 
@@ -156,9 +156,9 @@ def main(args):
                         critic.update_target_network(sess)
 
                     sum_reward += r
-                    rewards.append(sum_reward)
                     s = s1
                     if done or j >= iter_per_episode - 1:
+                        rewards.append(sum_reward)
                         print(f'I: {degrees(env._currentOrbit.getI())}')
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                         print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
@@ -171,6 +171,7 @@ def main(args):
                         break
                 if i % 50 == 0:
                     saver.save(sess, checkpoint_path)
+                    n = range(j+1)
                     print(f'Model Saved and Updated')
                     env.render_plots()
                     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
@@ -178,7 +179,7 @@ def main(args):
                     plt.plot(thrust_mag)
                     plt.title('Thrust Magnitude (N)')
                     plt.subplot(2,1,2)
-                    plt.plot(actions)
+                    plt.plot(n,np.asarray(actions)[:,0], n, np.asarray(actions)[:,1], n, np.asarray(actions)[:,2])
                     plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
                     plt.title('Thrust (N)')
                     plt.legend(('R', 'S', 'W'))
