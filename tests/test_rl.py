@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import gym
+import matplotlib.pyplot as plt
 
 from Satmind.actor_critic import Actor, Critic
 from Satmind.utils import OrnsteinUhlenbeck
@@ -65,7 +66,6 @@ def test_rl():
 
     # Replay memory buffer
     replay = Experience(buffer_size=500)
-
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
@@ -76,6 +76,7 @@ def test_rl():
             s = env.reset()
             sum_reward = 0
             sum_q = 0
+            rewards = []
 
             for j in range(iter_per_episode):
 
@@ -84,6 +85,7 @@ def test_rl():
                 a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
                 s1, r, done, _ = env.step(a[0])
 
+                rewards.append(r)
                 # Store in replay memory
                 replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
                 # sample from random memory
@@ -117,13 +119,17 @@ def test_rl():
                     # update target networks
                     actor.update_target_network(sess)
                     critic.update_target_network(sess)
+                print(r)
 
                 sum_reward += r
                 s = s1
                 if done:
                     print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                     print('===========')
+                    plt.plot(rewards)
+                    plt.show()
                     break
+
 
 
 if __name__ == '__main__':
