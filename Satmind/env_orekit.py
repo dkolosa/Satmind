@@ -343,7 +343,7 @@ class OrekitEnv:
             # DIRECTION = Vector3D.PLUS_J
             thrust_mag = float(thrust_mag)
 
-        thrust_force = ConstantThrustManeuver(self._extrap_Date, self.stepT, thrust_mag, self._isp, DIRECTION)
+        thrust_force = ConstantThrustManeuver(self._extrap_Date, self.stepT, thrust_mag, self._isp,attitude, DIRECTION)
         self._prop.addForceModel(thrust_force)
         currentState = self._prop.propagate(self._extrap_Date.shiftedBy(self.stepT))
         self._currentDate = currentState.getDate()
@@ -429,22 +429,26 @@ class OrekitEnv:
         #    abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
         #     # reward -= abs(self.r_target_state[0] - state[0]) / self._orbit.getA()
 
-        reward_a = abs(self.r_target_state[0] - state[0]) / self._orbit.getA()
-        # print(f'a: {reward_a}')
-        reward_ex = abs(self.r_target_state[1] - state[1]) #/ self._orbit.getEquinoctialEx()
-        # print(f'ex: {reward_ex}')
-        reward_ey = abs(self.r_target_state[2] - state[2]) #/ self._orbit.getEquinoctialEy()
-        # print(f'ey: {reward_ey}')
-        reward_hx = abs(self.r_target_state[3] - state[3]) #/ self._orbit.getHx()
-        # print(f'hx: {reward_hx}')
-        reward_hy = abs(self.r_target_state[4] - state[4]) #/ self._orbit.getHy()
-        # print(f'hy: {reward_hy}')
+        reward = self._currentOrbit.getI() / self._targetOrbit.getI()
+        # print(reward)
+        if .98 <= abs(reward) <= 1.02:
+            reward_a = abs(self.r_target_state[0] - state[0]) / self._orbit.getA()
+            # print(f'a: {reward_a}')
+            reward_ex = abs(self.r_target_state[1] - state[1]) #/ self._orbit.getEquinoctialEx()
+            # print(f'ex: {reward_ex}')
+            reward_ey = abs(self.r_target_state[2] - state[2]) #/ self._orbit.getEquinoctialEy()
+            # print(f'ey: {reward_ey}')
+            reward_hx = abs(self.r_target_state[3] - state[3]) #/ self._orbit.getHx()
+            # print(f'hx: {reward_hx}')
+            reward_hy = abs(self.r_target_state[4] - state[4]) #/ self._orbit.getHy()
+            # print(f'hy: {reward_hy}')
+            reward += 10*reward_a + reward_ex + reward_ey + 10*reward_hx + 10*reward_hy
 
         # Negative based reward
         # reward = -(10*reward_a + reward_ex + reward_ey + reward_hx + reward_hy)
 
         # Positive based reward
-        reward = 1-(10*reward_a + reward_ex + reward_ey + 10*reward_hx + 10*reward_hy)**.4
+        # reward = 1-(10*reward_a + reward_ex + reward_ey + 10*reward_hx + 10*reward_hy)**.4
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
            abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
@@ -567,14 +571,14 @@ def main():
 
     mass = 100.0
     fuel_mass = 100.0
-    duration = 24.0 * 60.0 ** 2 * 5
+    duration = 24.0 * 60.0 ** 2 * 2
 
     # set the sc initial state
     a = 5500.0e3  # semi major axis (m)
     e = 0.1  # eccentricity
-    i = 2.0  # inclination
-    omega = 10.0  # perigee argument
-    raan = 5.0  # right ascension of ascending node
+    i = 1.0  # inclination
+    omega = 2.0  # perigee argument
+    raan = 2.0  # right ascension of ascending node
     lM = 20.0  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 
@@ -591,7 +595,7 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.00, 0.0, -0.1])
+    thrust_mag = np.array([0.00, 0.0, 1.0])
     reward = []
     i = []
     while env._extrap_Date.compareTo(env.final_date) <= 0:
@@ -611,7 +615,7 @@ def main():
 
     print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
     # print(f'time taken (hours): {env._currentDate.durationFrom(env.final_date)/60**2}')
-    # env.render_plots()
+    env.render_plots()
 
 if __name__ == '__main__':
     main()
