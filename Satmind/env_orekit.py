@@ -80,6 +80,12 @@ class OrekitEnv:
         self.hy_orbit = []
         self.lv_orbit = []
 
+        self.adot_orbit = []
+        self.exdot_orbit = []
+        self.eydot_orbit = []
+        self.hxdot_orbit = []
+        self.hydot_orbit = []
+
         self._sc_fuel = None
         self._extrap_Date = None
         self._targetOrbit = None
@@ -205,13 +211,13 @@ class OrekitEnv:
         minStep = 0.001
         maxStep = 500.0
 
-        # position_tolerance = 10.0
-        # tolerances = NumericalPropagator.tolerances(position_tolerance, self._orbit, self._orbit.getType())
-        # abs_tolerance = JArray_double.cast_(tolerances[0])
-        # rel_telerance = JArray_double.cast_(tolerances[1])
+        position_tolerance = 10.0
+        tolerances = NumericalPropagator.tolerances(position_tolerance, self._orbit, self._orbit.getType())
+        abs_tolerance = JArray_double.cast_(tolerances[0])
+        rel_telerance = JArray_double.cast_(tolerances[1])
 
-        integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
-        # integrator = DormandPrince853Integrator(minStep, maxStep, abs_tolerance, rel_telerance)
+        # integrator = DormandPrince853Integrator(minStep, maxStep, 1e-5, 1e-10)
+        integrator = DormandPrince853Integrator(minStep, maxStep, abs_tolerance, rel_telerance)
 
         integrator.setInitialStepSize(10.0)
 
@@ -276,8 +282,10 @@ class OrekitEnv:
         self.create_Propagator()
         self.setForceModel()
         self.set_spacecraft(1000.0, 500.0)
+
         self.px = []
         self.py = []
+
         self.a_orbit = []
         self.ex_orbit = []
         self.ey_orbit = []
@@ -285,7 +293,13 @@ class OrekitEnv:
         self.hy_orbit = []
         self.lv_orbit = []
 
-        state = np.array([self._orbit.getA()/self.r_target_state[0], self._orbit.getEquinoctialEx(), self._orbit.getEquinoctialEy(),
+        self.adot_orbit = []
+        self.exdot_orbit = []
+        self.eydot_orbit = []
+        self.hxdot_orbit = []
+        self.hydot_orbit = []
+
+        state = np.array([self._orbit.getA()/self._orbit.getA(), self._orbit.getEquinoctialEx(), self._orbit.getEquinoctialEy(),
                                   self._orbit.getHx(), self._orbit.getHy(), self._orbit.getLv(), 0, 0, 0, 0, 0, 0])
         return state
 
@@ -357,6 +371,13 @@ class OrekitEnv:
                    self._currentOrbit.getHxDot(), self._currentOrbit.getHyDot(), self._currentOrbit.getLvDot()
                    ]
 
+        self.adot_orbit.append(self._currentOrbit.getADot())
+        self.exdot_orbit.append(self._currentOrbit.getEquinoctialExDot())
+        self.eydot_orbit.append(self._currentOrbit.getEquinoctialEyDot())
+        self.hxdot_orbit.append(self._currentOrbit.getHxDot())
+        self.hydot_orbit.append(self._currentOrbit.getHyDot())
+
+
         # state_1 = self.get_state(self._currentOrbit)
 
         return state_1, reward, done
@@ -420,10 +441,10 @@ class OrekitEnv:
         # print(f'hy: {reward_hy}')
 
         # Negative based reward
-        # reward = -10*(reward_a + reward_ex + reward_ey + reward_hx + reward_hy)
+        # reward = -(10*reward_a + reward_ex + reward_ey + reward_hx + reward_hy)
 
         # Positive based reward
-        reward = 1-((10*reward_a + reward_ex + reward_ey + 10*reward_hx + 10*reward_hy))
+        reward = 1-(10*reward_a + reward_ex + reward_ey + 10*reward_hx + 10*reward_hy)**.4
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
            abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
@@ -434,6 +455,14 @@ class OrekitEnv:
             reward = 10
             done = True
             print('hit')
+
+        if self._currentOrbit.getI() > self._targetOrbit.getI()+.2:
+            reward = -10
+            done = True
+
+        if self._currentOrbit.getA() < EARTH_RADIUS:
+            reward = -100
+            done = True
 
         return reward, done
 
@@ -489,6 +518,19 @@ class OrekitEnv:
             self.target_py.append(coord.getY())
             extrapDate = extrapDate.shiftedBy(stepT)
 
+    def oe_plots(self):
+        oe_params = ('sma', 'e_x', 'e_y', 'h_x', 'h_y')
+
+        oedot = [self.adot_orbit, self.exdot_orbit, self.eydot_orbit, self.hxdot_orbit,
+                 self.hydot_orbit]
+
+        for i in range(len(oe_params)):
+            plt.subplot(3,2,i+1)
+            plt.plot(oedot[i])
+            plt.ylabel(oe_params[i])
+        plt.show()
+
+
 
 class OutputHandler(PythonOrekitFixedStepHandler):
     """
@@ -525,19 +567,19 @@ def main():
 
     mass = 100.0
     fuel_mass = 100.0
-    duration = 24.0 * 60.0 ** 2 * 2
+    duration = 24.0 * 60.0 ** 2 * 5
 
     # set the sc initial state
-    a = 5500.0e3 + EARTH_RADIUS  # semi major axis (m)
-    e = 0.001  # eccentricity
+    a = 5500.0e3  # semi major axis (m)
+    e = 0.1  # eccentricity
     i = 2.0  # inclination
-    omega = 0.01  # perigee argument
-    raan = 0.01  # right ascension of ascending node
-    lM = 0.01  # mean anomaly
+    omega = 10.0  # perigee argument
+    raan = 5.0  # right ascension of ascending node
+    lM = 20.0  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 
     # target state
-    a_targ = 6600.0e3 + EARTH_RADIUS
+    a_targ = 6600.0e3
     e_targ = e
     i_targ = 2.5
     omega_targ = omega
@@ -549,19 +591,25 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.00, 0.10, 1.0])
+    thrust_mag = np.array([0.00, 0.0, -0.1])
     reward = []
+    i = []
     while env._extrap_Date.compareTo(env.final_date) <= 0:
     # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
         position, r, done = env.step(thrust_mag)
-        # inc = env._currentOrbit.getI()
+        inc = env._currentOrbit.getI()
         reward.append(r)
+        # i.append(inc)
         if done:
             print("done")
             break
     plt.plot(reward)
     plt.show()
     print(f'Done \n Incli: {degrees(env._currentOrbit.getI())}')
+
+    # env.oe_plots()
+
+    print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
     # print(f'time taken (hours): {env._currentDate.durationFrom(env.final_date)/60**2}')
     # env.render_plots()
 
