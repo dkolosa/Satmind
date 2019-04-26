@@ -3,6 +3,7 @@ import orekit
 from math import radians, degrees, sqrt, pi
 import datetime
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
 orekit.initVM()
@@ -73,6 +74,7 @@ class OrekitEnv:
 
         self.px = []
         self.py = []
+        self.pz = []
         self.a_orbit = []
         self.ex_orbit = []
         self.ey_orbit = []
@@ -91,6 +93,7 @@ class OrekitEnv:
         self._targetOrbit = None
         self.target_px = []
         self.target_py = []
+        self.target_pz = []
 
         self._orbit_tolerance = {'a': 1000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.001, 'hy': 0.0001, 'lv': 0.01}
 
@@ -223,7 +226,7 @@ class OrekitEnv:
 
         numProp = NumericalPropagator(integrator)
         numProp.setInitialState(self._sc_fuel)
-        # numProp.setOrbitType(OrbitType.KEPLERIAN)
+        numProp.setOrbitType(OrbitType.KEPLERIAN)
 
         if prop_master_mode:
             output_step = 5.0
@@ -247,6 +250,16 @@ class OrekitEnv:
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
         plt.show()
+        fig = plt.figure()
+        ax = fig.gca(projection='3d')
+        ax.plot(np.asarray(self.px)/1000, np.asarray(self.py)/1000, np.asarray(self.pz)/1000,label='Satellite Trajectory')
+        ax.plot(np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, np.asarray(self.target_pz)/1000,
+                color='red',label='Target trajectory')
+        ax.legend()
+        ax.set_xlabel('X (km)')
+        ax.set_ylabel('Y (km)')
+        ax.set_zlabel('Z (km)')
+        ax.set_zlim(-1500, 1500)
         plt.figure(2)
         for i in range(len(oe_params)):
             plt.subplot(3,2,i+1)
@@ -266,9 +279,9 @@ class OrekitEnv:
         earth = OneAxisEllipsoid(EARTH_RADIUS,
                                 Constants.WGS84_EARTH_FLATTENING,itrf)
         gravityProvider = GravityFieldFactory.getNormalizedProvider(8, 8)
-        # self._prop.addForceModel(HolmesFeatherstoneAttractionModel(earth.getBodyFrame(), gravityProvider))
+        self._prop.addForceModel(HolmesFeatherstoneAttractionModel(earth.getBodyFrame(), gravityProvider))
 
-        self._prop.addForceModel(newattr)
+        # self._prop.addForceModel(newattr)
 
     def reset(self):
         """
@@ -285,6 +298,7 @@ class OrekitEnv:
 
         self.px = []
         self.py = []
+        self.pz = []
 
         self.a_orbit = []
         self.ex_orbit = []
@@ -355,6 +369,7 @@ class OrekitEnv:
                                                          + (thrust_force.getFlowRate() * self.stepT))
         self.px.append(coord.getX())
         self.py.append(coord.getY())
+        self.pz.append(coord.getZ())
         self.a_orbit.append(currentState.getA())
         self.ex_orbit.append(currentState.getEquinoctialEx())
         self.ey_orbit.append(currentState.getEquinoctialEy())
@@ -376,9 +391,6 @@ class OrekitEnv:
         self.eydot_orbit.append(self._currentOrbit.getEquinoctialEyDot())
         self.hxdot_orbit.append(self._currentOrbit.getHxDot())
         self.hydot_orbit.append(self._currentOrbit.getHyDot())
-
-
-        # state_1 = self.get_state(self._currentOrbit)
 
         return state_1, reward, done
 
@@ -429,9 +441,13 @@ class OrekitEnv:
         #    abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
         #     # reward -= abs(self.r_target_state[0] - state[0]) / self._orbit.getA()
 
+        # reward = state[3] / self.r_target_state[3] + state[4] / self.r_target_state[4]
         reward = self._currentOrbit.getI() / self._targetOrbit.getI()
+        # reward *= self._sc_fuel.getAdditionalState(FUEL_MASS)[0]/500
         # print(reward)
-        if .98 <= abs(reward) <= 1.02:
+        if 1.98 <= abs(reward) <= 2.02:
+            print(f'I:{degrees(self._currentOrbit.getI())}')
+            print(f'diff hx: {state[3] - self.r_target_state[3]} \t diff hy: {state[4]- self.r_target_state[4]}')
             reward_a = abs(self.r_target_state[0] - state[0]) / self._orbit.getA()
             # print(f'a: {reward_a}')
             reward_ex = abs(self.r_target_state[1] - state[1]) #/ self._orbit.getEquinoctialEx()
@@ -442,7 +458,7 @@ class OrekitEnv:
             # print(f'hx: {reward_hx}')
             reward_hy = abs(self.r_target_state[4] - state[4]) #/ self._orbit.getHy()
             # print(f'hy: {reward_hy}')
-            reward += 10*reward_a + reward_ex + reward_ey + 10*reward_hx + 10*reward_hy
+            # reward += 10*reward_a + reward_ex + reward_ey + 10*reward_hx + 10*reward_hy
 
         # Negative based reward
         # reward = -(10*reward_a + reward_ex + reward_ey + reward_hx + reward_hy)
@@ -465,7 +481,7 @@ class OrekitEnv:
             done = True
 
         if self._currentOrbit.getA() < EARTH_RADIUS:
-            reward = -100
+            reward = -10
             done = True
 
         return reward, done
@@ -520,6 +536,7 @@ class OrekitEnv:
             coord = currentState.getPVCoordinates().getPosition()
             self.target_px.append(coord.getX())
             self.target_py.append(coord.getY())
+            self.target_pz.append(coord.getZ())
             extrapDate = extrapDate.shiftedBy(stepT)
 
     def oe_plots(self):
@@ -532,8 +549,8 @@ class OrekitEnv:
             plt.subplot(3,2,i+1)
             plt.plot(oedot[i])
             plt.ylabel(oe_params[i])
+        plt.title('Rate of change of OE')
         plt.show()
-
 
 
 class OutputHandler(PythonOrekitFixedStepHandler):
@@ -571,14 +588,14 @@ def main():
 
     mass = 100.0
     fuel_mass = 100.0
-    duration = 24.0 * 60.0 ** 2 * 2
+    duration = 24.0 * 60.0 ** 2 * 1
 
     # set the sc initial state
     a = 5500.0e3  # semi major axis (m)
     e = 0.1  # eccentricity
-    i = 1.0  # inclination
-    omega = 2.0  # perigee argument
-    raan = 2.0  # right ascension of ascending node
+    i = 12.0  # inclination
+    omega = 10.0  # perigee argument
+    raan = 20.0  # right ascension of ascending node
     lM = 20.0  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 
@@ -590,12 +607,12 @@ def main():
     raan_targ = raan
     lM_targ = lM
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
-    stepT = 1000.0
+    stepT = 100.0
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.00, 0.0, 1.0])
+    thrust_mag = np.array([1.00, 0.0, -1.0])
     reward = []
     i = []
     while env._extrap_Date.compareTo(env.final_date) <= 0:
@@ -603,7 +620,7 @@ def main():
         position, r, done = env.step(thrust_mag)
         inc = env._currentOrbit.getI()
         reward.append(r)
-        # i.append(inc)
+        i.append(degrees(inc))
         if done:
             print("done")
             break
@@ -612,10 +629,11 @@ def main():
     print(f'Done \n Incli: {degrees(env._currentOrbit.getI())}')
 
     # env.oe_plots()
+    env.render_plots()
 
     print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
     # print(f'time taken (hours): {env._currentDate.durationFrom(env.final_date)/60**2}')
-    env.render_plots()
+    # env.render_plots()
 
 if __name__ == '__main__':
     main()
