@@ -28,7 +28,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
 
-    duration = (24.0 * 60.0 ** 2) * 2
+    duration = (24.0 * 60.0 ** 2) * 1.25
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env, duration
