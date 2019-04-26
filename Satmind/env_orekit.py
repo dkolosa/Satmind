@@ -245,6 +245,8 @@ class OrekitEnv:
         """
         oe_params = ('sma', 'e_x', 'e_y', 'h_x', 'h_y', 'lv')
         oe = [np.asarray(self.a_orbit)/1e3, self.ex_orbit, self.ey_orbit, self.hx_orbit, self.hy_orbit, self.lv_orbit]
+        oe_target = [self.r_target_state[0]/1e3, self.r_target_state[1], self.r_target_state[2], self.r_target_state[3],
+                   self.r_target_state[4], self.r_target_state[5]]
         plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000,
                  np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000)
         plt.xlabel("x (km)")
@@ -264,6 +266,7 @@ class OrekitEnv:
         for i in range(len(oe_params)):
             plt.subplot(3,2,i+1)
             plt.plot(oe[i])
+            plt.scatter(len(oe[i]), oe_target[i], c='red')
             plt.ylabel(oe_params[i])
         plt.tight_layout()
         plt.show()
@@ -442,7 +445,7 @@ class OrekitEnv:
         #     # reward -= abs(self.r_target_state[0] - state[0]) / self._orbit.getA()
 
         # reward = state[3] / self.r_target_state[3] + state[4] / self.r_target_state[4]
-        reward = self._currentOrbit.getI() / self._targetOrbit.getI()
+        reward = 1-(self._currentOrbit.getI() / self._targetOrbit.getI())
         # reward *= self._sc_fuel.getAdditionalState(FUEL_MASS)[0]/500
         # print(reward)
         if 1.98 <= abs(reward) <= 2.02:
@@ -528,7 +531,7 @@ class OrekitEnv:
 
         target_date = self.final_date.shiftedBy(orbit_time)
         extrapDate = self.final_date
-        stepT = 100.0
+        stepT = 1000.0
 
         # know this is the state for final_date + time for orbit
         while extrapDate.compareTo(target_date) <= 0:
@@ -593,9 +596,9 @@ def main():
     # set the sc initial state
     a = 5500.0e3  # semi major axis (m)
     e = 0.1  # eccentricity
-    i = 12.0  # inclination
+    i = 2.0  # inclination
     omega = 10.0  # perigee argument
-    raan = 20.0  # right ascension of ascending node
+    raan = 10.0  # right ascension of ascending node
     lM = 20.0  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 
@@ -612,7 +615,7 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([1.00, 0.0, -1.0])
+    thrust_mag = np.array([0.00, 0.0, 1.0])
     reward = []
     i = []
     while env._extrap_Date.compareTo(env.final_date) <= 0:
@@ -625,6 +628,8 @@ def main():
             print("done")
             break
     plt.plot(reward)
+    plt.plot(i)
+
     plt.show()
     print(f'Done \n Incli: {degrees(env._currentOrbit.getI())}')
 
