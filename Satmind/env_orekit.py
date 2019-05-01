@@ -214,7 +214,7 @@ class OrekitEnv:
         minStep = 0.001
         maxStep = 500.0
 
-        position_tolerance = 10.0
+        position_tolerance = 60.0
         tolerances = NumericalPropagator.tolerances(position_tolerance, self._orbit, self._orbit.getType())
         abs_tolerance = JArray_double.cast_(tolerances[0])
         rel_telerance = JArray_double.cast_(tolerances[1])
@@ -226,6 +226,7 @@ class OrekitEnv:
 
         numProp = NumericalPropagator(integrator)
         numProp.setInitialState(self._sc_fuel)
+        numProp.setMu(MU)
         numProp.setOrbitType(OrbitType.KEPLERIAN)
 
         if prop_master_mode:
@@ -297,7 +298,7 @@ class OrekitEnv:
         self._prop = None
         self.create_Propagator()
         self.setForceModel()
-        self.set_spacecraft(1000.0, 500.0)
+        self.set_spacecraft(1000.0, 150.0)
 
         self.px = []
         self.py = []
@@ -410,10 +411,7 @@ class OrekitEnv:
         state = np.array([self._currentOrbit.getA(), self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
                           self._currentOrbit.getHx(), self._currentOrbit.getHy(), self._currentOrbit.getLv()])
 
-        if self._sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
-            print("Ran out of fuel")
-            done = True
-            reward = -100
+
 
         # reward = (state[0] / self.r_target_state[0] + state[1]/self.r_target_state[1] + state[2]/self.r_target_state[2] \
         #          + state[3]/self.r_target_state[3] + state[4]/self.r_target_state[4]
@@ -444,30 +442,38 @@ class OrekitEnv:
         #    abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
         #     # reward -= abs(self.r_target_state[0] - state[0]) / self._orbit.getA()
 
-        # reward = state[3] / self.r_target_state[3] + state[4] / self.r_target_state[4]
-        reward = 1-(self._currentOrbit.getI() / self._targetOrbit.getI())
+        # reward = (self._currentOrbit.getI() / self._targetOrbit.getI())
         # reward *= self._sc_fuel.getAdditionalState(FUEL_MASS)[0]/500
         # print(reward)
-        if 1.98 <= abs(reward) <= 2.02:
+
+        reward = state[3] / self.r_target_state[3] + state[4] / self.r_target_state[4]
+
+        if abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
+                abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
             print(f'I:{degrees(self._currentOrbit.getI())}')
-            print(f'diff hx: {state[3] - self.r_target_state[3]} \t diff hy: {state[4]- self.r_target_state[4]}')
-            reward_a = abs(self.r_target_state[0] - state[0]) / self._orbit.getA()
+            # print(f'diff hx: {state[3] - self.r_target_state[3]} \t diff hy: {state[4]- self.r_target_state[4]}')
+            reward_a = abs(state[0] / self.r_target_state[0])
             # print(f'a: {reward_a}')
-            reward_ex = abs(self.r_target_state[1] - state[1]) #/ self._orbit.getEquinoctialEx()
+            reward_ex = abs(state[1]/self.r_target_state[1]) #/ self._orbit.getEquinoctialEx()
             # print(f'ex: {reward_ex}')
-            reward_ey = abs(self.r_target_state[2] - state[2]) #/ self._orbit.getEquinoctialEy()
+            reward_ey = abs(state[2]/self.r_target_state[2]) #/ self._orbit.getEquinoctialEy()
             # print(f'ey: {reward_ey}')
-            reward_hx = abs(self.r_target_state[3] - state[3]) #/ self._orbit.getHx()
+            reward_hx = abs(state[3]/self.r_target_state[3]) #/ self._orbit.getHx()
             # print(f'hx: {reward_hx}')
-            reward_hy = abs(self.r_target_state[4] - state[4]) #/ self._orbit.getHy()
+            reward_hy = abs(state[4]/self.r_target_state[4]) #/ self._orbit.getHy()
             # print(f'hy: {reward_hy}')
-            # reward += 10*reward_a + reward_ex + reward_ey + 10*reward_hx + 10*reward_hy
+            reward = reward_a + reward_ex + reward_ey + reward_hx + reward_hy
+            print(reward)
+
+        # reward *= self._sc_fuel.getAdditionalState(FUEL_MASS)[0]/150
 
         # Negative based reward
         # reward = -(10*reward_a + reward_ex + reward_ey + reward_hx + reward_hy)
 
         # Positive based reward
         # reward = 1-(10*reward_a + reward_ex + reward_ey + 10*reward_hx + 10*reward_hy)**.4
+
+        # Terminal staes
 
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
            abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
@@ -478,14 +484,23 @@ class OrekitEnv:
             reward = 10
             done = True
             print('hit')
+            return reward, done
+
+        if self._sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
+            print("Ran out of fuel")
+            done = True
+            reward = 0
+            return reward, done
 
         if self._currentOrbit.getI() > self._targetOrbit.getI()+.2:
-            reward = -10
+            reward = 0
             done = True
+            return reward, done
 
         if self._currentOrbit.getA() < EARTH_RADIUS:
-            reward = -10
+            reward = 0
             done = True
+            return reward, done
 
         return reward, done
 
@@ -523,6 +538,7 @@ class OrekitEnv:
 
         numProp = NumericalPropagator(integrator)
         numProp.setInitialState(target_sc)
+        numProp.setMu(MU)
         numProp.setSlaveMode()
 
         target_prop = numProp
@@ -531,7 +547,7 @@ class OrekitEnv:
 
         target_date = self.final_date.shiftedBy(orbit_time)
         extrapDate = self.final_date
-        stepT = 1000.0
+        stepT = 100.0
 
         # know this is the state for final_date + time for orbit
         while extrapDate.compareTo(target_date) <= 0:
@@ -591,7 +607,7 @@ def main():
 
     mass = 100.0
     fuel_mass = 100.0
-    duration = 24.0 * 60.0 ** 2 * 1
+    duration = 24.0 * 60.0 ** 2 * 2
 
     # set the sc initial state
     a = 5500.0e3  # semi major axis (m)
@@ -605,7 +621,7 @@ def main():
     # target state
     a_targ = 6600.0e3
     e_targ = e
-    i_targ = 2.5
+    i_targ = 3.5
     omega_targ = omega
     raan_targ = raan
     lM_targ = lM
@@ -615,30 +631,31 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    thrust_mag = np.array([0.00, 0.0, 1.0])
+    f_w = [-.5, -.750, -0.9, -1.1]
+
+    thrust_mag = np.array([0.00, 0.0, -.9])
     reward = []
     i = []
     while env._extrap_Date.compareTo(env.final_date) <= 0:
     # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
         position, r, done = env.step(thrust_mag)
-        inc = env._currentOrbit.getI()
+        inc = env._currentOrbit.getHx()
         reward.append(r)
         i.append(degrees(inc))
-        if done:
+        if env._currentOrbit.getHx() >= env.r_target_state[3]:
             print("done")
             break
     plt.plot(reward)
-    plt.plot(i)
-
+    # plt.plot(i)
     plt.show()
-    print(f'Done \n Incli: {degrees(env._currentOrbit.getI())}')
+    print(f'Done\nIncli: {degrees(env._currentOrbit.getI())}\n steps:{len(i)}\n=====')
 
-    # env.oe_plots()
-    env.render_plots()
+        # env.oe_plots()
+        # env.render_plots()
 
-    print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
+    # print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
     # print(f'time taken (hours): {env._currentDate.durationFrom(env.final_date)/60**2}')
-    # env.render_plots()
+    env.render_plots()
 
 if __name__ == '__main__':
     main()
