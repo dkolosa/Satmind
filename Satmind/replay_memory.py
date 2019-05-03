@@ -1,5 +1,6 @@
 from collections import  deque
 import random
+import numpy as np
 
 class Experience:
     def __init__(self, buffer_size):
@@ -30,21 +31,22 @@ class Experience:
         else:
             return random.sample(self.buffer, batch_size)
 
-    def populate_memory(self, env, thrust_values, stepT):
+    def populate_memory(self, env, features, n_actions, thrust_values):
         """
-        Populate with experiences by taking random actions
+        Populate with experiences (initial guess)
         :param env: Agent enviornment object
-        :param thrust_values: Given list of possible thrust levels
+        # :param thrust_values: Given list of possible thrust levels
         :param stepT: Thrust step values
         :return:
         """
         state = env.reset()
-        for e in self.buffer:
-            act = np.random.random_sample()*thrust_values
-            state_1, reward, done_mem, _ = env.state(act, stepT)
-            e = [state, act, reward, state_1]
-            self.add(e)
+        thrust_values = np.array([0.00, 0.0, -0.9])
+        while env._extrap_Date.compareTo(env.final_date) <= 0:
+            state_1, r, done = env.step(thrust_values)
+            self.add((np.reshape(state, (features,)), np.reshape(thrust_values, (n_actions,)), r,
+                      np.reshape(state_1, (features,)), done))
             state = state_1
+        print("Population complete")
 
     @property
     def get_count(self):

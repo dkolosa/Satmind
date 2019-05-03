@@ -119,15 +119,15 @@ def test_rl():
                     # update target networks
                     actor.update_target_network(sess)
                     critic.update_target_network(sess)
-                print(r)
+                # print(r)
 
                 sum_reward += r
                 s = s1
                 if done:
                     print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                     print('===========')
-                    plt.plot(rewards)
-                    plt.show()
+                    # plt.plot(rewards)
+                    # plt.show()
                     break
 
 
