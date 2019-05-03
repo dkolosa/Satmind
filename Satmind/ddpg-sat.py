@@ -28,7 +28,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
 
-    duration = (24.0 * 60.0 ** 2) * 2
+    duration = (24.0 * 60.0 ** 2) * 1
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env, duration
@@ -43,14 +43,14 @@ def main(args):
     # Network inputs and outputs
     features = env.observation_space
     n_actions = 3
-    action_bound = 1.0
+    action_bound = 0.7
 
     np.random.seed(1234)
 
     num_episodes = 800
-    batch_size = 64
+    batch_size = 1000
 
-    layer_1_nodes, layer_2_nodes = 300, 280
+    layer_1_nodes, layer_2_nodes = 200, 150
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.01
     GAMMA = 0.99
@@ -61,7 +61,11 @@ def main(args):
     critic = models.Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
 
     # Replay memory buffer
-    replay = Experience(buffer_size=1000000)
+    replay = Experience(buffer_size=100000)
+    thrust_values = np.array([0.00, 0.0, -0.5])
+    replay.populate_memory(env, features, n_actions, thrust_values)
+    replay.populate_memory(env, features, n_actions, thrust_values)
+
     saver = tf.train.Saver()
 
     # Save model directory
@@ -168,11 +172,12 @@ def main(args):
                               f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}\n'
                               f'Fuel Mass: {env._sc_fuel.getAdditionalState("Fuel Mass")[0]}')
                         print('===========')
+                        saver.save(sess, checkpoint_path)
                         break
                 if i % 50 == 0:
-                    saver.save(sess, checkpoint_path)
+                    # saver.save(sess, checkpoint_path)
                     n = range(j+1)
-                    print(f'Model Saved and Updated')
+                    # print(f'Model Saved and Updated')
                     env.render_plots()
                     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
                     plt.subplot(2,1,1)
@@ -186,10 +191,10 @@ def main(args):
                     plt.tight_layout()
                     plt.show()
                 # Save the trained model
-                if i % 50 == 0:
-                    if args['model'] is not None:
-                        saver.save(sess, checkpoint_path)
-                        print(f'Model Saved and Updated')
+                # if i % 50 == 0:
+                #     if args['model'] is not None:
+                #         saver.save(sess, checkpoint_path)
+                #         print(f'Model Saved and Updated')
         else:
             if args['model'] is not None:
                 saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
