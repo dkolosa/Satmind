@@ -12,7 +12,7 @@ import Satmind.utils
 from Satmind.replay_memory import Experience
 
 
-stepT = 100.0
+stepT = 1000.0
 
 
 def orekit_setup():
@@ -28,7 +28,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
 
-    duration = (24.0 * 60.0 ** 2) * 1
+    duration = (24.0 * 60.0 ** 2) * 10
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env, duration
@@ -47,10 +47,10 @@ def main(args):
 
     np.random.seed(1234)
 
-    num_episodes = 800
-    batch_size = 1000
+    num_episodes = 200
+    batch_size = 128
 
-    layer_1_nodes, layer_2_nodes = 200, 150
+    layer_1_nodes, layer_2_nodes = 300, 250
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.01
     GAMMA = 0.99
@@ -61,9 +61,8 @@ def main(args):
     critic = models.Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
 
     # Replay memory buffer
-    replay = Experience(buffer_size=100000)
-    thrust_values = np.array([0.00, 0.0, -0.5])
-    replay.populate_memory(env, features, n_actions, thrust_values)
+    replay = Experience(buffer_size=1000000)
+    thrust_values = np.array([0.00, 0.0, 0.9])
     replay.populate_memory(env, features, n_actions, thrust_values)
 
     saver = tf.train.Saver()
@@ -119,7 +118,7 @@ def main(args):
                 for j in range(iter_per_episode):
 
                     # Select an action
-                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
+                    a = actor.predict(np.reshape(s, (1, features)), sess)
 
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
@@ -174,7 +173,7 @@ def main(args):
                         print('===========')
                         saver.save(sess, checkpoint_path)
                         break
-                if i % 50 == 0:
+                if i % 10 == 0:
                     # saver.save(sess, checkpoint_path)
                     n = range(j+1)
                     # print(f'Model Saved and Updated')
