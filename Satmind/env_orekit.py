@@ -72,6 +72,9 @@ class OrekitEnv:
         self._currentDate = None
         self._currentOrbit = None
 
+        self.fuel_mass = fuel_mass
+        self.mass = mass
+
         self.px = []
         self.py = []
         self.pz = []
@@ -100,7 +103,7 @@ class OrekitEnv:
         self.set_date(date)
         self._extrap_Date = self._initial_date
         self.create_orbit(state, self._initial_date, target=False)
-        self.set_spacecraft(mass, fuel_mass)
+        self.set_spacecraft(self.mass, self.fuel_mass)
         self.create_Propagator()
         self.setForceModel()
         self.final_date = self._initial_date.shiftedBy(duration)
@@ -283,22 +286,27 @@ class OrekitEnv:
         earth = OneAxisEllipsoid(EARTH_RADIUS,
                                 Constants.WGS84_EARTH_FLATTENING,itrf)
         gravityProvider = GravityFieldFactory.getNormalizedProvider(8, 8)
-        self._prop.addForceModel(HolmesFeatherstoneAttractionModel(earth.getBodyFrame(), gravityProvider))
+        # self._prop.addForceModel(HolmesFeatherstoneAttractionModel(earth.getBodyFrame(), gravityProvider))
 
-        # self._prop.addForceModel(newattr)
+        self._prop.addForceModel(newattr)
 
     def reset(self):
         """
         Resets the orekit enviornment
         :return:
         """
+
+        self._prop = None
+        self._currentDate = None
+        self._currentOrbit = None
+
         self._currentDate = self._initial_date
         self._currentOrbit = self._orbit
         self._extrap_Date = self._initial_date
-        self._prop = None
+
+        self.set_spacecraft(self.mass, self.fuel_mass)
         self.create_Propagator()
         self.setForceModel()
-        self.set_spacecraft(1000.0, 150.0)
 
         self.px = []
         self.py = []
@@ -361,7 +369,7 @@ class OrekitEnv:
             # DIRECTION = Vector3D.PLUS_J
             thrust_mag = float(thrust_mag)
 
-        thrust_force = ConstantThrustManeuver(self._extrap_Date, self.stepT, thrust_mag, self._isp,attitude, DIRECTION)
+        thrust_force = ConstantThrustManeuver(self._extrap_Date, self.stepT, thrust_mag, self._isp, attitude, DIRECTION)
         self._prop.addForceModel(thrust_force)
         currentState = self._prop.propagate(self._extrap_Date.shiftedBy(self.stepT))
         self._currentDate = currentState.getDate()
@@ -431,11 +439,11 @@ class OrekitEnv:
         #           (abs(self._targetOrbit.getI()) - abs(self._currentOrbit.getI()))/self._orbit.getI() - \
         #           thrust*0.30
 
-        reward = -(abs(self.r_target_state[0] - state[0]) / self._orbit.getA() +
-                   abs(self.r_target_state[1] - state[1]) +
-                   abs(self.r_target_state[2] - state[2]) +
-                   100*(self.r_target_state[3] - state[3])**2 +
-                   100*(self.r_target_state[4] - state[4])**2)
+        reward = -(0.001*(self.r_target_state[0] - state[0])**2 / self.r_target_state[0] +
+                   0.1*(self.r_target_state[1] - state[1])**2 +
+                   0.1*(self.r_target_state[2] - state[2])**2 +
+                   10*(self.r_target_state[3] - state[3])**2 +
+                   (self.r_target_state[4] - state[4])**2)
 
         # if abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
         #    abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
@@ -545,7 +553,7 @@ class OrekitEnv:
 
         target_date = self.final_date.shiftedBy(orbit_time)
         extrapDate = self.final_date
-        stepT = 100.0
+        stepT = 500.0
 
         # know this is the state for final_date + time for orbit
         while extrapDate.compareTo(target_date) <= 0:
@@ -605,12 +613,12 @@ def main():
 
     mass = 100.0
     fuel_mass = 100.0
-    duration = 24.0 * 60.0 ** 2 * 2
+    duration = 24.0 * 60.0 ** 2 * 5
 
     # set the sc initial state
     a = 5500.0e3  # semi major axis (m)
     e = 0.1  # eccentricity
-    i = 2.0  # inclination
+    i = 45.0  # inclination
     omega = 10.0  # perigee argument
     raan = 10.0  # right ascension of ascending node
     lM = 20.0  # mean anomaly
@@ -619,35 +627,36 @@ def main():
     # target state
     a_targ = 6600.0e3
     e_targ = e
-    i_targ = 3.5
+    i_targ = 35.0
     omega_targ = omega
     raan_targ = raan
     lM_targ = lM
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
-    stepT = 100.0
+    stepT = 1000.0
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
     env.render_target()
-    f_w = [-.5, -.750, -0.9, -1.1]
+    fw = [0.1, 0.5, 0.7, 0.1]
 
-    thrust_mag = np.array([0.00, 0.3, -.9])
-    reward = []
-    i = []
-    s = env.reset()
-    while env._extrap_Date.compareTo(env.final_date) <= 0:
-    # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
-        position, r, done = env.step(thrust_mag)
-        inc = env._currentOrbit.getHx()
-        reward.append(r)
-        i.append(degrees(inc))
-        if env._currentOrbit.getHx() >= env.r_target_state[3]:
-            print("done")
-            break
-    plt.plot(reward)
-    # plt.plot(i)
-    plt.show()
-    print(f'Done\nIncli: {degrees(env._currentOrbit.getI())}\n steps:{len(i)}\n=====')
+    for f in fw:
+        thrust_mag = np.array([0.01, 0.0, f])
+        reward = []
+        i = []
+        s = env.reset()
+        while env._extrap_Date.compareTo(env.final_date) <= 0:
+        # while abs(env.r_target_state[0] - env._currentOrbit.getA()) >= 1000.0:
+            position, r, done = env.step(thrust_mag)
+            inc = env._currentOrbit.getHx()
+            reward.append(r)
+            i.append(degrees(inc))
+            # if env._currentOrbit.getHx() >= env.r_target_state[3]:
+            #     print("done")
+            #     break
+        plt.plot(reward)
+        # plt.plot(i)
+        plt.show()
+        print(f'Done\nIncli: {degrees(env._currentOrbit.getI())}\n steps:{len(i)}\n=====')
 
 
     # print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
