@@ -4,7 +4,7 @@
     {
       "sma": 5500000.0,
       "ecc":  0.10,
-      "incl": 2.0,
+      "incl": 15.0,
       "omega": 10.0,
       "rann": 10.0,
       "true_anomaly": 20.0
@@ -14,7 +14,7 @@
     {
       "year": 2018,
       "month": 2,
-      "day": 28,
+      "day": 16,
       "hour": 12,
       "minute": 10,
       "second": 0.0
@@ -22,7 +22,7 @@
 
     "spacecraft_parameters":
     {
-      "dry_mass": 1000.0,
+      "dry_mass": 500.0,
       "fuel_mass": 150.0
     },
 
@@ -30,7 +30,7 @@
     {
       "sma": 5500000.0,
       "ecc":  0.10,
-      "incl": 2.5,
+      "incl": 17.0,
       "omega": 10.0,
       "rann": 10.0,
       "true_anomaly": 10.0
@@ -102,8 +102,8 @@
 
     "spacecraft_parameters":
     {
-      "dry_mass": 1000.0,
-      "fuel_mass": 150.0
+      "dry_mass": 500.0,
+      "fuel_mass": 200.0
     },
 
     "target_orbit":

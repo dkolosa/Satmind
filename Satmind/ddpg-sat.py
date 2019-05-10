@@ -28,7 +28,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
 
-    duration = (24.0 * 60.0 ** 2) * 10
+    duration = 24.0 * 60.0 ** 2 * 10
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env, duration
@@ -47,8 +47,8 @@ def main(args):
 
     np.random.seed(1234)
 
-    num_episodes = 200
-    batch_size = 128
+    num_episodes = 1500
+    batch_size = 1
 
     layer_1_nodes, layer_2_nodes = 300, 250
     tau = 0.001
@@ -62,7 +62,7 @@ def main(args):
 
     # Replay memory buffer
     replay = Experience(buffer_size=1000000)
-    thrust_values = np.array([0.00, 0.0, 0.9])
+    thrust_values = np.array([0.00, 0.0, -0.7])
     replay.populate_memory(env, features, n_actions, thrust_values)
 
     saver = tf.train.Saver()
@@ -109,23 +109,27 @@ def main(args):
 
             rewards = []
 
+            thrust = np.array([0.0, 0.5, -0.7])
             for i in range(num_episodes):
                 s = env.reset()
                 sum_reward = 0
                 sum_q = 0
-
                 actions = []
                 for j in range(iter_per_episode):
 
                     # Select an action
-                    a = actor.predict(np.reshape(s, (1, features)), sess)
-
+                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
+                    # a = thrust
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
+                    # s1, r, done = env.step(thrust)
 
                     actions.append(a[0])
+                    # actions.append(a)
                     # Store in replay memory
-                    replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
+                    replay.add((np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1,(features,)), done))
+                    # replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
+
                     # sample from random memory
                     if batch_size < replay.get_count:
                         mem = replay.experience_replay(batch_size)
@@ -170,10 +174,11 @@ def main(args):
                               f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
                               f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}\n'
                               f'Fuel Mass: {env._sc_fuel.getAdditionalState("Fuel Mass")[0]}')
+                        print(f'final:{env.final_date}\n current:{env._extrap_Date}')
                         print('===========')
                         saver.save(sess, checkpoint_path)
                         break
-                if i % 10 == 0:
+                if i % 50 == 0:
                     # saver.save(sess, checkpoint_path)
                     n = range(j+1)
                     # print(f'Model Saved and Updated')
@@ -189,11 +194,6 @@ def main(args):
                     plt.legend(('R', 'S', 'W'))
                     plt.tight_layout()
                     plt.show()
-                # Save the trained model
-                # if i % 50 == 0:
-                #     if args['model'] is not None:
-                #         saver.save(sess, checkpoint_path)
-                #         print(f'Model Saved and Updated')
         else:
             if args['model'] is not None:
                 saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
