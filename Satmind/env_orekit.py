@@ -453,13 +453,16 @@ class OrekitEnv:
         #            100*abs(self.r_target_state[4] - state[4]) / self.r_target_state[4])
         # print(reward)
 
-        reward_a = 0.1*abs(self.r_target_state[0] - state[0]) / self.r_target_state[0]
+        reward_a =  abs(self.r_target_state[0] - state[0]) / self.r_target_state[0]
         reward_ex = abs(self.r_target_state[1] - state[1]) / self.r_target_state[1]
         reward_ey = abs(self.r_target_state[2] - state[2]) / self.r_target_state[2]
         reward_hx = abs(self.r_target_state[3] - state[3]) / self.r_target_state[3]
         reward_hy = abs(self.r_target_state[4] - state[4]) / self.r_target_state[4]
-        reward = reward_a + reward_ex + reward_ey + reward_hx + reward_hy
-        reward = 1 - reward**.4
+        reward = reward_a + reward_hx + reward_hy*.1
+        reward = (1 - reward**.4)
+        if (self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx']:
+            reward = reward_a
+            reward = (1 - reward**.6)
 
         # reward = (state[3] / self.r_target_state[3] + state[4] / self.r_target_state[4])*(1/5)
         # if abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
@@ -488,7 +491,7 @@ class OrekitEnv:
            abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
            abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
             # self.final_date.durationFrom(self._extrap_Date) <= 360:
-            reward = 10
+            reward = 1
             done = True
             print('hit')
             return reward, done
@@ -615,14 +618,14 @@ def main():
 
     # target state
     a_targ=a
-    # a_targ = 6600.0e3
+    a_targ = 6200.0e3
     e_targ = e
-    i_targ = 16.6
+    i_targ = 16.4
     omega_targ = omega
     raan_targ = raan
     lM_targ = lM
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
-    stepT = 1000.0
+    stepT = 500.0
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
@@ -631,7 +634,7 @@ def main():
     fuel = []
     for f in fw:
         # thrust_mag = np.array([0.0, 0.6, f])
-        thrust_mag = np.array([0.0, 0.0, -1.2])
+        thrust_mag = np.array([-0.13, .2, -1.40])
 
         reward = []
         i = []
@@ -640,10 +643,14 @@ def main():
             position, r, done = env.step(thrust_mag)
             inc = env._currentOrbit.getHx()
             reward.append(r)
+            if (env.r_target_state[3] - env._currentOrbit.getHx()) <= env._orbit_tolerance['hx']:
+                thrust_mag = np.array([0.0, 0.25, 0.0])
+            if done:
+                break
         env.render_plots()
         plt.plot(reward)
         plt.show()
-        print(f'Done\nIncli: {degrees(env._currentOrbit.getI())}\n steps:{len(i)}\n=====')
+        print(f'Done\nIncli: {degrees(env._currentOrbit.getI())}\n=====')
 
 if __name__ == '__main__':
     main()
