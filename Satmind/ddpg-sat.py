@@ -12,7 +12,7 @@ import Satmind.utils
 from Satmind.replay_memory import Experience
 
 
-stepT = 1000.0
+stepT = 500.0
 
 
 def orekit_setup():
@@ -28,7 +28,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
 
-    duration = 24.0 * 60.0 ** 2 * 10
+    duration = 24.0 * 60.0 ** 2 * 6
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env, duration
@@ -50,7 +50,7 @@ def main(args):
     num_episodes = 1500
     batch_size = 1
 
-    layer_1_nodes, layer_2_nodes = 300, 250
+    layer_1_nodes, layer_2_nodes = 400, 350
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.01
     GAMMA = 0.99
@@ -182,8 +182,9 @@ def main(args):
                     # saver.save(sess, checkpoint_path)
                     n = range(j+1)
                     # print(f'Model Saved and Updated')
-                    env.render_plots()
+                    env.render_plots(i)
                     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
+
                     plt.subplot(2,1,1)
                     plt.plot(thrust_mag)
                     plt.title('Thrust Magnitude (N)')
@@ -193,6 +194,8 @@ def main(args):
                     plt.title('Thrust (N)')
                     plt.legend(('R', 'S', 'W'))
                     plt.tight_layout()
+                    plt.savefig('results/' + str(i) + '/thrust.pdf')
+
                     plt.show()
         else:
             if args['model'] is not None:
