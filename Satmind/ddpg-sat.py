@@ -185,6 +185,13 @@ def main(args):
                     env.render_plots(i)
                     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
 
+                    if 0 <= i < 10:
+                        episode = '00' + str(i)
+                    elif 10 <= i < 100:
+                        episode = '0' + str(i)
+                    elif i >= 100:
+                        episode = str(i)
+
                     plt.subplot(2,1,1)
                     plt.plot(thrust_mag)
                     plt.title('Thrust Magnitude (N)')
@@ -194,8 +201,7 @@ def main(args):
                     plt.title('Thrust (N)')
                     plt.legend(('R', 'S', 'W'))
                     plt.tight_layout()
-                    plt.savefig('results/' + str(i) + '/thrust.pdf')
-
+                    plt.savefig('results/' + episode + '/thrust.pdf')
                     plt.show()
         else:
             if args['model'] is not None:
@@ -221,6 +227,8 @@ def main(args):
                         env.render_plots()
                         break
         plt.plot(rewards)
+        plt.tight_layout()
+        plt.savefig('results/rewards.pdf')
         plt.show()
 
 
