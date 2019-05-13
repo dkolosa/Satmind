@@ -5,6 +5,7 @@ import datetime
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
+import os
 
 orekit.initVM()
 
@@ -244,11 +245,22 @@ class OrekitEnv:
         self._prop = numProp
         self._prop.setAttitudeProvider(attitude)
 
-    def render_plots(self):
+    def render_plots(self, episode=1, save=True, show=True):
         """
         Renders the x-y plots of the spacecraft trajectory
         :return:
         """
+        if 0 <= episode < 10:
+            episode = '00'+str(episode)
+        elif 10 <= episode < 100:
+            episode = '0'+str(episode)
+        elif episode >= 100:
+            episode = str(episode)
+
+        os.makedirs('results/' + episode, exist_ok=True)
+        save_path = 'results/' + episode + '/'
+
+        oe_fig = plt.figure(1)
         oe_params = ('sma', 'e_x', 'e_y', 'h_x', 'h_y', 'lv')
         oe = [np.asarray(self.a_orbit)/1e3, self.ex_orbit, self.ey_orbit, self.hx_orbit, self.hy_orbit, self.lv_orbit]
         oe_target = [self.r_target_state[0]/1e3, self.r_target_state[1], self.r_target_state[2], self.r_target_state[3],
@@ -257,8 +269,11 @@ class OrekitEnv:
                  np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000)
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
-        plt.show()
-        fig = plt.figure()
+        plt.tight_layout()
+        if save:
+            plt.savefig(save_path + '2d.pdf')
+        if show: plt.show()
+        fig = plt.figure(2)
         ax = fig.gca(projection='3d')
         ax.plot(np.asarray(self.px)/1000, np.asarray(self.py)/1000, np.asarray(self.pz)/1000,label='Satellite Trajectory')
         ax.plot(np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, np.asarray(self.target_pz)/1000,
@@ -268,14 +283,18 @@ class OrekitEnv:
         ax.set_ylabel('Y (km)')
         ax.set_zlabel('Z (km)')
         ax.set_zlim(-1500, 1500)
-        plt.figure(2)
+        if save:
+            plt.savefig(save_path + '3d.pdf')
+        plt.figure(3)
         for i in range(len(oe_params)):
             plt.subplot(3,2,i+1)
             plt.plot(oe[i])
             plt.scatter(len(oe[i]), oe_target[i], c='red')
             plt.ylabel(oe_params[i])
         plt.tight_layout()
-        plt.show()
+        if save:
+            plt.savefig(save_path + 'oe.pdf')
+        if show: plt.show()
 
     def setForceModel(self):
         """
@@ -462,7 +481,7 @@ class OrekitEnv:
         reward = (1 - reward**.4)
         if (self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx']:
             reward = reward_a
-            reward = (1 - reward**.6)
+            reward = (1 - reward**.4)
 
         # reward = (state[3] / self.r_target_state[3] + state[4] / self.r_target_state[4])*(1/5)
         # if abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
@@ -632,6 +651,7 @@ def main():
     env.render_target()
     fw = [-0.6]
     fuel = []
+
     for f in fw:
         # thrust_mag = np.array([0.0, 0.6, f])
         thrust_mag = np.array([-0.13, .2, -1.40])
@@ -641,15 +661,15 @@ def main():
         s = env.reset()
         while env._extrap_Date.compareTo(env.final_date) <= 0:
             position, r, done = env.step(thrust_mag)
-            inc = env._currentOrbit.getHx()
-            reward.append(r)
+            # inc = env._currentOrbit.getHx()
+            # reward.append(r)
             if (env.r_target_state[3] - env._currentOrbit.getHx()) <= env._orbit_tolerance['hx']:
                 thrust_mag = np.array([0.0, 0.25, 0.0])
             if done:
                 break
-        env.render_plots()
-        plt.plot(reward)
-        plt.show()
+        env.render_plots(save=False, show=False)
+        # plt.plot(reward)
+        # plt.show()
         print(f'Done\nIncli: {degrees(env._currentOrbit.getI())}\n=====')
 
 if __name__ == '__main__':
