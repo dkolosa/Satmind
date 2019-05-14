@@ -126,8 +126,7 @@ class Critic:
         self.action_grad = tf.gradients(self.output, self.action)
 
     def build_network(self, name):
-        l1_init = tf.random_normal_initializer(0.0, 0.1)
-        b1_init = tf.constant_initializer(0.1)
+
 
         input = tf.placeholder(tf.float32, shape=[None, self.n_features])
         action = tf.placeholder(tf.float32, shape=[None, self.n_actions])

@@ -40,12 +40,18 @@ class Experience:
         :return:
         """
         state = env.reset()
-        thrust_values = np.array([0.00, 0.0, -0.9])
+        thrust_values = np.array([0.00001, 0.0001, -0.7])
         while env._extrap_Date.compareTo(env.final_date) <= 0:
             state_1, r, done = env.step(thrust_values)
             self.add((np.reshape(state, (features,)), np.reshape(thrust_values, (n_actions,)), r,
                       np.reshape(state_1, (features,)), done))
             state = state_1
+            # kep = env.convert_to_keplerian(env._currentOrbit)
+            # ta = kep.getMeanAnomaly()
+            # if ta >=0:
+            #     thrust_values = np.array([0.0, 0.0, 1.0])
+            # else:
+            #     thrust_values = np.array([0.0, 0.0, -1.0])
         print("Population complete")
 
     @property
