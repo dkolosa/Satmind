@@ -28,7 +28,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
 
-    duration = 24.0 * 60.0 ** 2 * 6
+    duration = 24.0 * 60.0 ** 2 * 10
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env, duration
@@ -50,10 +50,10 @@ def main(args):
     num_episodes = 1500
     batch_size = 1
 
-    layer_1_nodes, layer_2_nodes = 400, 350
+    layer_1_nodes, layer_2_nodes = 256, 150
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.01
-    GAMMA = 0.99
+    GAMMA = 0.90
 
     # Initialize actor and critic network and targets
     actor = models.Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size, 'actor')
@@ -128,7 +128,6 @@ def main(args):
                     # actions.append(a)
                     # Store in replay memory
                     replay.add((np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1,(features,)), done))
-                    # replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
 
                     # sample from random memory
                     if batch_size < replay.get_count:
@@ -178,11 +177,21 @@ def main(args):
                         print('===========')
                         saver.save(sess, checkpoint_path)
                         break
-                if i % 50 == 0:
+                if i % 10 == 0:
                     # saver.save(sess, checkpoint_path)
                     n = range(j+1)
                     # print(f'Model Saved and Updated')
-                    env.render_plots(i)
+
+                    if i % 10 == 0:
+                        save_fig = True
+                    else:
+                        save_fig = False
+                    if i % 50 == 0:
+                        show = True
+                    else:
+                        show = False
+
+                    env.render_plots(i, save=save_fig, show=show)
                     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
 
                     if 0 <= i < 10:
@@ -201,8 +210,10 @@ def main(args):
                     plt.title('Thrust (N)')
                     plt.legend(('R', 'S', 'W'))
                     plt.tight_layout()
-                    plt.savefig('results/' + episode + '/thrust.pdf')
-                    plt.show()
+                    if save_fig: plt.savefig('results/' + episode + '/thrust.pdf')
+                    if show:
+                        plt.show()
+
         else:
             if args['model'] is not None:
                 saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
