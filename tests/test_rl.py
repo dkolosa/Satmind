@@ -51,7 +51,7 @@ def test_rl():
     np.random.seed(1234)
 
     num_episodes = 800
-    batch_size = 128
+    batch_size = 64
     iter_per_episode = 200
 
     layer_1_nodes, layer_2_nodes = 128, 64

@@ -348,10 +348,10 @@ class OrekitEnv:
         self.hxdot_orbit = []
         self.hydot_orbit = []
 
-        state = np.array([self._orbit.getA()/self.r_target_state[0], self._orbit.getEquinoctialEx()/self.r_target_state[1],
-                          self._orbit.getEquinoctialEy()/self.r_target_state[2],
-                          self._orbit.getHx()/self.r_target_state[3],
-                          self._orbit.getHy()/self.r_target_state[4], 0, 0, 0, 0, 0])
+        state = np.array([(self.r_target_state[0]-self._orbit.getA()) / self.r_target_state[0], self._orbit.getEquinoctialEx(),
+                          self._orbit.getEquinoctialEy(),
+                          self._orbit.getHx(),
+                          self._orbit.getHy(), 0, 0, 0, 0, 0])
         return state
 
     @property
@@ -421,8 +421,9 @@ class OrekitEnv:
 
         reward, done = self.dist_reward(thrust)
 
-        state_1 = [self._currentOrbit.getA()/self.r_target_state[0], self._currentOrbit.getEquinoctialEx()/self.r_target_state[1], self._currentOrbit.getEquinoctialEy()/self.r_target_state[2],
-                   self._currentOrbit.getHx()/self.r_target_state[3], self._currentOrbit.getHy()/self.r_target_state[4],
+        state_1 = [(self.r_target_state[0]-self._currentOrbit.getA()) / self.r_target_state[0],
+                   self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
+                   self._currentOrbit.getHx(), self._currentOrbit.getHy(),
                    self._currentOrbit.getADot(), self._currentOrbit.getEquinoctialExDot(),
                    self._currentOrbit.getEquinoctialEyDot(),
                    self._currentOrbit.getHxDot(), self._currentOrbit.getHyDot()
@@ -468,19 +469,22 @@ class OrekitEnv:
         #           (abs(self._targetOrbit.getI()) - abs(self._currentOrbit.getI()))/self._orbit.getI() - \
         #           thrust*0.30
 
-        # reward = -(10*abs(self.r_target_state[0] - state[0]) / self.r_target_state[0] +
-        #            abs(self.r_target_state[1] - state[1]) / self.r_target_state[1] +
-        #            abs(self.r_target_state[2] - state[2]) / self.r_target_state[2] +
-        #            100*abs(self.r_target_state[3] - state[3]) / self.r_target_state[3] +
-        #            100*abs(self.r_target_state[4] - state[4]) / self.r_target_state[4])
-        # print(reward)
+        # reward = -(1*abs(self.r_target_state[0] - state[0]) / self.r_target_state[0] +
+        #            0.001*abs(self.r_target_state[1] - state[1]) / self.r_target_state[1] +
+        #            0.001*abs(self.r_target_state[2] - state[2]) / self.r_target_state[2] +
+        #            10*abs(self.r_target_state[3] - state[3]) / self.r_target_state[3] +
+        #            0.001*abs(self.r_target_state[4] - state[4]) / self.r_target_state[4])
+        # # print(reward)
+        #
+        # if (self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx']:
+        #     reward = -(10 * abs(self.r_target_state[0] - state[0]) / self.r_target_state[0])
 
         reward_a =  abs(self.r_target_state[0] - state[0]) / self.r_target_state[0]
         reward_ex = abs(self.r_target_state[1] - state[1]) / self.r_target_state[1]
         reward_ey = abs(self.r_target_state[2] - state[2]) / self.r_target_state[2]
         reward_hx = abs(self.r_target_state[3] - state[3]) / self.r_target_state[3]
         reward_hy = abs(self.r_target_state[4] - state[4]) / self.r_target_state[4]
-        reward = reward_a + 1*reward_hx + reward_hy*.1
+        reward = 10*reward_a + 10*reward_hx + reward_hy*.1
         reward = (1 - reward**.3)
         if (self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx']:
             reward = reward_a
@@ -627,7 +631,7 @@ def main():
 
     mass = 500.0
     fuel_mass = 150.0
-    duration = 24.0 * 60.0 ** 2 * 9.5
+    duration = 24.0 * 60.0 ** 2 * 6
 
     # set the sc initial state
     a = 20000.0e3  # semi major axis (m)
@@ -640,7 +644,7 @@ def main():
 
     # target state
     a_targ=a
-    a_targ = 20000.0e3
+    a_targ = 20500.0e3
     e_targ = e
     i_targ = 15.09
     omega_targ = omega
@@ -656,32 +660,34 @@ def main():
     fuel = []
 
     for f in fw:
-        thrust_mag = np.array([0.0, 0.00001, -0.7])
+        thrust_mag = np.array([0.0, 0.00001, -1.0])
         # thrust_mag = np.array([0, .2, -1.40])
 
         reward = []
-        i = []
         i_t = []
         s = env.reset()
+        i_prev = radians(i)
         while env._extrap_Date.compareTo(env.final_date) <= 0:
             position, r, done = env.step(thrust_mag)
-            # inc = env.convert_to_keplerian(env._currentOrbit)
-            # ta = inc.getMeanAnomaly()
-            # i_t.append(inc.getMeanAnomaly())
-            reward.append(r)
-            # if ta >=0:
-            #     thrust_mag = np.array([0.0, 0.0, 1.0])
+            per = env._sc_fuel.getKeplerianPeriod()
+            i_cur = env._currentOrbit.getI()
+            inc = env.convert_to_keplerian(env._currentOrbit)
+            ta = inc.getTrueAnomaly()
+            # i_t.append(inc.getAnomaly())
+            # i_t.append(env._sc_fuel.getKeplerianPeriod())
+            # reward.append(i_cur)
+            # if ta >= 0:
+            #     thrust_mag = np.array([0.0, 0.0, -0.1])
             # else:
-            #     thrust_mag = np.array([0.0, 0.0, -1.0])
-
-
-            # if (env.r_target_state[3] - env._currentOrbit.getHx()) <= env._orbit_tolerance['hx']:
-            #     thrust_mag = np.array([0.0, 0.25, 0.0])
+            #     thrust_mag = np.array([0.0, 0.0, 0.1])
             # if done:
                 # break
         # env.render_plots(save=False, show=False)
-        plt.plot(reward)
-        plt.show()
+        # plt.figure()
+        # plt.plot(i_t)
+        # plt.figure()
+        # plt.plot(reward)
+        # plt.show()
         print(f'Done\nIncli: {degrees(env._currentOrbit.getI())}\n=====')
 
 if __name__ == '__main__':

@@ -28,7 +28,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
 
-    duration = 24.0 * 60.0 ** 2 * 10
+    duration = 24.0 * 60.0 ** 2 * 7
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env, duration
@@ -47,12 +47,12 @@ def main(args):
 
     np.random.seed(1234)
 
-    num_episodes = 1500
-    batch_size = 1
+    num_episodes = 5000
+    batch_size = 64
 
     layer_1_nodes, layer_2_nodes = 256, 150
     tau = 0.001
-    actor_lr, critic_lr = 0.0001, 0.01
+    actor_lr, critic_lr = 0.0001, 0.0001
     GAMMA = 0.90
 
     # Initialize actor and critic network and targets
@@ -173,7 +173,6 @@ def main(args):
                               f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
                               f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}\n'
                               f'Fuel Mass: {env._sc_fuel.getAdditionalState("Fuel Mass")[0]}')
-                        print(f'final:{env.final_date}\n current:{env._extrap_Date}')
                         print('===========')
                         saver.save(sess, checkpoint_path)
                         break
