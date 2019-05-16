@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from Satmind.actor_critic import Actor, Critic
 from Satmind.utils import OrnsteinUhlenbeck
-from Satmind.replay_memory import Experience
+from Satmind.replay_memory import Per_Memory, Experience
 
 
 def test_training():
@@ -54,7 +54,7 @@ def test_rl():
     num_episodes = 800
     batch_size = 64
 
-    layer_1_nodes, layer_2_nodes = 300, 200
+    layer_1_nodes, layer_2_nodes = 128, 100
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
@@ -65,7 +65,10 @@ def test_rl():
     critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
 
     # Replay memory buffer
-    replay = Experience(buffer_size=500)
+    # replay = Experience(buffer_size=1000)
+
+    per_mem = Per_Memory(capacity=1000000)
+
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
@@ -87,15 +90,32 @@ def test_rl():
 
                 rewards.append(r)
                 # Store in replay memory
-                replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
+                # replay.add((np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1,(features,)), done))
+
                 # sample from random memory
-                if batch_size < replay.get_count:
-                    mem = replay.experience_replay(batch_size)
-                    s_rep = np.array([_[0] for _ in mem])
-                    a_rep = np.array([_[1] for _ in mem])
-                    r_rep = np.array([_[2] for _ in mem])
-                    s1_rep = np.array([_[3] for _ in mem])
-                    d_rep = np.array([_[4] for _ in mem])
+                # if per_mem.tree.n_entries >= begin_training:
+                error = abs(r) # D_i = max D
+                per_mem.add(error,(np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
+
+                # if batch_size < replay.get_count:
+                if batch_size < per_mem.count:
+                    # mem = replay.experience_replay(batch_size)
+                    # s_rep = np.array([_[0] for _ in mem])
+                    # a_rep = np.array([_[1] for _ in mem])
+                    # r_rep = np.array([_[2] for _ in mem])
+                    # s1_rep = np.array([_[3] for _ in mem])
+                    # d_rep = np.array([_[4] for _ in mem])
+
+                    mem, idxs = per_mem.sample(batch_size)
+                    try:
+                        s_rep = np.array([_[0] for _ in mem])
+                        a_rep = np.array([_[1] for _ in mem])
+                        r_rep = np.array([_[2] for _ in mem])
+                        s1_rep = np.array([_[3] for _ in mem])
+                        d_rep = np.array([_[4] for _ in mem])
+                    except:
+                        print(mem)
+
 
                     # Get q-value from the critic target
                     act_target = actor.predict_target(s1_rep, sess)
@@ -108,8 +128,16 @@ def test_rl():
                         else:
                             y_i.append(r_rep[x] + GAMMA * target_q[x])
 
+                    q_critic = critic.predict(s_rep, a_rep, sess)
+                    td_error = np.abs(np.asarray(y_i) - q_critic)
+
+                    for n in range(batch_size):
+                        idx = idxs[n]
+                        per_mem.update(idx, td_error[n][0])
+
                     # update the critic network
                     predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (batch_size,1)), sess)
+
                     sum_q += np.amax(predicted_q)
                     # update actor policy
                     a_output = actor.predict(s_rep, sess)
@@ -119,15 +147,14 @@ def test_rl():
                     # update target networks
                     actor.update_target_network(sess)
                     critic.update_target_network(sess)
-                print(r)
+                # else:
+                #     per_mem.add(error,(np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
 
                 sum_reward += r
                 s = s1
                 if done:
                     print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                     print('===========')
-                    plt.plot(rewards)
-                    plt.show()
                     break
 
 
