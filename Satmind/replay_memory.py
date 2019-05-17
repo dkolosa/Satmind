@@ -104,12 +104,10 @@ class Per_Memory:  # stored as ( s, a, r, next_state, done ) in SumTree
             priorities.append(p)
             batch.append(data)
             idxs.append(idx)
-
         sampling_probabilities = priorities / self.tree.total()
-        # is_weight = np.power(self.tree.n_entries * sampling_probabilities, -self.beta)
-        # is_weight /= is_weight.max()
-
-        return batch, idxs
+        is_weight = np.power(self.tree.n_entries * sampling_probabilities, -self.beta)
+        is_weight /= is_weight.max()
+        return batch, idxs, is_weight
 
     def update(self, idx, error):
         p = self._get_priority(error)
