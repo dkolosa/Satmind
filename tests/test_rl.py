@@ -63,11 +63,13 @@ def test_rl():
     actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size, 'actor')
     actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
     critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
+    PER = True
 
     # Replay memory buffer
-    # replay = Experience(buffer_size=1000)
-
-    per_mem = Per_Memory(capacity=1000000)
+    if PER:
+        per_mem = Per_Memory(capacity=1000000)
+    else:
+        replay = Experience(buffer_size=1000)
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -90,15 +92,14 @@ def test_rl():
 
                 rewards.append(r)
                 # Store in replay memory
-                # replay.add((np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1,(features,)), done))
+                if PER:
+                    error = abs(r)  # D_i = max D
+                    per_mem.add(error, (np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
+                else:
+                    replay.add((np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1,(features,)), done))
 
-                # sample from random memory
-                # if per_mem.tree.n_entries >= begin_training:
-                error = abs(r) # D_i = max D
-                per_mem.add(error,(np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
-
+                # sample from memory
                 # if batch_size < replay.get_count:
-                if batch_size < per_mem.count:
                     # mem = replay.experience_replay(batch_size)
                     # s_rep = np.array([_[0] for _ in mem])
                     # a_rep = np.array([_[1] for _ in mem])
@@ -106,15 +107,13 @@ def test_rl():
                     # s1_rep = np.array([_[3] for _ in mem])
                     # d_rep = np.array([_[4] for _ in mem])
 
-                    mem, idxs = per_mem.sample(batch_size)
-                    try:
-                        s_rep = np.array([_[0] for _ in mem])
-                        a_rep = np.array([_[1] for _ in mem])
-                        r_rep = np.array([_[2] for _ in mem])
-                        s1_rep = np.array([_[3] for _ in mem])
-                        d_rep = np.array([_[4] for _ in mem])
-                    except:
-                        print(mem)
+                if batch_size < per_mem.count:
+                    mem, idxs, isweight = per_mem.sample(batch_size)
+                    s_rep = np.array([_[0] for _ in mem])
+                    a_rep = np.array([_[1] for _ in mem])
+                    r_rep = np.array([_[2] for _ in mem])
+                    s1_rep = np.array([_[3] for _ in mem])
+                    d_rep = np.array([_[4] for _ in mem])
 
 
                     # Get q-value from the critic target
@@ -128,15 +127,12 @@ def test_rl():
                         else:
                             y_i.append(r_rep[x] + GAMMA * target_q[x])
 
-                    q_critic = critic.predict(s_rep, a_rep, sess)
-                    td_error = np.abs(np.asarray(y_i) - q_critic)
+                    # update the critic network
+                    error, predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (batch_size,1)), np.reshape(isweight, (batch_size,1)), sess)
 
                     for n in range(batch_size):
                         idx = idxs[n]
-                        per_mem.update(idx, td_error[n][0])
-
-                    # update the critic network
-                    predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (batch_size,1)), sess)
+                        per_mem.update(idx, abs(error[n][0]))
 
                     sum_q += np.amax(predicted_q)
                     # update actor policy
