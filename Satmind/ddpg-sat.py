@@ -28,7 +28,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
 
-    duration = 24.0 * 60.0 ** 2 * 7
+    duration = 24.0 * 60.0 ** 2 * 6
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
     return env, duration
@@ -43,7 +43,7 @@ def main(args):
     # Network inputs and outputs
     features = env.observation_space
     n_actions = 3
-    action_bound = 0.7
+    action_bound = 0.6
 
     np.random.seed(1234)
 
@@ -109,7 +109,6 @@ def main(args):
 
             rewards = []
 
-            thrust = np.array([0.0, 0.5, -0.7])
             for i in range(num_episodes):
                 s = env.reset()
                 sum_reward = 0

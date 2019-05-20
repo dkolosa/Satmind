@@ -5,7 +5,7 @@ import datetime
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
-import os
+import os, random
 
 orekit.initVM()
 
@@ -101,6 +101,11 @@ class OrekitEnv:
         self.target_pz = []
 
         self._orbit_tolerance = {'a': 1000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.001, 'hy': 0.001, 'lv': 0.01}
+
+        self.randomize = True
+        self._orbit_randomizer = {'a': 1000.0e3, 'e': 0.02, 'i': 0.02, 'w': 2.0, 'omega': 2.0, 'lv': 5.0}
+        self.seed_state = state
+        self.seed_target = state_targ
 
         self.set_date(date)
         self._extrap_Date = self._initial_date
@@ -322,8 +327,22 @@ class OrekitEnv:
         self._currentDate = None
         self._currentOrbit = None
 
+        # Randomizes the initial orbit
+        if self.randomize:
+            self._orbit = None
+            a_rand = random.uniform(self.seed_state[0]-self._orbit_randomizer['a'], self._orbit_randomizer['a']+ self.seed_state[0])
+            e_rand = random.uniform(self.seed_state[1]-self._orbit_randomizer['e'], self._orbit_randomizer['e']+ self.seed_state[1])
+            i_rand = random.uniform(self.seed_state[2]-self._orbit_randomizer['i'], self._orbit_randomizer['i']+ self.seed_state[2])
+            w_rand = random.uniform(self.seed_state[2]-self._orbit_randomizer['w'], self._orbit_randomizer['w']+ self.seed_state[3])
+            omega_rand = random.uniform(self.seed_state[3]-self._orbit_randomizer['omega'], self._orbit_randomizer['omega']+ self.seed_state[4])
+            lv_rand = random.uniform(self.seed_state[4]-self._orbit_randomizer['lv'], self._orbit_randomizer['lv']+ self.seed_state[5])
+            state = [a_rand, e_rand, i_rand, w_rand, omega_rand, lv_rand]
+            self.create_orbit(state, self._initial_date, target=False)
+        else:
+            self._currentOrbit = self._orbit
+            print(self._orbit)
+
         self._currentDate = self._initial_date
-        self._currentOrbit = self._orbit
         self._extrap_Date = self._initial_date
 
         self.set_spacecraft(self.mass, self.initial_fuel)
@@ -517,7 +536,7 @@ class OrekitEnv:
            abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
            abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
             # self.final_date.durationFrom(self._extrap_Date) <= 360:
-            reward = 1000
+            reward += 1000
             done = True
             print('hit')
             return reward, done
@@ -525,11 +544,11 @@ class OrekitEnv:
         if self._sc_fuel.getAdditionalState(FUEL_MASS)[0] <= 0:
             print('Ran out of fuel')
             done = True
-            reward = -10
+            reward = -100
             return reward, done
 
         if self._currentOrbit.getA() < EARTH_RADIUS:
-            reward = -10
+            reward = -100
             done = True
             print('In earth')
             return reward, done
