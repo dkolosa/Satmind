@@ -113,13 +113,18 @@ class Critic:
         self.target_network_parameters = tf.trainable_variables()[(len(self.network_parameters) + actor_trainable_variables):]
 
         self.q_value = tf.placeholder(tf.float32, shape=[None, 1])
+        self.importance = tf.placeholder(tf.float32, shape=[None, 1])
 
         self.update_target_network_parameters = \
             [self.target_network_parameters[i].assign(tf.multiply(self.network_parameters[i], self.tau) \
                                                   + tf.multiply(self.target_network_parameters[i], 1. - self.tau))
              for i in range(len(self.target_network_parameters))]
 
-        self.loss = tf.losses.mean_squared_error(self.output, self.q_value)
+        # self.loss = tf.losses.mean_squared_error(self.output, self.q_value)
+
+        self.error = self.output - self.q_value
+        self.loss = tf.reduce_mean(tf.multiply(tf.square(self.error), self.importance))
+
         self.train_op = tf.train.AdamOptimizer(learning_rate).minimize(self.loss)
 
         # the action-value gradient to be used be the actor network
@@ -157,10 +162,11 @@ class Critic:
         return sess.run(self.output_target, {self.input_target: state,
                                              self.action_target: action})
 
-    def train(self, state, action, q_value, sess):
-        return sess.run([self.output, self.train_op], {self.input: state,
+    def train(self, state, action, q_value, importance, sess):
+        return sess.run([self.error, self.output, self.train_op], {self.input: state,
                                                        self.action: action,
-                                                       self.q_value: q_value})
+                                                       self.q_value: q_value,
+                                                       self.importance: importance})
 
     def action_gradient(self, state, action, sess):
         return sess.run(self.action_grad, {self.input: state,
