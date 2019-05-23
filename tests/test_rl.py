@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 from Satmind.actor_critic import Actor, Critic
 from Satmind.utils import OrnsteinUhlenbeck
-from Satmind.replay_memory import Experience
+from Satmind.replay_memory import Per_Memory, Experience
 
 
 def test_training():
@@ -41,8 +41,9 @@ def test_training():
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
-    ENV = ENVS[3]
+    ENV = ENVS[1]
     env = gym.make(ENV)
+    iter_per_episode = 600
     features = env.observation_space.shape[0]
     n_actions = env.action_space.shape[0]
     action_bound = env.action_space.high
@@ -51,10 +52,9 @@ def test_rl():
     np.random.seed(1234)
 
     num_episodes = 800
-    batch_size = 64
-    iter_per_episode = 200
+    batch_size = 128
 
-    layer_1_nodes, layer_2_nodes = 128, 64
+    layer_1_nodes, layer_2_nodes = 200, 200
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
@@ -63,9 +63,14 @@ def test_rl():
     actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size, 'actor')
     actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
     critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
+    PER = True
 
     # Replay memory buffer
-    replay = Experience(buffer_size=100000)
+    if PER:
+        per_mem = Per_Memory(capacity=1000000)
+    else:
+        replay = Experience(buffer_size=1000)
+
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
@@ -78,6 +83,7 @@ def test_rl():
             sum_q = 0
             rewards = []
             j = 0
+            # for j in range(iter_per_episode):
             while True:
                 env.render()
 
@@ -86,15 +92,29 @@ def test_rl():
 
                 rewards.append(r)
                 # Store in replay memory
-                replay.add((np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1,(features,)), done))
-                # sample from random memory
-                if batch_size < replay.get_count:
-                    mem = replay.experience_replay(batch_size)
+                if PER:
+                    error = abs(r)  # D_i = max D
+                    per_mem.add(error, (np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
+                else:
+                    replay.add((np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1,(features,)), done))
+
+                # sample from memory
+                # if batch_size < replay.get_count:
+                    # mem = replay.experience_replay(batch_size)
+                    # s_rep = np.array([_[0] for _ in mem])
+                    # a_rep = np.array([_[1] for _ in mem])
+                    # r_rep = np.array([_[2] for _ in mem])
+                    # s1_rep = np.array([_[3] for _ in mem])
+                    # d_rep = np.array([_[4] for _ in mem])
+
+                if batch_size < per_mem.count:
+                    mem, idxs, isweight = per_mem.sample(batch_size)
                     s_rep = np.array([_[0] for _ in mem])
                     a_rep = np.array([_[1] for _ in mem])
                     r_rep = np.array([_[2] for _ in mem])
                     s1_rep = np.array([_[3] for _ in mem])
                     d_rep = np.array([_[4] for _ in mem])
+
 
                     # Get q-value from the critic target
                     act_target = actor.predict_target(s1_rep, sess)
@@ -108,7 +128,12 @@ def test_rl():
                             y_i.append(r_rep[x] + GAMMA * target_q[x])
 
                     # update the critic network
-                    predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (batch_size,1)), sess)
+                    error, predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (batch_size,1)), np.reshape(isweight, (batch_size,1)), sess)
+
+                    for n in range(batch_size):
+                        idx = idxs[n]
+                        per_mem.update(idx, abs(error[n][0]))
+
                     sum_q += np.amax(predicted_q)
                     # update actor policy
                     a_output = actor.predict(s_rep, sess)
@@ -118,7 +143,8 @@ def test_rl():
                     # update target networks
                     actor.update_target_network(sess)
                     critic.update_target_network(sess)
-                # print(r)
+                # else:
+                #     per_mem.add(error,(np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
 
                 sum_reward += r
                 s = s1
@@ -126,8 +152,6 @@ def test_rl():
                 if done:
                     print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                     print('===========')
-                    # plt.plot(rewards)
-                    # plt.show()
                     break
 
 
