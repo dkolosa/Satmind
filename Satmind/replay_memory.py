@@ -85,6 +85,7 @@ class Per_Memory:  # stored as ( s, a, r, next_state, done ) in SumTree
             self.count += 1
         else:
             # self.buffer.popleft()
+            p = self._get_priority(error)
             self.tree.add(p, sample)
 
     def sample(self, n):
