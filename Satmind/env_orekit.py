@@ -368,8 +368,7 @@ class OrekitEnv:
         self.hxdot_orbit = []
         self.hydot_orbit = []
 
-        # state = np.array([(self.r_target_state[0]-self._orbit.getA()) / self.r_target_state[0],
-        state = np.array([self._orbit.getA(),
+        state = np.array([(self.r_target_state[0]-self._orbit.getA()) / self.r_target_state[0],
                           self._orbit.getEquinoctialEx(),
                           self._orbit.getEquinoctialEy(),
                           self._orbit.getHx(),
@@ -444,8 +443,7 @@ class OrekitEnv:
 
         reward, done = self.dist_reward(thrust)
 
-        # state_1 = [(self.r_target_state[0]-self._currentOrbit.getA()) / self.r_target_state[0],
-        state_1 = [self._currentOrbit.getA(),
+        state_1 = [(self.r_target_state[0]-self._currentOrbit.getA()) / self.r_target_state[0],
                    self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
                    self._currentOrbit.getHx(), self._currentOrbit.getHy(),
                    self._currentOrbit.getADot(), self._currentOrbit.getEquinoctialExDot(),
