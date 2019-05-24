@@ -39,9 +39,9 @@ def test_training():
 
 
 def test_rl():
-    ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2')
+    ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
-    ENV = ENVS[0]
+    ENV = ENVS[3]
     env = gym.make(ENV)
     iter_per_episode = 200
     features = env.observation_space.shape[0]
@@ -52,10 +52,10 @@ def test_rl():
     np.random.seed(1234)
 
     num_episodes = 800
-    batch_size = 64
+    batch_size = 128
 
-    layer_1_nodes, layer_2_nodes = 128, 100
-    tau = 0.001
+    layer_1_nodes, layer_2_nodes = 120, 90
+    tau = 0.01
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
 
@@ -67,7 +67,7 @@ def test_rl():
 
     # Replay memory buffer
     if PER:
-        per_mem = Per_Memory(capacity=1000000)
+        per_mem = Per_Memory(capacity=100000)
     else:
         replay = Experience(buffer_size=1000)
 
@@ -82,12 +82,12 @@ def test_rl():
             sum_reward = 0
             sum_q = 0
             rewards = []
-
-            for j in range(iter_per_episode):
+            j = 0
+            while True:
 
                 env.render()
 
-                a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
+                a = actor.predict(np.reshape(s, (1, features)), sess)
                 s1, r, done, _ = env.step(a[0])
 
                 rewards.append(r)
@@ -148,6 +148,7 @@ def test_rl():
 
                 sum_reward += r
                 s = s1
+                j += 1
                 if done:
                     print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                     print('===========')
