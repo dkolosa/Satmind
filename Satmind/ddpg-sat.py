@@ -119,6 +119,7 @@ def main(args):
                 sum_reward = 0
                 sum_q = 0
                 actions = []
+                env.target_hit = False
                 for j in range(iter_per_episode):
 
                     # Select an action
@@ -223,6 +224,7 @@ def main(args):
                             if show:
                                 plt.show()
                         break
+
                 if i % 10 == 0:
                     n = range(j+1)
                     if i % 10 == 0:
