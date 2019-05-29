@@ -41,7 +41,7 @@ def test_training():
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
-    ENV = ENVS[1]
+    ENV = ENVS[3]
     env = gym.make(ENV)
     iter_per_episode = 600
     features = env.observation_space.shape[0]
@@ -54,7 +54,7 @@ def test_rl():
     num_episodes = 800
     batch_size = 128
 
-    layer_1_nodes, layer_2_nodes = 200, 200
+    layer_1_nodes, layer_2_nodes = 400, 300
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
@@ -87,9 +87,9 @@ def test_rl():
             while True:
                 env.render()
 
-                a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
+                a = actor.predict(np.reshape(s, (1, features)), sess)
                 s1, r, done, _ = env.step(a[0])
-
+                print(s1)
                 rewards.append(r)
                 # Store in replay memory
                 if PER:

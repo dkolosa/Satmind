@@ -15,6 +15,8 @@ class Actor:
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.name = name
+        # self.is_train = tf.placeholder(tf.bool, name="is_train")
+
 
         # create the actor network and target network
         self.input, self.output, self.scaled_output = self.build_network(name)
@@ -28,7 +30,8 @@ class Actor:
         self.unnorm_actor_grad = tf.gradients(self.scaled_output, self.network_parameters, -self.action_gradient)
         self.actor_gradient = list(map(lambda x: tf.div(x, batch_size), self.unnorm_actor_grad))
 
-        self.train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(self.actor_gradient, self.network_parameters))
+        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+            self.train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(self.actor_gradient, self.network_parameters))
 
         self.update_target_network_parameters = [self.target_network_parameters[i].assign(tf.multiply(self.network_parameters[i], self.tau) +
                                                  tf.multiply(self.target_network_parameters[i], 1. - self.tau))
@@ -41,19 +44,26 @@ class Actor:
         with tf.variable_scope(str(name) + '_layer_1'):
             layer_1 = tf.layers.dense(inputs=input,
                                       units=self.layer_1_nodes,
-                                      activation=tf.nn.relu,
+                                      activation=None,
                                       )
-            l1_batch = tf.layers.batch_normalization(layer_1)
+            # l1_batch = tf.layers.batch_normalization(layer_1, training=self.is_train)
+            l1_batch = tf.contrib.layers.layer_norm(layer_1)
+            # l1_noise = self.gaussian_noise(l1_batch,stddev=0.2)
+
+            l1_act = tf.nn.relu(l1_batch)
 
         with tf.variable_scope(str(name) + '_layer_2'):
-            layer_2 = tf.layers.dense(inputs=l1_batch,
+            layer_2 = tf.layers.dense(inputs=l1_act,
                                       units=self.layer_2_nodes,
-                                      activation=tf.nn.relu,
+                                      activation=None,
                                       )
-            l2_batch = tf.layers.batch_normalization(layer_2)
+            # l2_batch = tf.layers.batch_normalization(layer_2, training=True)
+            l2_batch = tf.contrib.layers.layer_norm(layer_2)
+            # l2_noise = self.gaussian_noise(l2_batch, stddev=0.2)
+            l2_act = tf.nn.relu(l2_batch)
 
         with tf.variable_scope(str(name) + '_output'):
-            output = tf.layers.dense(inputs=l2_batch,
+            output = tf.layers.dense(inputs=l2_act,
                                           units=self.n_actions,
                                           activation=tf.nn.tanh,
                                           kernel_initializer=tf.random_uniform_initializer(-0.003,0.003),
@@ -62,6 +72,10 @@ class Actor:
         scaled_output = tf.multiply(output, self.action_bound)
 
         return input, output, scaled_output
+
+    def gaussian_noise(self, input, mean=0.0, stddev=0.2):
+        noise = tf.random_normal(shape=tf.shape(input), mean=0.0, stddev=0.2, dtype=tf.float32)
+        return input + noise
 
     def predict(self, state, sess):
         action = sess.run(self.scaled_output, {self.input: state})
@@ -125,6 +139,8 @@ class Critic:
         self.error = self.output - self.q_value
         self.loss = tf.reduce_mean(tf.multiply(tf.square(self.error), self.importance))
 
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+
         self.train_op = tf.train.AdamOptimizer(learning_rate).minimize(self.loss)
 
         # the action-value gradient to be used be the actor network
@@ -136,12 +152,24 @@ class Critic:
         input = tf.placeholder(tf.float32, shape=[None, self.n_features])
         action = tf.placeholder(tf.float32, shape=[None, self.n_actions])
 
-        layer_1 = tf.contrib.layers.fully_connected(input, self.layer_1_nodes)
-        l1_batch = tf.contrib.layers.batch_norm(layer_1)
-        t1 = tflearn.fully_connected(l1_batch, self.layer_2_nodes)
+        # layer_1 = tf.contrib.layers.fully_connected(input, self.layer_1_nodes, activation_fn=tf.nn.relu)
+        # l1_batch = tf.contrib.layers.layer_norm(layer_1)
+        # l1_batch = tf.layers.batch_normalization(layer_1, training=True)
+        # l1_act = tf.nn.relu(l1_batch)
+
+        # layer_1 = tf.contrib.layers.fully_connected(input, self.layer_1_nodes)
+
+        layer_1 = tf.layers.dense(inputs=input,
+                                  units=self.layer_1_nodes,
+                                  activation=None,
+                                  )
+        l1_batch = tf.contrib.layers.layer_norm(layer_1)
+        l1_act = tf.nn.relu(l1_batch)
+
+        t1 = tflearn.fully_connected(l1_act, self.layer_2_nodes)
         t2 = tflearn.fully_connected(action, self.layer_2_nodes)
 
-        layer_2 = tf.nn.relu(tf.matmul(layer_1, t1.W) + tf.matmul(action, t2.W) + t2.b)
+        layer_2 = tf.nn.relu(tf.matmul(l1_act, t1.W) + tf.matmul(action, t2.W) + t2.b)
         # layer_2 = tf.contrib.layers.fully_connected(tf.concat((l1_batch, action), axis=1), self.layer_2_nodes)
 
         with tf.variable_scope(str(name) + '_output'):

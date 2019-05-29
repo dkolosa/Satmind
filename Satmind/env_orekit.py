@@ -100,7 +100,7 @@ class OrekitEnv:
         self.target_py = []
         self.target_pz = []
 
-        self._orbit_tolerance = {'a': 1000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.001, 'hy': 0.001, 'lv': 0.01}
+        self._orbit_tolerance = {'a': 10000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.001, 'hy': 0.001, 'lv': 0.01}
 
         self.randomize = True
         self._orbit_randomizer = {'a': 1000.0e3, 'e': 0.02, 'i': 0.02, 'w': 2.0, 'omega': 2.0, 'lv': 5.0}
@@ -111,7 +111,7 @@ class OrekitEnv:
         self.set_date(date)
         self._extrap_Date = self._initial_date
         self.create_orbit(state, self._initial_date, target=False)
-        self.set_spacecraft(self.initial_mass, self.initial_mass)
+        self.set_spacecraft(self.initial_mass, self.cuf_fuel_mass)
         self.create_Propagator()
         self.setForceModel()
         self.final_date = self._initial_date.shiftedBy(duration)
@@ -119,7 +119,7 @@ class OrekitEnv:
 
         self.stepT = stepT
         self.action_space = 3  # output thrust
-        self.observation_space = 10  # states
+        self.observation_space = 5  # states
         self.action_bound = 0.9  # TFC coefficient
         self._isp = 3100.0
 
@@ -368,11 +368,11 @@ class OrekitEnv:
         self.hxdot_orbit = []
         self.hydot_orbit = []
 
-        state = np.array([(self.r_target_state[0]-self._orbit.getA()) / self.r_target_state[0],
-                          self._orbit.getEquinoctialEx(),
-                          self._orbit.getEquinoctialEy(),
-                          self._orbit.getHx(),
-                          self._orbit.getHy(), 0, 0, 0, 0, 0])
+        state = np.array([self._orbit.getA() / self.r_target_state[0],
+                          self._orbit.getEquinoctialEx() / self.r_target_state[1],
+                          self._orbit.getEquinoctialEy() / self.r_target_state[2],
+                          self._orbit.getHx() / self.r_target_state[3],
+                          self._orbit.getHy() / self.r_target_state[4]])
         return state
 
     @property
@@ -443,13 +443,19 @@ class OrekitEnv:
 
         reward, done = self.dist_reward(thrust)
 
-        state_1 = [(self.r_target_state[0]-self._currentOrbit.getA()) / self.r_target_state[0],
-                   self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
-                   self._currentOrbit.getHx(), self._currentOrbit.getHy(),
-                   self._currentOrbit.getADot(), self._currentOrbit.getEquinoctialExDot(),
-                   self._currentOrbit.getEquinoctialEyDot(),
-                   self._currentOrbit.getHxDot(), self._currentOrbit.getHyDot()
-                   ]
+        # state_1 = [(self.r_target_state[0]-self._currentOrbit.getA()) / self.r_target_state[0],
+        #            self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
+        #            self._currentOrbit.getHx(), self._currentOrbit.getHy(),
+        #            self._currentOrbit.getADot(), self._currentOrbit.getEquinoctialExDot(),
+        #            self._currentOrbit.getEquinoctialEyDot(),
+        #            self._currentOrbit.getHxDot(), self._currentOrbit.getHyDot()
+        #            ]
+
+        state_1 = [self._currentOrbit.getA() / self.r_target_state[0],
+                   self._currentOrbit.getEquinoctialEx(),
+                   self._currentOrbit.getEquinoctialEy(),
+                   self._currentOrbit.getHx(),
+                   self._currentOrbit.getHy()]
 
         self.adot_orbit.append(self._currentOrbit.getADot())
         self.exdot_orbit.append(self._currentOrbit.getEquinoctialExDot())
@@ -507,12 +513,13 @@ class OrekitEnv:
         reward_hx = abs(self.r_target_state[3] - state[3]) / self.r_target_state[3]
         reward_hy = abs(self.r_target_state[4] - state[4]) / self.r_target_state[4]
         # reward = reward_a + 1*reward_hx + reward_hy*.1 + reward_ex*.1 + reward_ey*.1
-        reward = reward_a + reward_hx + reward_hy*.1 + reward_ex*.1 + reward_ey*.1
+        reward = reward_a + reward_hx + reward_hy*.1 + reward_ex + reward_ey
+        # print(reward)
         reward = (1 - reward**.4)*(self.cuf_fuel_mass/self.fuel_mass)
-
-        if (self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx']:
-            reward = reward_a
-            reward = (1 - reward**.4)*(self.cuf_fuel_mass/self.fuel_mass)
+        #
+        # if (self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx']:
+        #     reward = reward_a
+        #     reward = (1 - reward**.4)*(self.cuf_fuel_mass/self.fuel_mass)
 
         # reward = np.clip(reward,0,1)
 
@@ -562,7 +569,7 @@ class OrekitEnv:
             print('In earth')
             return reward, done
 
-        # if self._currentOrbit.getHx() < self._orbit.getHx()-0.01:
+        # if self._currentOrbit.getHx() > self.r_target_state[3]+0.01:
         #     reward = -10
         #     done = True
         #
@@ -661,10 +668,10 @@ def main():
     dry_mass = 500.0
     fuel_mass = 150.0
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 6
+    duration = 24.0 * 60.0 ** 2 * 2
 
     # set the sc initial state
-    a = 20000.0e3  # semi major axis (m)
+    a = 6000.0e3  # semi major axis (m)
     e = 0.1  # eccentricity
     i = 13.0  # inclination
     omega = 10.0  # perigee argument
@@ -673,7 +680,7 @@ def main():
     state = [a, e, i, omega, raan, lM]
 
     # target state
-    a_targ=a+10000e3
+    a_targ=a+20000e3
     e_targ = e
     i_targ = 15.09
     omega_targ = omega
@@ -695,13 +702,15 @@ def main():
         s = env.reset()
         i_prev = radians(i)
         while env._extrap_Date.compareTo(env.final_date) <= 0:
-            thrust_mag = np.array([0.0, 0.40, -.70]) + noise()*.01
+        # while env._currentOrbit.getA() <= a_targ:
+            thrust_mag = np.array([-0.1, 0.70, -0.5])
             position, r, done = env.step(thrust_mag)
             per = env._sc_fuel.getKeplerianPeriod()
             i_cur = env._currentOrbit.getI()
-            inc = env.convert_to_keplerian(env._currentOrbit)
-            ta = inc.getTrueAnomaly()
+            # inc = env.convert_to_keplerian(env._currentOrbit)
+            # ta = inc.getTrueAnomaly()
             reward.append(r)
+
             # i_t.append(inc.getAnomaly())
             # i_t.append(env._sc_fuel.getKeplerianPeriod())
             # reward.append(i_cur)
@@ -711,7 +720,7 @@ def main():
             #     thrust_mag = np.array([0.0, 0.0, 0.1])
             # if done:
                 # break
-
+        print(env._extrap_Date)
         plt.plot(reward)
         plt.show()
         env.render_plots(save=False, show=False)
@@ -719,7 +728,7 @@ def main():
         # plt.figure()
         # plt.plot(i_t)
         # plt.figure()
-        print(f'Done\nIncli: {degrees(env._currentOrbit.getI())}\n=====')
+        # print(f'Done\nIncli: {degrees(env._currentOrbit.getI())}\n=====')
 
 if __name__ == '__main__':
     main()
