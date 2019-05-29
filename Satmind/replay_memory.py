@@ -123,11 +123,18 @@ class Per_Memory:  # stored as ( s, a, r, next_state, done ) in SumTree
 
     def pre_populate(self, env, features, n_actions, thrust_values):
         state = env.reset()
-        thrust_values = np.array([0.00001, 0.0001, -0.7])
+        thrust_values = np.array([0.0, 0.2, -0.1])
+        i = 0
         while env._extrap_Date.compareTo(env.final_date) <= 0:
             state_1, r, done = env.step(thrust_values)
             error = abs(r)
+
             self.add(error, (np.reshape(state, (features,)), np.reshape(thrust_values, (n_actions,)), r,
                       np.reshape(state_1, (features,)), done))
-            state = state_1
+            # if i % 2 == 0:
+            #     thrust_values = np.array([0.0, 0.0, 0.6])
+            # else:
+            #     thrust_values = np.array([0.0, 0.0, -0.6])
+            # state = state_1
+            # i += 1
         print("Population complete")

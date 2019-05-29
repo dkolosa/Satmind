@@ -19,7 +19,7 @@ def orekit_setup():
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data['inclination_change']
+        mission = data['Orbit_Raising']
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
@@ -27,7 +27,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 6
+    duration = 24.0 * 60.0 ** 2 * 3
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
@@ -47,10 +47,10 @@ def main(args):
     np.random.seed(1234)
 
     num_episodes = 5000
-    batch_size = 64
+    batch_size = 128
 
-    layer_1_nodes, layer_2_nodes = 128, 100
-    tau = 0.01
+    layer_1_nodes, layer_2_nodes = 400, 300
+    tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.0001
     GAMMA = 0.99
 
@@ -101,7 +101,7 @@ def main(args):
 
     # Render target
     env.render_target()
-    env.randomize = True
+    env.randomize = False
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -124,7 +124,7 @@ def main(args):
 
                     # Select an action
                     a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*.1
-
+                    # a = actor.predict(np.reshape(s, (1, features)), sess)
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
 
@@ -227,14 +227,10 @@ def main(args):
 
                 if i % 10 == 0:
                     n = range(j+1)
-                    if i % 10 == 0:
-                        save_fig = True
-                    else:
-                        save_fig = False
-                    if i % 50 == 0:
-                        show = True
-                    else:
-                        show = False
+
+                    save_fig = True if i % 10 == 0 else False
+                    show = True if i % 50 == 0 else False
+
                     env.render_target()
                     env.render_plots(i, save=save_fig, show=show)
                     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
