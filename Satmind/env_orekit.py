@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 
+
 orekit.initVM()
 
 from org.orekit.frames import FramesFactory, Frame
@@ -248,21 +249,33 @@ class OrekitEnv:
         oe = [np.asarray(self.a_orbit)/1e3, self.ex_orbit, self.ey_orbit, self.hx_orbit, self.hy_orbit, self.lv_orbit]
         oe_target = [self.r_target_state[0]/1e3, self.r_target_state[1], self.r_target_state[2], self.r_target_state[3],
                    self.r_target_state[4], self.r_target_state[5]]
-        plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000,
-                 np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000)
+        plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000)
+                 # np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000)
+        circle = plt.Circle((0.0,0.0), 5000.0)
+        plt.gcf().gca().add_artist(circle)
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
+
         plt.show()
         fig = plt.figure()
         ax = fig.gca(projection='3d')
         ax.plot(np.asarray(self.px)/1000, np.asarray(self.py)/1000, np.asarray(self.pz)/1000,label='Satellite Trajectory')
-        ax.plot(np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, np.asarray(self.target_pz)/1000,
-                color='red',label='Target trajectory')
+
+        # u = np.linspace(0,2*np.pi, 100)
+        # v = np.linspace(0,np.pi, 100)
+        # x = 5000*np.outer(np.cos(u), np.sin(v))
+        # y = 5000*np.outer(np.sin(u), np.cos(v))
+        # z = 5000*np.outer(np.ones(np.size(u)), np.cos(v))
+
+        # ax.plot_surface(x,y,z)
+        # ax.plot(np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, np.asarray(self.target_pz)/1000,
+        #         color='red',label='Target trajectory')
         ax.legend()
         ax.set_xlabel('X (km)')
         ax.set_ylabel('Y (km)')
         ax.set_zlabel('Z (km)')
         ax.set_zlim(-1500, 1500)
+        plt.show()
         plt.figure(2)
         for i in range(len(oe_params)):
             plt.subplot(3,2,i+1)
@@ -607,7 +620,7 @@ def main():
 
     mass = 100.0
     fuel_mass = 100.0
-    duration = 24.0 * 60.0 ** 2 * 2
+    duration = 24.0 * 60.0 ** 2 * 1.0
 
     # set the sc initial state
     a = 5500.0e3  # semi major axis (m)
@@ -630,10 +643,10 @@ def main():
 
     env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
 
-    env.render_target()
+    # env.render_target()
     f_w = [-.5, -.750, -0.9, -1.1]
 
-    thrust_mag = np.array([0.00, 0.0, -.9])
+    thrust_mag = np.array([1.0, 0.5, -1.0])
     reward = []
     i = []
     while env._extrap_Date.compareTo(env.final_date) <= 0:
@@ -642,20 +655,20 @@ def main():
         inc = env._currentOrbit.getHx()
         reward.append(r)
         i.append(degrees(inc))
-        if env._currentOrbit.getHx() >= env.r_target_state[3]:
-            print("done")
-            break
-    plt.plot(reward)
+        # if env._currentOrbit.getHx() >= env.r_target_state[3]:
+        #     print("done")
+        #     break
+    # plt.plot(reward)
     # plt.plot(i)
-    plt.show()
+    # plt.show()
     print(f'Done\nIncli: {degrees(env._currentOrbit.getI())}\n steps:{len(i)}\n=====')
 
-        # env.oe_plots()
-        # env.render_plots()
+    env.oe_plots()
+    # env.render_plots()
 
     # print(f'Done \n sma: {env._currentOrbit.getA()/1e3}')
     # print(f'time taken (hours): {env._currentDate.durationFrom(env.final_date)/60**2}')
-    env.render_plots()
+    # env.render_plots()
 
 if __name__ == '__main__':
     main()
