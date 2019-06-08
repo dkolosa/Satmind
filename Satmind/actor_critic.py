@@ -164,13 +164,13 @@ class Critic:
                                   units=self.layer_1_nodes,
                                   activation=None,
                                   )
-        l1_batch = tf.contrib.layers.layer_norm(layer_1)
+        # l1_batch = tf.contrib.layers.layer_norm(layer_1)
         # l1_batch = tf.layers.batch_normalization(layer_1, training=True)
-        l1_act = tf.nn.relu(l1_batch)
+        l1_act = tf.nn.relu(layer_1)
         t1 = tflearn.fully_connected(l1_act, self.layer_2_nodes)
         t2 = tflearn.fully_connected(action, self.layer_2_nodes)
 
-        layer_2 = tf.nn.relu(tf.matmul(layer_1, t1.W) + tf.matmul(action, t2.W) + t2.b)
+        layer_2 = tf.nn.relu(tf.matmul(l1_act, t1.W) + tf.matmul(action, t2.W) + t2.b)
         # layer_2 = tf.contrib.layers.fully_connected(tf.concat((l1_batch, action), axis=1), self.layer_2_nodes)
 
         with tf.variable_scope(str(name) + '_output'):
