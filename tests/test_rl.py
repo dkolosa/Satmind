@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import gym
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 from Satmind.actor_critic import Actor, Critic
 from Satmind.utils import OrnsteinUhlenbeck
@@ -41,7 +41,7 @@ def test_training():
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
-    ENV = ENVS[3]
+    ENV = ENVS[2]
     env = gym.make(ENV)
     iter_per_episode = 200
     features = env.observation_space.shape[0]
