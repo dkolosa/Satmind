@@ -17,11 +17,12 @@ class Actor:
         self.name = name
         # self.is_train = tf.placeholder(tf.bool, name="is_train")
 
-
         # create the actor network and target network
-        self.input, self.output, self.scaled_output = self.build_network(name)
+        # self.input, self.output, self.scaled_output = self.build_network(name)
+        self.input, self.output, self.scaled_output = self.build_network_keras()
         self.network_parameters = tf.trainable_variables()
-        self.target_input, self.target_output, self.target_scaled_output = self.build_network(name='target_actor_')
+        # self.target_input, self.target_output, self.target_scaled_output = self.build_network(name='target_actor_')
+        self.target_input, self.target_output, self.target_scaled_output = self.build_network_keras()
         self.target_network_parameters = tf.trainable_variables()[len(self.network_parameters):]
 
 
@@ -42,26 +43,25 @@ class Actor:
         self.trainable_variables = len(self.network_parameters) + len(self.target_network_parameters)
 
     def build_network(self, name):
+
         input = tf.placeholder(tf.float32, shape=[None, self.features])
         with tf.variable_scope(str(name) + '_layer_1'):
             layer_1 = tf.layers.dense(inputs=input,
                                       units=self.layer_1_nodes,
                                       activation=None,
                                       )
-            # l1_batch = tf.layers.batch_normalization(layer_1, training=self.is_train)
             l1_batch = tf.contrib.layers.layer_norm(layer_1)
-            l1_noise = self.gaussian_noise(l1_batch,stddev=0.2)
+            # l1_noise = self.gaussian_noise(l1_batch,stddev=0.2)
 
-            l1_act = tf.nn.relu(l1_noise)
+            l1_act = tf.nn.relu(l1_batch)
 
         with tf.variable_scope(str(name) + '_layer_2'):
             layer_2 = tf.layers.dense(inputs=l1_act,
                                       units=self.layer_2_nodes,
                                       activation=None,
                                       )
-            # l2_batch = tf.layers.batch_normalization(layer_2, training=True)
             l2_batch = tf.contrib.layers.layer_norm(layer_2)
-            l2_noise = self.gaussian_noise(l2_batch, stddev=0.2)
+            # l2_noise = self.gaussian_noise(l2_batch, stddev=0.2)
             l2_act = tf.nn.relu(l2_batch)
 
         with tf.variable_scope(str(name) + '_output'):
@@ -71,6 +71,22 @@ class Actor:
                                           kernel_initializer=tf.random_uniform_initializer(-0.003,0.003),
                                      )
 
+        scaled_output = tf.multiply(output, self.action_bound)
+
+        return input, output, scaled_output
+
+    def build_network_keras(self):
+
+        input = tf.keras.Input(shape=(self.features,))
+        x = tf.keras.layers.Dense(self.layer_1_nodes)(input)
+        x = tf.contrib.layers.layer_norm(x)
+        x = tf.keras.layers.GaussianNoise(stddev=0.2)(x)
+        x = tf.nn.relu(x)
+        x = tf.keras.layers.Dense(self.layer_2_nodes)(x)
+        x = tf.contrib.layers.layer_norm(x)
+        x = tf.keras.layers.GaussianNoise(stddev=0.2)(x)
+        x = tf.nn.relu(x)
+        output = tf.keras.layers.Dense(self.n_actions, activation='tanh',  kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
         scaled_output = tf.multiply(output, self.action_bound)
 
         return input, output, scaled_output
@@ -122,10 +138,13 @@ class Critic:
         self.name = name
         self.actor_trainable_variables = actor_trainable_variables
 
-        self.input, self.action, self.output  = self.build_network(name)
+        # self.input, self.action, self.output  = self.build_network(name)
+        self.input, self.action, self.output  = self.build_network_keras()
+
         self.network_parameters = tf.trainable_variables()[actor_trainable_variables:]
 
-        self.input_target, self.action_target, self.output_target = self.build_network(name='target_critic_')
+        # self.input_target, self.action_target, self.output_target = self.build_network(name='target_critic_')
+        self.input_target, self.action_target, self.output_target = self.build_network_keras()
         self.target_network_parameters = tf.trainable_variables()[(len(self.network_parameters) + actor_trainable_variables):]
 
         self.q_value = tf.placeholder(tf.float32, shape=[None, 1])
@@ -180,6 +199,22 @@ class Critic:
                                      use_bias=False,
                                      kernel_initializer=tf.random_uniform_initializer(-0.003,0.003)
                                      )
+
+        return input, action, output
+
+    def build_network_keras(self):
+
+        input = tf.keras.Input(shape=(self.n_features,))
+        action = tf.keras.Input(shape=(self.n_actions,))
+
+        x = tf.keras.layers.Dense(self.layer_1_nodes)(input)
+        x = tf.contrib.layers.layer_norm(x)
+        x = tf.nn.relu(x)
+
+        x = tf.keras.layers.concatenate([tf.keras.layers.Flatten()(x), action])
+        x = tf.keras.layers.Dense(self.layer_2_nodes, activation='relu')(x)
+
+        output = tf.keras.layers.Dense(1,activation='linear', kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
 
         return input, action, output
 
