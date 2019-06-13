@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import gym
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 from actor_critic import Actor, Critic
 from utils import OrnsteinUhlenbeck
@@ -52,10 +52,10 @@ def test_rl():
     np.random.seed(1234)
 
     num_episodes = 5000
-    batch_size = 128
+    batch_size = 64
 
-    layer_1_nodes, layer_2_nodes = 120, 90
-    tau = 0.01
+    layer_1_nodes, layer_2_nodes = 400, 350
+    tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
 
@@ -89,7 +89,7 @@ def test_rl():
 
                 env.render()
 
-                a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
+                a = actor.predict(np.reshape(s, (1, features)), sess)
                 s1, r, done, _ = env.step(a[0])
 
                 rewards.append(r)
