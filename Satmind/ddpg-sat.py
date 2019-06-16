@@ -27,7 +27,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 3
+    duration = 24.0 * 60.0 ** 2 * 5
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
@@ -42,16 +42,16 @@ def main(args):
     # Network inputs and outputs
     features = env.observation_space
     n_actions = 3
-    action_bound = 0.7
+    action_bound = 0.8
 
     np.random.seed(1234)
 
     num_episodes = 5000
-    batch_size = 128
+    batch_size = 64
 
     layer_1_nodes, layer_2_nodes = 400, 300
     tau = 0.001
-    actor_lr, critic_lr = 0.0001, 0.0001
+    actor_lr, critic_lr = 0.001, 0.0001
     GAMMA = 0.99
 
     # Initialize actor and critic network and targets
@@ -62,7 +62,7 @@ def main(args):
     # Replay memory buffer
     # replay = Experience(buffer_size=1000000)
     per_mem = Per_Memory(capacity=100000)
-    thrust_values = np.array([0.00, 0.0, -0.4])
+    thrust_values = np.array([0.00, 0.2, -0.4])
     per_mem.pre_populate(env, features, n_actions, thrust_values)
 
     # replay = Experience(buffer_size=1000000)
