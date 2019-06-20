@@ -7,6 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import os, random
 
+
 orekit.initVM()
 
 from org.orekit.frames import FramesFactory, Frame
@@ -31,6 +32,7 @@ from org.orekit.forces.gravity import NewtonianAttraction
 from org.orekit.utils import Constants
 
 from org.hipparchus.geometry.euclidean.threed import Vector3D
+from java.util import Arrays
 from orekit import JArray_double
 
 setup_orekit_curdir()
@@ -203,8 +205,10 @@ class OrekitEnv:
         # state = np.array([a, e, i, w, omega, E, adot, edot, idot, wdot, omegadot, Edot])
         # state = np.nan_to_num(state)
 
-        # return state
-        return ko
+        state = np.array([a, e, i, w, omega, E, adot, edot, idot, wdot, omegadot, Edot])
+        state = np.nan_to_num(state)
+
+        return state
 
     def set_spacecraft(self, mass, fuel_mass):
         """

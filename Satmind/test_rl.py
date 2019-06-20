@@ -1,11 +1,11 @@
 import tensorflow as tf
 import numpy as np
 import gym
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
-from Satmind.actor_critic import Actor, Critic
-from Satmind.utils import OrnsteinUhlenbeck
-from Satmind.replay_memory import Per_Memory, Experience
+from actor_critic import Actor, Critic
+from utils import OrnsteinUhlenbeck
+from replay_memory import Per_Memory, Experience
 
 
 def test_training():
@@ -43,7 +43,7 @@ def test_rl():
 
     ENV = ENVS[2]
     env = gym.make(ENV)
-    iter_per_episode = 600
+    iter_per_episode = 200
     features = env.observation_space.shape[0]
     n_actions = env.action_space.shape[0]
     action_bound = env.action_space.high
@@ -51,10 +51,10 @@ def test_rl():
     env.seed(1234)
     np.random.seed(1234)
 
-    num_episodes = 1000
+    num_episodes = 5000
     batch_size = 128
 
-    layer_1_nodes, layer_2_nodes = 500, 400
+    layer_1_nodes, layer_2_nodes = 120, 90
     tau = 0.01
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
@@ -67,7 +67,7 @@ def test_rl():
 
     # Replay memory buffer
     if PER:
-        per_mem = Per_Memory(capacity=1000000)
+        per_mem = Per_Memory(capacity=100000)
     else:
         replay = Experience(buffer_size=1000)
 
@@ -83,8 +83,10 @@ def test_rl():
             sum_q = 0
             rewards = []
             j = 0
-            # for j in range(iter_per_episode):
+
+            #for j in range(iter_per_episode):
             while True:
+
                 env.render()
 
                 a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
