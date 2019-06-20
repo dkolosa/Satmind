@@ -50,7 +50,7 @@ def main(args):
     num_episodes = 800
     batch_size = 64
 
-    layer_1_nodes, layer_2_nodes = 300, 280
+    layer_1_nodes, layer_2_nodes = 500, 400
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.01
     GAMMA = 0.99

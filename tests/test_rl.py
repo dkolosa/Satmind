@@ -51,10 +51,10 @@ def test_rl():
     env.seed(1234)
     np.random.seed(1234)
 
-    num_episodes = 800
+    num_episodes = 8000
     batch_size = 128
 
-    layer_1_nodes, layer_2_nodes = 120, 90
+    layer_1_nodes, layer_2_nodes = 500, 400
     tau = 0.01
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99

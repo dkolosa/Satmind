@@ -28,6 +28,7 @@ class Actor:
 
         # This is retrieved from the critic network
         self.action_gradient = tf.placeholder(tf.float32, [None, n_actions])
+        self.param_noise_stddev = tf.placeholder(tf.float32, shape=(), name='param_noise_stddev')
 
         self.unnorm_actor_grad = tf.gradients(self.scaled_output, self.network_parameters, -self.action_gradient)
         self.actor_gradient = list(map(lambda x: tf.div(x, batch_size), self.unnorm_actor_grad))
@@ -112,6 +113,14 @@ class Actor:
         :return:
         """
         sess.run(self.update_target_network_parameters)
+
+    def update_noise_params(self, sess):
+
+        for var, perturbed_var in zip(self.network_parameters, perturbed_actor.vars):
+            if var in actor.perturbable_vars:
+                updates.append(perturbed_var.assign(var + tf.random_normal(tf.shape(var), mean=0., stddev=param_noise)))
+            else:
+                updates.append(perturbed_var.assign(var))
 
     def __str__(self):
         return (f'Actor neural Network:\n'
@@ -254,3 +263,6 @@ class Critic:
         return (f'{self.__class__.__name__}('
                 f'{self.n_features!r}, {self.n_actions!r},{self.layer_1_nodes!r}, {self.layer_2_nodes!r},'
                 f'{self.learning_rate!r}, {self.tau!r}, {self.name!r}, {self.actor_trainable_variables!r})')
+
+
+
