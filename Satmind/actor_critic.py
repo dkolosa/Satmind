@@ -32,7 +32,6 @@ class Actor:
         self.unnorm_actor_grad = tf.gradients(self.scaled_output, self.network_parameters, -self.action_gradient)
         self.actor_gradient = list(map(lambda x: tf.div(x, batch_size), self.unnorm_actor_grad))
 
-
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
             self.train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(self.actor_gradient, self.network_parameters))
 
@@ -86,6 +85,7 @@ class Actor:
         x = tf.contrib.layers.layer_norm(x)
         x = tf.keras.layers.GaussianNoise(stddev=0.2)(x)
         x = tf.nn.relu(x)
+
         output = tf.keras.layers.Dense(self.n_actions, activation='tanh',  kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
         scaled_output = tf.multiply(output, self.action_bound)
 
