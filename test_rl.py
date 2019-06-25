@@ -5,7 +5,7 @@ import gym.spaces
 
 from Satmind.actor_critic import Actor, Critic
 from Satmind.utils import OrnsteinUhlenbeck
-from Satmind.replay_memory import Per_Memory, Experience
+from Satmind.replay_memory import Per_Memory, Uniform_Memory
 
 
 def test_training():
@@ -161,9 +161,9 @@ def test_rl():
 
     # Replay memory buffer
     if PER:
-        per_mem = Per_Memory(capacity=100000)
+        memory = Per_Memory(capacity=100000)
     else:
-        replay = Experience(buffer_size=1000)
+        memory = Uniform_Memory(buffer_size=1000)
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -191,21 +191,21 @@ def test_rl():
                 # Store in replay memory
                 if PER:
                     error = abs(r)  # D_i = max D
-                    per_mem.add(error, (np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
+                    memory.add(error, (np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
                 else:
-                    replay.add((np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1,(features,)), done))
+                    memory.add((np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1,(features,)), done))
 
                 # sample from memory
-                # if batch_size < replay.get_count:
-                    # mem = replay.experience_replay(batch_size)
+                # if batch_size < memory.get_count:
+                    # mem = memory.sample(batch_size)
                     # s_rep = np.array([_[0] for _ in mem])
                     # a_rep = np.array([_[1] for _ in mem])
                     # r_rep = np.array([_[2] for _ in mem])
                     # s1_rep = np.array([_[3] for _ in mem])
                     # d_rep = np.array([_[4] for _ in mem])
 
-                if batch_size < per_mem.count:
-                    mem, idxs, isweight = per_mem.sample(batch_size)
+                if batch_size < memory.count:
+                    mem, idxs, isweight = memory.sample(batch_size)
                     s_rep = np.array([_[0] for _ in mem])
                     a_rep = np.array([_[1] for _ in mem])
                     r_rep = np.array([_[2] for _ in mem])
@@ -229,7 +229,7 @@ def test_rl():
 
                     for n in range(batch_size):
                         idx = idxs[n]
-                        per_mem.update(idx, abs(error[n][0]))
+                        memory.update(idx, abs(error[n][0]))
 
                     sum_q += np.amax(predicted_q)
                     # update actor policy
