@@ -42,6 +42,14 @@ class Actor:
 
         self.trainable_variables = len(self.network_parameters) + len(self.target_network_parameters)
 
+        self.np_actor = tf.placeholder(tf.float32, [len(self.network_parameters)])
+        self.param_noise = tf.placeholder(tf.float32,[1])
+
+        self.distance = tf.sqrt(tf.reduce_mean(tf.square(self.np_actor - self.network_parameters)))
+
+        self.update_parm_network = [self.network_parameters.assign(self.np_actor + tf.random_normal(tf.shape(self.network_parameters), mean=0., stddev=self.param_noise)))
+         for i in range(len(self.network_parameters))]
+
     # def build_network(self, name):
 
     #     input = tf.placeholder(tf.float32, shape=[None, self.features])
@@ -114,13 +122,15 @@ class Actor:
         """
         sess.run(self.update_target_network_parameters)
 
-    def update_noise_params(self, sess):
+    def update_noise_params(self, actor, param_noise_stddev, sess)
 
-        for var, perturbed_var in zip(self.network_parameters, perturbed_actor.vars):
-            if var in actor.perturbable_vars:
-                updates.append(perturbed_var.assign(var + tf.random_normal(tf.shape(var), mean=0., stddev=param_noise)))
-            else:
-                updates.append(perturbed_var.assign(var))
+        sess.run(self.update_parm_network)
+    
+
+    def get_distnace(self, actor, sess):
+        actor_params = sess.run(actor.network_parameters)
+        return sess.run(self.distance, {self.np_actor: actor_params})
+
 
     def __str__(self):
         return (f'Actor neural Network:\n'
