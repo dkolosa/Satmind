@@ -501,14 +501,14 @@ class OrekitEnv:
         #     reward = -(10 * abs(self.r_target_state[0] - state[0]) / self.r_target_state[0])
 
         # Inclination change reward
-        reward_a  = abs(self.r_target_state[0] - state[0]) / self.r_target_state[0]
+        reward_a  = np.clip(abs(self.r_target_state[0] - state[0]) / self.r_target_state[0], -1, 1)
         reward_ex = abs(self.r_target_state[1] - state[1])
         reward_ey = abs(self.r_target_state[2] - state[2])
         reward_hx = abs(self.r_target_state[3] - state[3])
         reward_hy = abs(self.r_target_state[4] - state[4])
         # reward = reward_a + 1*reward_hx + reward_hy*.1 + reward_ex*.1 + reward_ey*.1
-        reward = reward_a + reward_hx + reward_hy + reward_ex*.1 + reward_ey*.1 + thrust_mag*.1
-        reward = (1 - reward**.4)
+        reward = -(reward_a + reward_hx + reward_hy + reward_ex*.1 + reward_ey*.1)
+        # reward = (1 - reward**.4)
 
         # if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
         #     reward = reward_hx + thrust_mag
