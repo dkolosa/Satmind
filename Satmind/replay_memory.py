@@ -4,7 +4,7 @@ import numpy as np
 from Satmind.utils import SumTree
 
 
-class Experience:
+class Uniform_Memory:
     def __init__(self, buffer_size):
         self.buffer_size = buffer_size
         self.buffer = deque(maxlen=buffer_size)
@@ -23,7 +23,7 @@ class Experience:
             self.buffer.popleft()
             self.buffer.append(experience)
 
-    def experience_replay(self, batch_size):
+    def smaple(self, batch_size):
         """
         Get a random experience from the deque
         :return:  experience: (state, action, reward, next state, terminal(done))
@@ -33,21 +33,28 @@ class Experience:
         else:
             return random.sample(self.buffer, batch_size)
 
-    def populate_memory(self, env, thrust_values, stepT):
+    def populate_memory(self, env, features, n_actions, thrust_values):
         """
-        Populate with experiences by taking random actions
+        Populate with experiences (initial guess)
         :param env: Agent enviornment object
-        :param thrust_values: Given list of possible thrust levels
+        # :param thrust_values: Given list of possible thrust levels
         :param stepT: Thrust step values
         :return:
         """
         state = env.reset()
-        for e in self.buffer:
-            act = np.random.random_sample()*thrust_values
-            state_1, reward, done_mem, _ = env.state(act, stepT)
-            e = [state, act, reward, state_1]
-            self.add(e)
+        thrust_values = np.array([0.00001, 0.0001, -0.7])
+        while env._extrap_Date.compareTo(env.final_date) <= 0:
+            state_1, r, done = env.step(thrust_values)
+            self.add((np.reshape(state, (features,)), np.reshape(thrust_values, (n_actions,)), r,
+                      np.reshape(state_1, (features,)), done))
             state = state_1
+            # kep = env.convert_to_keplerian(env._currentOrbit)
+            # ta = kep.getMeanAnomaly()
+            # if ta >=0:
+            #     thrust_values = np.array([0.0, 0.0, 1.0])
+            # else:
+            #     thrust_values = np.array([0.0, 0.0, -1.0])
+        print("Population complete")
 
     @property
     def get_count(self):
@@ -113,3 +120,21 @@ class Per_Memory:  # stored as ( s, a, r, next_state, done ) in SumTree
     def update(self, idx, error):
         p = self._get_priority(error)
         self.tree.update(idx, p)
+
+    def pre_populate(self, env, features, n_actions, thrust_values):
+        state = env.reset()
+        thrust_values = np.array([0.0, 0.3, 0.0])
+        i = 0
+        while env._extrap_Date.compareTo(env.final_date) <= 0:
+            state_1, r, done = env.step(thrust_values)
+            error = abs(r)
+
+            self.add(error, (np.reshape(state, (features,)), np.reshape(thrust_values, (n_actions,)), r,
+                      np.reshape(state_1, (features,)), done))
+            # if i % 2 == 0:
+            #     thrust_values = np.array([0.0, 0.0, 0.6])
+            # else:
+            #     thrust_values = np.array([0.0, 0.0, -0.6])
+            # state = state_1
+            # i += 1
+        print("Population complete")

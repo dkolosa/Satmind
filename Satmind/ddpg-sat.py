@@ -9,28 +9,27 @@ from math import degrees
 import Satmind.actor_critic as models
 from Satmind.env_orekit import OrekitEnv
 import Satmind.utils
-from Satmind.replay_memory import Experience
+from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 
-stepT = 100.0
-
+stepT = 500.0
 
 def orekit_setup():
 
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data['inclination_change']
+        mission = data['Orbit_Raising']
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
-        mass = mission['spacecraft_parameters']['dry_mass']
+        dry_mass = mission['spacecraft_parameters']['dry_mass']
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
+    mass = [dry_mass, fuel_mass]
+    duration = 24.0 * 60.0 ** 2 * 5
 
-    duration = (24.0 * 60.0 ** 2) * 2
-
-    env = OrekitEnv(state, state_targ, date, duration, mass, fuel_mass, stepT)
+    env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
 
 
@@ -43,16 +42,16 @@ def main(args):
     # Network inputs and outputs
     features = env.observation_space
     n_actions = 3
-    action_bound = 1.0
+    action_bound = 0.8
 
     np.random.seed(1234)
 
-    num_episodes = 800
+    num_episodes = 5000
     batch_size = 64
 
-    layer_1_nodes, layer_2_nodes = 500, 400
-    tau = 0.001
-    actor_lr, critic_lr = 0.0001, 0.01
+    layer_1_nodes, layer_2_nodes = 400, 300
+    tau = 0.01
+    actor_lr, critic_lr = 0.001, 0.0001
     GAMMA = 0.99
 
     # Initialize actor and critic network and targets
@@ -61,7 +60,15 @@ def main(args):
     critic = models.Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
 
     # Replay memory buffer
-    replay = Experience(buffer_size=1000000)
+    # replay = Uniform_Memory(buffer_size=1000000)
+    per_mem = Per_Memory(capacity=10000000)
+    thrust_values = np.array([0.00, 0.2, -0.4])
+    per_mem.pre_populate(env, features, n_actions, thrust_values)
+
+    # replay = Experience(buffer_size=1000000)
+    # thrust_values = np.array([0.00, 0.0, -0.7])
+    # replay.populate_memory(env, features, n_actions, thrust_values)
+
     saver = tf.train.Saver()
 
     # Save model directory
@@ -94,6 +101,7 @@ def main(args):
 
     # Render target
     env.render_target()
+    env.randomize = False
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -105,27 +113,39 @@ def main(args):
             critic.update_target_network(sess)
 
             rewards = []
-
+            noise_decay = 1
             for i in range(num_episodes):
                 s = env.reset()
                 sum_reward = 0
                 sum_q = 0
-
                 actions = []
+                env.target_hit = False
+                noise_decay = np.clip(noise_decay - 0.001, 0.01, 1)
+
                 for j in range(iter_per_episode):
 
                     # Select an action
-                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
-
+                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*noise_decay
+                    # a = actor.predict(np.reshape(s, (1, features)), sess)
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
 
                     actions.append(a[0])
                     # Store in replay memory
-                    replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
+                    # replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
+                    error = abs(r)  # D_i = max D
+                    per_mem.add(error, (np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
                     # sample from random memory
-                    if batch_size < replay.get_count:
-                        mem = replay.experience_replay(batch_size)
+                    # if batch_size < replay.get_count:
+                    #     mem = replay.experience_replay(batch_size)
+                    #     s_rep = np.array([_[0] for _ in mem])
+                    #     a_rep = np.array([_[1] for _ in mem])
+                    #     r_rep = np.array([_[2] for _ in mem])
+                    #     s1_rep = np.array([_[3] for _ in mem])
+                    #     d_rep = np.array([_[4] for _ in mem])
+
+                    if batch_size < per_mem.count:
+                        mem, idxs, isweight = per_mem.sample(batch_size)
                         s_rep = np.array([_[0] for _ in mem])
                         a_rep = np.array([_[1] for _ in mem])
                         r_rep = np.array([_[2] for _ in mem])
@@ -144,7 +164,15 @@ def main(args):
                                 y_i.append(r_rep[x] + GAMMA * target_q[x])
 
                         # update the critic network
-                        predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (batch_size,1)), sess)
+                        error, predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (batch_size, 1)),
+                                                             np.reshape(isweight, (batch_size, 1)), sess)
+
+                        for n in range(batch_size):
+                            idx = idxs[n]
+                            per_mem.update(idx, abs(error[n][0]))
+
+                        # update the critic network
+                        # predicted_q, _ = critic.train(s_rep, a_rep, np.reshape(y_i, (batch_size,1)), sess)
                         sum_q += np.amax(predicted_q)
                         # update actor policy
                         a_output = actor.predict(s_rep, sess)
@@ -166,15 +194,56 @@ def main(args):
                               f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
                               f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
                               f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}\n'
-                              f'Fuel Mass: {env._sc_fuel.getAdditionalState("Fuel Mass")[0]}')
-                        print('===========')
+                              f'Fuel Mass: {env.cuf_fuel_mass}\n'
+                              f'Final Orbit:{env._currentOrbit}\n'
+                              f'Initial Orbit:{env._orbit}')
+                        print('=========================')
+                        saver.save(sess, checkpoint_path)
+                        if env.target_hit:
+                            n = range(j + 1)
+                            save_fig = True
+                            show = True
+                            env.render_target()
+                            if 0 <= i < 10:
+                                episode = '00' + str(i)
+                            elif 10 <= i < 100:
+                                episode = '0' + str(i)
+                            elif i >= 100:
+                                episode = str(i)
+                            env.render_plots(i, save=save_fig, show=show)
+                            thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
+                            plt.subplot(2, 1, 1)
+                            plt.plot(thrust_mag)
+                            plt.title('Thrust Magnitude (N)')
+                            plt.subplot(2, 1, 2)
+                            plt.plot(n, np.asarray(actions)[:, 0], n, np.asarray(actions)[:, 1], n,
+                                     np.asarray(actions)[:, 2])
+                            plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
+                            plt.title('Thrust (N)')
+                            plt.legend(('R', 'S', 'W'))
+                            plt.tight_layout()
+                            if save_fig: plt.savefig('results/' + episode + '/thrust.pdf')
+                            if show:
+                                plt.show()
                         break
-                if i % 50 == 0:
-                    saver.save(sess, checkpoint_path)
+
+                if i % 10 == 0:
                     n = range(j+1)
-                    print(f'Model Saved and Updated')
-                    env.render_plots()
+
+                    save_fig = True if i % 10 == 0 else False
+                    show = True if i % 50 == 0 else False
+
+                    env.render_target()
+                    env.render_plots(i, save=save_fig, show=show)
                     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
+
+                    if 0 <= i < 10:
+                        episode = '00' + str(i)
+                    elif 10 <= i < 100:
+                        episode = '0' + str(i)
+                    elif i >= 100:
+                        episode = str(i)
+
                     plt.subplot(2,1,1)
                     plt.plot(thrust_mag)
                     plt.title('Thrust Magnitude (N)')
@@ -184,12 +253,10 @@ def main(args):
                     plt.title('Thrust (N)')
                     plt.legend(('R', 'S', 'W'))
                     plt.tight_layout()
-                    plt.show()
-                # Save the trained model
-                if i % 50 == 0:
-                    if args['model'] is not None:
-                        saver.save(sess, checkpoint_path)
-                        print(f'Model Saved and Updated')
+                    if save_fig: plt.savefig('results/' + episode + '/thrust.pdf')
+                    if show:
+                        plt.show()
+
         else:
             if args['model'] is not None:
                 saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
@@ -214,6 +281,8 @@ def main(args):
                         env.render_plots()
                         break
         plt.plot(rewards)
+        plt.tight_layout()
+        plt.savefig('results/rewards.pdf')
         plt.show()
 
 
