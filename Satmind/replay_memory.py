@@ -4,7 +4,7 @@ import numpy as np
 from Satmind.utils import SumTree
 
 
-class Experience:
+class Uniform_Memory:
     def __init__(self, buffer_size):
         self.buffer_size = buffer_size
         self.buffer = deque(maxlen=buffer_size)
@@ -23,7 +23,7 @@ class Experience:
             self.buffer.popleft()
             self.buffer.append(experience)
 
-    def experience_replay(self, batch_size):
+    def smaple(self, batch_size):
         """
         Get a random experience from the deque
         :return:  experience: (state, action, reward, next state, terminal(done))
