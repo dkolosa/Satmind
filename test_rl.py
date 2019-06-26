@@ -2,9 +2,10 @@ import tensorflow as tf
 import numpy as np
 import gym
 import gym.spaces
+import copy
 
 from Satmind.actor_critic import Actor, Critic
-from Satmind.utils import OrnsteinUhlenbeck
+from Satmind.utils import OrnsteinUhlenbeck, AdaptiveParamNoiseSpec
 from Satmind.replay_memory import Per_Memory, Uniform_Memory
 
 
@@ -132,6 +133,15 @@ def pre_train(critic, actor, env, features, n_actions, sess):
             if done: break
 
 
+def setup_param_noise(self, actor, param_noise_actor, param_noise_stddev, sess):
+
+    distance = param_noise_actor.get_distance(actor, sess)
+    param_noise_stddev.adapt(distance)
+    param_noise_actor.update_noise_params(actor, param_noise_stddev.current_stddev)
+
+
+
+
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
@@ -156,8 +166,12 @@ def test_rl():
     # Initialize actor and critic network and targets
     actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size, 'actor')
     actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
+
     critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
     PER = True
+
+    param_noise = AdaptiveParamNoiseSpec()
+
 
     # Replay memory buffer
     if PER:
@@ -171,8 +185,12 @@ def test_rl():
         actor.update_target_network(sess)
         critic.update_target_network(sess)
 
+        param_noise_actor = copy(actor)
+
         # Run one training loop (biped-walker only)
         if ENV == 'BipedalWalker-v2': pre_train(critic, actor, env, features, n_actions, sess)
+        
+        noise_update_inter = 100
 
         noise_decay = 1.0
         for i in range(num_episodes):
@@ -180,13 +198,16 @@ def test_rl():
             sum_reward = 0
             sum_q = 0
             rewards = []
-            j = 0
+            j = 1
 
             noise_decay = np.clip(noise_decay-0.001,0.01,1)
 
             while True:
 
                 env.render()
+
+                if j % noise_update_inter == 0:
+                    setup_param_noise(actor, param_noise_actor, param_noise, sess)
 
                 a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*noise_decay
                 s1, r, done, _ = env.step(a[0])
