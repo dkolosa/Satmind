@@ -9,7 +9,7 @@ from math import degrees
 import Satmind.actor_critic as models
 from Satmind.env_orekit import OrekitEnv
 import Satmind.utils
-from Satmind.replay_memory import Experience, Per_Memory
+from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 
 stepT = 500.0
@@ -50,7 +50,7 @@ def main(args):
     batch_size = 64
 
     layer_1_nodes, layer_2_nodes = 400, 300
-    tau = 0.001
+    tau = 0.01
     actor_lr, critic_lr = 0.001, 0.0001
     GAMMA = 0.99
 
@@ -60,8 +60,8 @@ def main(args):
     critic = models.Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
 
     # Replay memory buffer
-    # replay = Experience(buffer_size=1000000)
-    per_mem = Per_Memory(capacity=100000)
+    # replay = Uniform_Memory(buffer_size=1000000)
+    per_mem = Per_Memory(capacity=10000000)
     thrust_values = np.array([0.00, 0.2, -0.4])
     per_mem.pre_populate(env, features, n_actions, thrust_values)
 
@@ -113,17 +113,19 @@ def main(args):
             critic.update_target_network(sess)
 
             rewards = []
-
+            noise_decay = 1
             for i in range(num_episodes):
                 s = env.reset()
                 sum_reward = 0
                 sum_q = 0
                 actions = []
                 env.target_hit = False
+                noise_decay = np.clip(noise_decay - 0.001, 0.01, 1)
+
                 for j in range(iter_per_episode):
 
                     # Select an action
-                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*.1
+                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*noise_decay
                     # a = actor.predict(np.reshape(s, (1, features)), sess)
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
