@@ -21,8 +21,8 @@ class OrnsteinUhlenbeck():
     def __repr__(self):
         return 'OrnsteinUhlenbeckActionNoise(mu={}, sigma={})'.format(self.mu, self.sigma)
 
-# Thanks to the OpenAI team for their work in parameter space noise
 
+# Thanks to the OpenAI team for their work in parameter space noise
 class AdaptiveParamNoiseSpec(object):
     def __init__(self, initial_stddev=0.1, desired_action_stddev=0.1, alpha=1.01):
         self.initial_stddev = initial_stddev
