@@ -5,7 +5,7 @@ import gym.spaces
 
 from Satmind.actor_critic import Actor, Critic
 from Satmind.utils import OrnsteinUhlenbeck
-from Satmind.replay_memory import Per_Memory, Experience
+from Satmind.replay_memory import Per_Memory, Uniform_Memory
 
 
 def test_training():
