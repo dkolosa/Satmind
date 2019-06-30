@@ -95,8 +95,8 @@ class Actor:
 
     def get_distance(self, sess):
         # return sess.run(self.distance)
-        return sess.run([tf.sqrt(tf.reduce_mean(tf.square(self.network_parameters[i] - self.param_network_parameters[i])))
-                         for i in range(len(self.network_parameters))])
+        return np.mean(sess.run([tf.sqrt(tf.reduce_mean(tf.square(self.network_parameters[i] - self.param_network_parameters[i])))
+                         for i in range(len(self.network_parameters))]))
 
 
     def __str__(self):

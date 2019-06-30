@@ -144,7 +144,7 @@ def pre_train(critic, actor, env, features, n_actions, sess):
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
-    ENV = ENVS[2]
+    ENV = ENVS[3]
     env = gym.make(ENV)
     iter_per_episode = 200
     features = env.observation_space.shape[0]
@@ -155,10 +155,10 @@ def test_rl():
     np.random.seed(1234)
 
     num_episodes = 800
-    batch_size = 1
+    batch_size = 128
 
     layer_1_nodes, layer_2_nodes = 500, 450
-    tau = 0.01
+    tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
 
@@ -182,14 +182,13 @@ def test_rl():
 
         actor.update_target_network(sess)
         critic.update_target_network(sess)
-        # actor.update_noise_params(sess)
 
         # Run one training loop (biped-walker only)
         # if ENV == 'BipedalWalker-v2': pre_train(critic, actor, env, features, n_actions, sess)
         
-        noise_update_inter = 100
+        noise_update_inter = 20
 
-        noise_decay = 1.0
+        noise_decay = 0.01
 
         for i in range(num_episodes):
             s = env.reset()
@@ -200,17 +199,18 @@ def test_rl():
 
             noise_decay = np.clip(noise_decay-0.001,0.01,1)
 
+            if i % noise_update_inter == 0:
+                actor.update_noise_params(sess)
+                distance = actor.get_distance(sess)
+                print(distance)
+                param_noise.adapt(distance)
+                actor.distance = param_noise.current_stddev
+
             while True:
 
                 env.render()
 
-                if j % noise_update_inter == 0:
-                    actor.update_noise_params(sess)
-                    distance = np.sum(actor.get_distance(sess))
-                    param_noise.adapt(distance)
-                    actor.distance = param_noise.current_stddev
-
-                a = actor.predict_param(np.reshape(s, (1, features)), sess) #+ actor_noise()*noise_decay
+                a = actor.predict(np.reshape(s, (1, features)), sess) #+ actor_noise()*noise_decay
                 s1, r, done, _ = env.step(a[0])
 
                 rewards.append(r)

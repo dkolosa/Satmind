@@ -1,7 +1,7 @@
 import numpy as np
 
 class OrnsteinUhlenbeck():
-    def __init__(self, mu, sigma=0.3, theta=.15, dt=1e-2, x0=None):
+    def __init__(self, mu, sigma=0.2, theta=.15, dt=1e-2, x0=None):
         self.theta = theta
         self.mu = mu
         self.sigma = sigma
@@ -29,15 +29,15 @@ class AdaptiveParamNoiseSpec(object):
         self.desired_action_stddev = desired_action_stddev
         self.alpha = alpha
 
-        self.current_stddev = initial_stddev
+        self.current_stddev =  initial_stddev
 
     def adapt(self, distance):
-        if distance > self.desired_action_stddev:
-            # Decrease stddev.
-            self.current_stddev /= self.alpha
-        else:
-            # Increase stddev.
-            self.current_stddev *= self.alpha
+            if distance > self.desired_action_stddev:
+                # Decrease stddev.
+                self.current_stddev /= self.alpha
+            else:
+                # Increase stddev.
+                self.current_stddev *= self.alpha
 
 
 class SumTree:
