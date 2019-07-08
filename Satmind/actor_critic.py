@@ -4,7 +4,7 @@ import tensorflow as tf
 
 class Actor:
 
-    def __init__(self, features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, learning_rate, batch_size, param_noise_stddev, name):
+    def __init__(self, features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, learning_rate, batch_size, name, param_noise_stddev=0.2):
 
         self.tau = tau
         self.action_bound = action_bound
@@ -93,10 +93,14 @@ class Actor:
     def update_noise_params(self, sess):
         sess.run(self.update_param_network_parameters)
 
-    def get_distance(self, sess):
+    def get_distance(self, state, sess):
         # return sess.run(self.distance)
-        return np.mean(sess.run([tf.sqrt(tf.reduce_mean(tf.square(self.network_parameters[i] - self.param_network_parameters[i])))
-                         for i in range(len(self.network_parameters))]))
+        state = np.reshape(state, (1, self.features))
+        action = self.predict(state, sess)
+        per_action = self.predict_param(state, sess)
+        return np.sqrt(np.mean(np.square(action-per_action)))
+        # return np.mean(sess.run([tf.sqrt(tf.reduce_mean(tf.square(self.network_parameters[i] - self.param_network_parameters[i])))
+                        #  for i in range(len(self.network_parameters))]))
 
 
     def __str__(self):
