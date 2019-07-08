@@ -144,7 +144,7 @@ def pre_train(critic, actor, env, features, n_actions, sess):
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
-    ENV = ENVS[3]
+    ENV = ENVS[2]
     env = gym.make(ENV)
     iter_per_episode = 200
     features = env.observation_space.shape[0]
@@ -154,7 +154,7 @@ def test_rl():
     env.seed(1234)
     np.random.seed(1234)
 
-    num_episodes = 800
+    num_episodes = 1000
     batch_size = 128
 
     layer_1_nodes, layer_2_nodes = 500, 450
@@ -163,10 +163,17 @@ def test_rl():
     GAMMA = 0.99
 
     param_noise = AdaptiveParamNoiseSpec()
+    # param_noise = None
 
     # Initialize actor and critic network and targets
-    actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size, param_noise.current_stddev,'actor')
-    actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
+    if param_noise is not None:
+        actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size,
+                      'actor', param_noise.current_stddev)
+    else:
+        actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size,'actor')
+        actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
+        noise_decay = 0.99
+
 
     critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
     PER = True
@@ -183,12 +190,12 @@ def test_rl():
         actor.update_target_network(sess)
         critic.update_target_network(sess)
 
+        if param_noise is not None:
+            actor.update_noise_params(sess)
+            noise_update_inter = 1
+
         # Run one training loop (biped-walker only)
         # if ENV == 'BipedalWalker-v2': pre_train(critic, actor, env, features, n_actions, sess)
-        
-        noise_update_inter = 20
-
-        noise_decay = 0.01
 
         for i in range(num_episodes):
             s = env.reset()
@@ -197,20 +204,21 @@ def test_rl():
             rewards = []
             j = 0
 
-            noise_decay = np.clip(noise_decay-0.001,0.01,1)
+            if param_noise is None:
+                noise_decay = np.clip(noise_decay-0.001,0.01,1)
 
-            if i % noise_update_inter == 0:
-                actor.update_noise_params(sess)
-                distance = actor.get_distance(sess)
-                print(distance)
-                param_noise.adapt(distance)
-                actor.distance = param_noise.current_stddev
+            if param_noise is not None:
+                if i % noise_update_inter == 0:
+                    actor.update_noise_params(sess)
+                    distance = actor.get_distance(s,sess)
+                    param_noise.adapt(distance)
+                    actor.distance = distance
 
             while True:
 
                 env.render()
 
-                a = actor.predict(np.reshape(s, (1, features)), sess) #+ actor_noise()*noise_decay
+                a = actor.predict_param(np.reshape(s, (1, features)), sess) #+ actor_noise()*noise_decay
                 s1, r, done, _ = env.step(a[0])
 
                 rewards.append(r)
@@ -237,7 +245,6 @@ def test_rl():
                     r_rep = np.array([_[2] for _ in mem])
                     s1_rep = np.array([_[3] for _ in mem])
                     d_rep = np.array([_[4] for _ in mem])
-
 
                     # Get q-value from the critic target
                     act_target = actor.predict_target(s1_rep, sess)
@@ -266,13 +273,15 @@ def test_rl():
                     # update target networks
                     actor.update_target_network(sess)
                     critic.update_target_network(sess)
+                    actor.update_noise_params(sess)
 
                 # else:
-                #     per_mem.add(error,(np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
+                    # per_mem.add(error,(np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
 
                 sum_reward += r
                 s = s1
                 j += 1
+
                 if done:
                     print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                     print('===========')
