@@ -1,7 +1,7 @@
 import numpy as np
 
 class OrnsteinUhlenbeck():
-    def __init__(self, mu, sigma=0.3, theta=.15, dt=1e-2, x0=None):
+    def __init__(self, mu, sigma=0.2, theta=.15, dt=1e-2, x0=None):
         self.theta = theta
         self.mu = mu
         self.sigma = sigma
@@ -20,6 +20,40 @@ class OrnsteinUhlenbeck():
 
     def __repr__(self):
         return 'OrnsteinUhlenbeckActionNoise(mu={}, sigma={})'.format(self.mu, self.sigma)
+
+
+# Thanks to the OpenAI team for their work in parameter space noise
+class AdaptiveParamNoiseSpec(object):
+    def __init__(self, initial_stddev=0.1, desired_action_stddev=0.5, alpha=1.01):
+        self.initial_stddev = initial_stddev
+        self.desired_action_stddev = desired_action_stddev
+        self.alpha = alpha
+
+        self.current_stddev =  initial_stddev
+
+    def adapt(self, distance):
+            if distance > self.desired_action_stddev:
+                # Decrease stddev.
+                self.current_stddev /= self.alpha
+            else:
+                # Increase stddev.
+                self.current_stddev *= self.alpha
+
+    # def __repr__(self):
+    #     return f'AdaptiveParamNoiseSpec(initial_stddevu={self.initial_stddev}' 
+    #     f'desired_action_stddev={self.desired_action_stddev}, alpha={self.alpha})'
+
+
+class Uniform_Noise():
+    def __init__(self, mean, stddev=0.2):
+        self.mean = mean
+        self.stddev = stddev
+
+    def __call__(self):
+        return np.random.normal(self.mean, self.stddev, size=self.mean.shape)
+    
+    # def __repr__(self):
+        # return f'Uniform_Noise(mean={self.mean}, stddev={self.stddev=})'
 
 
 class SumTree:

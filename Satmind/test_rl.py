@@ -38,6 +38,29 @@ def test_training():
             assert (b != a).any()
 
 
+def upadte_perturbed_actor(self,actor, perturbed_actor, param_noise):
+    updates =[]
+    for var, perturbed_var in zip(actor.vars, perturbed_actor.vars):
+        if var in actor.perturbable_vars:
+            updates.append(perturbed_var.assign(var + tf.random_normal(tf.shape(var), mean=0., stddev=param_noise)))
+        else:
+            updates.append(perturbed_var.assign(var))
+    return tf.group(*updates)
+
+
+def setup_noise(actor, obs, sess):
+    # Make a copy of the acotr policy (no noise)
+    param_noise_actor = copy(actor)
+    self.perturb_policy_op = self.upadte_perturbed_actor(actor, param_noise_actor, self.param_noise_stddev)
+
+    # Configure separate copy for stddev adoption.
+    adaptive_param_noise_actor = copy(actor)
+    adaptive_actor_tf = adaptive_param_noise_actor(obs)
+    self.perturb_adaptive_policy_ops = self.upadte_perturbed_actor(actor, adaptive_param_noise_actor,
+                                                                   self.param_noise_stddev)
+
+    self.adaptive_policy_distance = tf.sqrt(tf.reduce_mean(tf.square(actor - adaptive_actor_tf)))
+
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
