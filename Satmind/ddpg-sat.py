@@ -46,10 +46,10 @@ def main(args):
 
     np.random.seed(1234)
 
-    num_episodes = 5000
+    num_episodes = 10000
     batch_size = 64
 
-    layer_1_nodes, layer_2_nodes = 400, 300
+    layer_1_nodes, layer_2_nodes = 500, 450
     tau = 0.01
     actor_lr, critic_lr = 0.001, 0.0001
     GAMMA = 0.99
@@ -84,7 +84,7 @@ def main(args):
     else:
         TRAIN = True
         today = datetime.date.today()
-        path = '/tmp/ddpg_models/'
+        path = 'models/'
         checkpoint_path =path+str(today)+'-'+ENV+'/'
         os.makedirs(checkpoint_path, exist_ok=True)
         print(f'Model will be saved in: {checkpoint_path}')
@@ -125,7 +125,7 @@ def main(args):
                 for j in range(iter_per_episode):
 
                     # Select an action
-                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*noise_decay
+                    a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*noise_decay, -action_bound, action_bound)
                     # a = actor.predict(np.reshape(s, (1, features)), sess)
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
@@ -202,7 +202,7 @@ def main(args):
                         if env.target_hit:
                             n = range(j + 1)
                             save_fig = True
-                            show = True
+                            show = False
                             env.render_target()
                             if 0 <= i < 10:
                                 episode = '00' + str(i)
