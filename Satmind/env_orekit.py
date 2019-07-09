@@ -271,6 +271,7 @@ class OrekitEnv:
         os.makedirs('results/' + episode, exist_ok=True)
         save_path = 'results/' + episode + '/'
 
+        plt.clf()
         oe_fig = plt.figure(1)
         oe_params = ('sma', 'e_x', 'e_y', 'h_x', 'h_y', 'lv')
         oe = [np.asarray(self.a_orbit)/1e3, self.ex_orbit, self.ey_orbit, self.hx_orbit, self.hy_orbit, self.lv_orbit]
@@ -306,6 +307,7 @@ class OrekitEnv:
         if save:
             plt.savefig(save_path + 'oe.pdf')
         if show: plt.show()
+        ax.clear()
 
     def setForceModel(self):
         """
