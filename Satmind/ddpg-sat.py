@@ -12,7 +12,7 @@ import Satmind.utils
 from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 
-stepT = 500.0
+stepT = 1000.0
 
 def orekit_setup():
 
@@ -27,7 +27,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 5
+    duration = 24.0 * 60.0 ** 2 * 4
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
@@ -133,7 +133,7 @@ def main(args):
                     actions.append(a[0])
                     # Store in replay memory
                     # replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
-                    error = abs(r)  # D_i = max D
+                    error = abs(r)
                     per_mem.add(error, (np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
                     # sample from random memory
                     # if batch_size < replay.get_count:

@@ -102,7 +102,7 @@ class OrekitEnv:
         self.target_py = []
         self.target_pz = []
 
-        self._orbit_tolerance = {'a': 10000, 'ex': 0.09, 'ey': 0.09, 'hx': 0.001, 'hy': 0.001, 'lv': 0.01}
+        self._orbit_tolerance = {'a': 10000, 'ex': 0.01, 'ey': 0.01, 'hx': 0.001, 'hy': 0.01, 'lv': 0.01}
 
         self.randomize = True
         self._orbit_randomizer = {'a': 1000.0e3, 'e': 0.02, 'i': 0.02, 'w': 2.0, 'omega': 2.0, 'lv': 5.0}
@@ -488,7 +488,7 @@ class OrekitEnv:
         reward_hx = abs(self.r_target_state[3] - state[3])
         reward_hy = abs(self.r_target_state[4] - state[4])
         # reward = reward_a + 1*reward_hx + reward_hy*.1 + reward_ex*.1 + reward_ey*.1
-        reward = np.clip(-(reward_a + reward_hx + reward_hy + reward_ex + reward_ey), -1, 1)
+        reward = np.clip(-(reward_a + reward_hx*10 + reward_hy*10 + reward_ex*10 + reward_ey*10), -1, 1)
         # reward = (1 - reward**.4)
 
         # if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
@@ -626,7 +626,7 @@ def main():
     dry_mass = 500.0
     fuel_mass = 150.0
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 4
+    duration = 24.0 * 60.0 ** 2 * 3
 
     # set the sc initial state
     a = 5500.0e3  # semi major axis (m)
@@ -659,10 +659,10 @@ def main():
         i_t = []
         s = env.reset()
         i_prev = radians(i)
-        F_s = 1.2
+        F_s = 0.5
         while env._extrap_Date.compareTo(env.final_date) <= 0:
         # while env._currentOrbit.getA() <= a_targ:
-            thrust_mag = np.clip(np.array([0.6, F_s, -0.9]),0.001, 1.0)
+            thrust_mag = np.clip(np.array([0.1, F_s, -0.6]),0.001, 1.0)
 
             position, r, done = env.step(thrust_mag)
             # i_cur = env._currentOrbit.getI()
