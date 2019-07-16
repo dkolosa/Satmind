@@ -47,7 +47,7 @@ def main(args):
     np.random.seed(1234)
 
     num_episodes = 10000
-    batch_size = 64
+    batch_size = 128
 
     layer_1_nodes, layer_2_nodes = 500, 450
     tau = 0.01
@@ -212,15 +212,19 @@ def main(args):
                                 episode = str(i)
                             env.render_plots(i, save=save_fig, show=show)
                             thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
-                            plt.subplot(2, 1, 1)
+                            plt.subplot(2, 2, 1)
                             plt.plot(thrust_mag)
                             plt.title('Thrust Magnitude (N)')
-                            plt.subplot(2, 1, 2)
-                            plt.plot(n, np.asarray(actions)[:, 0], n, np.asarray(actions)[:, 1], n,
-                                     np.asarray(actions)[:, 2])
+                            plt.subplot(2, 2, 2)
+                            plt.plot(n, np.asarray(actions)[:, 0])
+                            plt.title('Thrust Magnitude (R)')
+                            plt.subplot(2, 2, 3)
+                            plt.plot(n, np.asarray(actions)[:, 1])
+                            plt.title('Thrust Magnitude (S)')
+                            plt.subplot(2, 2, 4)
+                            plt.plot(n, np.asarray(actions)[:, 2])
+                            plt.title('Thrust Magnitude (W)')
                             plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
-                            plt.title('Thrust (N)')
-                            plt.legend(('R', 'S', 'W'))
                             plt.tight_layout()
                             if save_fig: plt.savefig('results/' + episode + '/thrust.pdf')
                             if show:
@@ -244,14 +248,26 @@ def main(args):
                     elif i >= 100:
                         episode = str(i)
 
-                    plt.subplot(2,1,1)
+                    # plt.subplot(2,1,1)
+                    # plt.plot(thrust_mag)
+                    # plt.title('Thrust Magnitude (N)')
+                    # plt.subplot(2,1,2)
+                    # plt.plot(n,np.asarray(actions)[:,0], n, np.asarray(actions)[:,1], n, np.asarray(actions)[:,2])
+                    # plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
+                    # plt.title('Thrust (N)')
+                    # plt.legend(('R', 'S', 'W'))
+                    plt.subplot(2, 2, 1)
                     plt.plot(thrust_mag)
                     plt.title('Thrust Magnitude (N)')
-                    plt.subplot(2,1,2)
-                    plt.plot(n,np.asarray(actions)[:,0], n, np.asarray(actions)[:,1], n, np.asarray(actions)[:,2])
-                    plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
-                    plt.title('Thrust (N)')
-                    plt.legend(('R', 'S', 'W'))
+                    plt.subplot(2, 2, 2)
+                    plt.plot(n, np.asarray(actions)[:, 0])
+                    plt.title('Thrust Magnitude (R)')
+                    plt.subplot(2, 2, 3)
+                    plt.plot(n, np.asarray(actions)[:, 1])
+                    plt.title('Thrust Magnitude (S)')
+                    plt.subplot(2, 2, 4)
+                    plt.plot(n, np.asarray(actions)[:, 2])
+                    plt.title('Thrust Magnitude (W)')
                     plt.tight_layout()
                     if save_fig: plt.savefig('results/' + episode + '/thrust.pdf')
                     if show:

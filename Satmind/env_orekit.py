@@ -7,7 +7,6 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import os, random
 
-
 orekit.initVM()
 
 from org.orekit.frames import FramesFactory, Frame
@@ -102,7 +101,7 @@ class OrekitEnv:
         self.target_py = []
         self.target_pz = []
 
-        self._orbit_tolerance = {'a': 10000, 'ex': 0.01, 'ey': 0.01, 'hx': 0.001, 'hy': 0.01, 'lv': 0.01}
+        self._orbit_tolerance = {'a': 10000, 'ex': 0.01, 'ey': 0.01, 'hx': 0.001, 'hy': 0.001, 'lv': 0.01}
 
         self.randomize = True
         self._orbit_randomizer = {'a': 1000.0e3, 'e': 0.02, 'i': 0.02, 'w': 2.0, 'omega': 2.0, 'lv': 5.0}
@@ -482,13 +481,14 @@ class OrekitEnv:
                           self._currentOrbit.getHx(), self._currentOrbit.getHy(), self._currentOrbit.getLv()])
 
         # Inclination change reward
-        reward_a  = abs(self.r_target_state[0] - state[0]) / self.r_target_state[0]
+        # reward_a  = abs(self.r_target_state[0] - state[0]) / self.r_target_state[0]
+        reward_a = abs(self.r_target_state[0] - state[0]) / state[0]
         reward_ex = abs(self.r_target_state[1] - state[1])
         reward_ey = abs(self.r_target_state[2] - state[2])
         reward_hx = abs(self.r_target_state[3] - state[3])
         reward_hy = abs(self.r_target_state[4] - state[4])
-        # reward = reward_a + 1*reward_hx + reward_hy*.1 + reward_ex*.1 + reward_ey*.1
-        reward = np.clip(-(reward_a + reward_hx*10 + reward_hy*10 + reward_ex*10 + reward_ey*10), -1, 1)
+        # print(f'r_a: {reward_a*10}, ex: {reward_ex*10}, ey: {reward_ey*10}, hx: {reward_hx*10}, hy: {reward_hy*10}')
+        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
         # reward = (1 - reward**.4)
 
         # if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
@@ -645,7 +645,7 @@ def main():
     raan_targ = 24.0
     lM_targ = 12.0
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
-    stepT = 500.0
+    stepT = 1000.0
 
     env = OrekitEnv(state, state_targ, date, duration, mass, stepT)
 
