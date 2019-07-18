@@ -482,26 +482,16 @@ class OrekitEnv:
 
         # Inclination change reward
         # reward_a  = abs(self.r_target_state[0] - state[0]) / self.r_target_state[0]
-        reward_a = abs(self.r_target_state[0] - state[0]) / state[0]
+        reward_a = abs(self.r_target_state[0] - state[0]) / self.r_initial_state[0]
         reward_ex = abs(self.r_target_state[1] - state[1])
         reward_ey = abs(self.r_target_state[2] - state[2])
         reward_hx = abs(self.r_target_state[3] - state[3])
         reward_hy = abs(self.r_target_state[4] - state[4])
+        reward_fuel = self.cuf_fuel_mass/self.fuel_mass
         # print(f'r_a: {reward_a*10}, ex: {reward_ex*10}, ey: {reward_ey*10}, hx: {reward_hx*10}, hy: {reward_hy*10}')
-        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
-        # reward = (1 - reward**.4)
-
-        # if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a']:
-        #     reward = reward_hx + thrust_mag
-        #     reward = (1 - reward**.4)*(self.cuf_fuel_mass/self.fuel_mass)
-        #
-        # if abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx']:
-        #     reward = reward_a + thrust_mag
-        #     reward = (1 - reward**.4)*(self.cuf_fuel_mass/self.fuel_mass)
-
+        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex*10 + reward_ey) #+ reward_fuel*0.1
 
         # Terminal staes
-
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
            abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
            abs(self.r_target_state[2] - state[2]) <= self._orbit_tolerance['ey'] and \
@@ -526,18 +516,6 @@ class OrekitEnv:
             done = True
             print('In earth')
             return reward, done
-
-        # if self._currentOrbit.getHx() > self.r_target_state[3]+0.01:
-        #     reward = -10
-        #     done = True
-        #
-        # if self._currentOrbit.getHy() < self._orbit.getHy()-0.001:
-        #     reward = -10
-        #     done = True
-
-        # if self._extrap_Date.compareTo(self.final_date) >= 0:
-        #     reward += -10
-        #     done = True
 
         return reward, done
 

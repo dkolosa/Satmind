@@ -198,7 +198,7 @@ def main(args):
                               f'Final Orbit:{env._currentOrbit}\n'
                               f'Initial Orbit:{env._orbit}')
                         print('=========================')
-                        saver.save(sess, checkpoint_path)
+                        saver.save(sess, checkpoint_path+'/model.ckpt')
                         if env.target_hit:
                             n = range(j + 1)
                             save_fig = True
