@@ -63,7 +63,7 @@ def main(args):
     # replay = Uniform_Memory(buffer_size=1000000)
     per_mem = Per_Memory(capacity=10000000)
     thrust_values = np.array([0.00, 0.2, -0.4])
-    per_mem.pre_populate(env, features, n_actions, thrust_values)
+    # per_mem.pre_populate(env, features, n_actions, thrust_values)
 
     # replay = Experience(buffer_size=1000000)
     # thrust_values = np.array([0.00, 0.0, -0.7])
@@ -89,15 +89,15 @@ def main(args):
         os.makedirs(checkpoint_path, exist_ok=True)
         print(f'Model will be saved in: {checkpoint_path}')
 
-    # Save the model parameters (for reproducibility)
-    params = checkpoint_path + 'model_params.txt'
-    with open(params, 'w+') as text_file:
-        text_file.write("enviornment params:\n")
-        text_file.write("enviornment: " + ENV + "\n")
-        text_file.write("episodes: {}, iterations per episode {}\n".format(num_episodes, iter_per_episode))
-        text_file.write("model parameters:\n")
-        text_file.write(actor.__str__())
-        text_file.write(critic.__str__() + "\n")
+        # Save the model parameters (for reproducibility)
+        params = checkpoint_path + 'model_params.txt'
+        with open(params, 'w+') as text_file:
+            text_file.write("enviornment params:\n")
+            text_file.write("enviornment: " + ENV + "\n")
+            text_file.write("episodes: {}, iterations per episode {}\n".format(num_episodes, iter_per_episode))
+            text_file.write("model parameters:\n")
+            text_file.write(actor.__str__())
+            text_file.write(critic.__str__() + "\n")
 
     # Render target
     env.render_target()
@@ -126,7 +126,7 @@ def main(args):
 
                     # Select an action
                     a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*noise_decay, -action_bound, action_bound)
-                    # a = actor.predict(np.reshape(s, (1, features)), sess)
+
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
 
