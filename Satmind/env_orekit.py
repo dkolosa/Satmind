@@ -185,29 +185,7 @@ class OrekitEnv:
     def convert_to_keplerian(self, orbit):
 
         ko = KeplerianOrbit(orbit)
-        # a = ko.getA()
-        # e = ko.getE()
-        # i = ko.getI()
-        # w = ko.getPerigeeArgument()
-        # omega = ko.getRightAscensionOfAscendingNode()
-        # ta = ko.getTrueAnomaly()
-        # E = ko.getEccentricAnomaly()
-        #
-        # adot = ko.getADot()
-        # edot = ko.getEDot()
-        # idot = ko.getIDot()
-        # wdot = ko.getPerigeeArgumentDot()
-        # omegadot = ko.getRightAscensionOfAscendingNodeDot()
-        # # tadot = ko.getTrueAnomalyDot()
-        # Edot = ko.getEccentricAnomalyDot()
-        #
-        # state = np.array([a, e, i, w, omega, E, adot, edot, idot, wdot, omegadot, Edot])
-        # state = np.nan_to_num(state)
-
-        state = np.array([a, e, i, w, omega, E, adot, edot, idot, wdot, omegadot, Edot])
-        state = np.nan_to_num(state)
-
-        return state
+        return ko
 
     def set_spacecraft(self, mass, fuel_mass):
         """
@@ -487,9 +465,10 @@ class OrekitEnv:
         reward_ey = abs(self.r_target_state[2] - state[2])
         reward_hx = abs(self.r_target_state[3] - state[3])
         reward_hy = abs(self.r_target_state[4] - state[4])
-        reward_fuel = self.cuf_fuel_mass/self.fuel_mass
         # print(f'r_a: {reward_a*10}, ex: {reward_ex*10}, ey: {reward_ey*10}, hx: {reward_hx*10}, hy: {reward_hy*10}')
-        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex*10 + reward_ey) #+ reward_fuel*0.1
+        # reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
+        #current
+        reward = -(reward_a*10 + reward_hx*10 + reward_hy*10 + reward_ex*10 + reward_ey*10)
 
         # Terminal staes
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
