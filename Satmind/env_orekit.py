@@ -460,15 +460,16 @@ class OrekitEnv:
 
         # Inclination change reward
         # reward_a  = abs(self.r_target_state[0] - state[0]) / self.r_target_state[0]
-        reward_a = abs(self.r_target_state[0] - state[0]) / self.r_initial_state[0]
-        reward_ex = abs(self.r_target_state[1] - state[1])
-        reward_ey = abs(self.r_target_state[2] - state[2])
-        reward_hx = abs(self.r_target_state[3] - state[3])
-        reward_hy = abs(self.r_target_state[4] - state[4])
+        reward_a = np.sqrt((self.r_target_state[0] - state[0])**2) / self.r_initial_state[0]
+        reward_ex = np.sqrt((self.r_target_state[1] - state[1])**2)
+        reward_ey = np.sqrt((self.r_target_state[2] - state[2])**2)
+        reward_hx = np.sqrt((self.r_target_state[3] - state[3])**2)
+        reward_hy = np.sqrt((self.r_target_state[4] - state[4])**2)
         # print(f'r_a: {reward_a*10}, ex: {reward_ex*10}, ey: {reward_ey*10}, hx: {reward_hx*10}, hy: {reward_hy*10}')
         # reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
         #current
-        reward = -(reward_a*10 + reward_hx*10 + reward_hy*10 + reward_ex*10 + reward_ey*10)
+        # Inclination change
+        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
 
         # Terminal staes
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
@@ -477,7 +478,7 @@ class OrekitEnv:
            abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
            abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
             # self.final_date.durationFrom(self._extrap_Date) <= 360:
-            reward += 1000
+            reward += 1
             done = True
             print('hit')
             self.target_hit = True
@@ -583,7 +584,7 @@ def main():
     dry_mass = 500.0
     fuel_mass = 150.0
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 3
+    duration = 24.0 * 60.0 ** 2 * 10
 
     # set the sc initial state
     a = 5500.0e3  # semi major axis (m)
@@ -595,12 +596,12 @@ def main():
     state = [a, e, i, omega, raan, lM]
 
     # target state
-    a_targ=6600.0e3
-    e_targ = .24
-    i_targ = 5.3
-    omega_targ = 24.0
-    raan_targ = 24.0
-    lM_targ = 12.0
+    a_targ=25000.0e3
+    e_targ = .22
+    i_targ = 5.0
+    omega_targ = 20.0
+    raan_targ = 20.0
+    lM_targ = 10.0
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
     stepT = 1000.0
 
@@ -617,35 +618,19 @@ def main():
         s = env.reset()
         i_prev = radians(i)
         F_s = 0.5
-        while env._extrap_Date.compareTo(env.final_date) <= 0:
-        # while env._currentOrbit.getA() <= a_targ:
-            thrust_mag = np.clip(np.array([0.1, F_s, -0.6]),0.001, 1.0)
-
+        while env._currentOrbit.getA() < a_targ:
+        # while env._extrap_Date.compareTo(env.final_date) <= 0:
+            thrust_mag = np.clip(np.array([0.0001, F_s, 0.0001]),0.001, 1.0)
             position, r, done = env.step(thrust_mag)
-            # i_cur = env._currentOrbit.getI()
-            # inc = env.convert_to_keplerian(env._currentOrbit)
-            # ta = inc.getTrueAnomaly()
-            reward.append(r)
-            # F_s -= .005
-
-            # i_t.append(inc.getAnomaly())
-            # i_t.append(env._sc_fuel.getKeplerianPeriod())
-            # reward.append(i_cur)
-            # if ta >= 0:
-            #     thrust_mag = np.array([0.0, 0.0, -0.1])
-            # else:
-            #     thrust_mag = np.array([0.0, 0.0, 0.1])
-            # if done:
-                # break
         # print(env._extrap_Date)
-        plt.plot(reward)
-        plt.show()
-        # env.render_plots(save=False, show=False)
+        # plt.plot(reward)
+        # plt.show()
+        env.render_plots(save=False, show=True)
         # env.oedot_plots()
-        plt.show()
-        # plt.figure()
-        # plt.plot(i_t)
-        # print(f'Done\nIncli: {degrees(env._currentOrbit.getI())}\n=====')
+
+        print(env._currentDate)
+        print(f'Done\nSma: {env._currentOrbit.getA()}\n=====')
+
 
 if __name__ == '__main__':
     main()

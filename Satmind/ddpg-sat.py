@@ -19,7 +19,7 @@ def orekit_setup():
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data['Orbit_Raising']
+        mission = data['sma_change']
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
@@ -27,7 +27,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 4
+    duration = 24.0 * 60.0 ** 2 * 26
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
@@ -229,6 +229,12 @@ def main(args):
                             if save_fig: plt.savefig('results/' + episode + '/thrust.pdf')
                             if show:
                                 plt.show()
+                            plt.plot(rewards)
+                            plt.xlabel('Episodes')
+                            plt.ylabel('Rewards')
+                            if save_fig: plt.savefig('results/' + episode + '/Rewards.pdf')
+                            if show: plt.show()
+
                         break
 
                 if i % 10 == 0:
@@ -272,6 +278,12 @@ def main(args):
                     if save_fig: plt.savefig('results/' + episode + '/thrust.pdf')
                     if show:
                         plt.show()
+                    plt.plot(rewards)
+                    plt.xlabel('Episodes')
+                    plt.ylabel('Rewards')
+                    if save_fig: plt.savefig('results/' + episode + '/Rewards.pdf')
+                    if show: plt.show()
+
 
         else:
             if args['model'] is not None:
