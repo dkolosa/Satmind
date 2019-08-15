@@ -27,15 +27,15 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 26
+    duration = 24.0 * 60.0 ** 2 * 18
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
 
 
 def main(args):
-    ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'OrekitEnv-v0')
-    ENV = ENVS[3]
+    ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma')
+    ENV = ENVS[2]
 
     env, duration = orekit_setup()
     iter_per_episode = int(duration / stepT)
@@ -69,13 +69,15 @@ def main(args):
     # thrust_values = np.array([0.00, 0.0, -0.7])
     # replay.populate_memory(env, features, n_actions, thrust_values)
 
-    saver = tf.train.Saver()
+    # Depricated
+    # saver = tf.train.Saver()
+    saver = tf.compat.v1.train.Saver()
 
     # Save model directory
     LOAD = False
     if args['model'] is not None:
         checkpoint_path = args['model'] + '/'
-        os.makedirs(checkpoint_path,exist_ok=True)
+        # os.makedirs(checkpoint_path,exist_ok=True)
         if args['test']:
             TRAIN = False
         else:
@@ -85,35 +87,49 @@ def main(args):
         TRAIN = True
         today = datetime.date.today()
         path = 'models/'
-        checkpoint_path =path+str(today)+'-'+ENV+'/'
+        checkpoint_path =path+str(today)+'-'+ENV +'/'
         os.makedirs(checkpoint_path, exist_ok=True)
         print(f'Model will be saved in: {checkpoint_path}')
 
-        # Save the model parameters (for reproducibility)
-        params = checkpoint_path + 'model_params.txt'
-        with open(params, 'w+') as text_file:
-            text_file.write("enviornment params:\n")
-            text_file.write("enviornment: " + ENV + "\n")
-            text_file.write("episodes: {}, iterations per episode {}\n".format(num_episodes, iter_per_episode))
-            text_file.write("model parameters:\n")
-            text_file.write(actor.__str__())
-            text_file.write(critic.__str__() + "\n")
+    if args['savefig']:
+        save_fig = True
+    else:
+        save_fig = False
+
+    if args['showfig']:
+        show = True
+    else:
+        show = False
+
+    # Save the model parameters (for reproducibility)
+    params = checkpoint_path + 'model_params.txt'
+    with open(params, 'w+') as text_file:
+        text_file.write("enviornment params:\n")
+        text_file.write("enviornment: " + ENV + "\n")
+        text_file.write("episodes: {}, iterations per episode {}\n".format(num_episodes, iter_per_episode))
+        text_file.write("model parameters:\n")
+        text_file.write(actor.__str__())
+        text_file.write(critic.__str__() + "\n")
 
     # Render target
     env.render_target()
     env.randomize = False
 
-    with tf.Session() as sess:
+    # Depricated
+    # with tf.Session() as sess:
+    with tf.compat.v1.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
         if TRAIN:
-            if LOAD:
-                saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
             actor.update_target_network(sess)
             critic.update_target_network(sess)
+            if LOAD:
+                print(checkpoint_path)
+                saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
 
             rewards = []
             noise_decay = 1
+            # i = 251
             for i in range(num_episodes):
                 s = env.reset()
                 sum_reward = 0
@@ -202,7 +218,6 @@ def main(args):
                         if env.target_hit:
                             n = range(j + 1)
                             save_fig = True
-                            show = False
                             env.render_target()
                             if 0 <= i < 10:
                                 episode = '00' + str(i)
@@ -262,6 +277,7 @@ def main(args):
                     # plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
                     # plt.title('Thrust (N)')
                     # plt.legend(('R', 'S', 'W'))
+
                     plt.subplot(2, 2, 1)
                     plt.plot(thrust_mag)
                     plt.title('Thrust Magnitude (N)')
@@ -318,5 +334,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', help="path of a trained tensorlfow model (str: path)", type=str)
     parser.add_argument('--test', help="pass if testing a model", action='store_true')
+    parser.add_argument('--savefig',help="Save figures to file", action='store_true')
+    parser.add_argument('--showfig', help='Display plotted figures', action='store_true')
     args = vars(parser.parse_args())
     main(args)

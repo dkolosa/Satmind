@@ -2,8 +2,7 @@ import tensorflow as tf
 import numpy as np
 import gym
 import gym.spaces
-import copy
-
+import matplotlib.pyplot as plt
 from Satmind.actor_critic import Actor, Critic
 from Satmind.utils import OrnsteinUhlenbeck, AdaptiveParamNoiseSpec
 from Satmind.replay_memory import Per_Memory, Uniform_Memory
@@ -133,18 +132,10 @@ def pre_train(critic, actor, env, features, n_actions, sess):
             if done: break
 
 
-# def setup_param_noise(actor, param_noise_stddev, sess):
-#
-#     actor.update_noise_params(sess)
-#     # distance = actor.get_distance(sess)
-#     # param_noise_stddev.adapt(distance)
-#     actor.param_noise_stddev = param_noise_stddev.current_stddev
-#
-
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
-    ENV = ENVS[2]
+    ENV = ENVS[3]
     env = gym.make(ENV)
     iter_per_episode = 200
     features = env.observation_space.shape[0]
@@ -154,26 +145,22 @@ def test_rl():
     env.seed(1234)
     np.random.seed(1234)
 
-    num_episodes = 1000
-    batch_size = 128
+    # num_episodes = 251
+    num_episodes = 1001
 
-    layer_1_nodes, layer_2_nodes = 500, 450
+    batch_size = 128
+    #Pendulum
+    # layer_1_nodes, layer_2_nodes = 250, 150
+    layer_1_nodes, layer_2_nodes = 400, 300
+
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
 
-    param_noise = AdaptiveParamNoiseSpec()
-    # param_noise = None
 
-    # Initialize actor and critic network and targets
-    if param_noise is not None:
-        actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size,
-                      'actor', param_noise.current_stddev)
-    else:
-        actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size,'actor')
-        actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
-        noise_decay = 0.99
-
+    actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size,'actor')
+    actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
+    noise_decay = 1.0
 
     critic = Critic(features, n_actions, layer_1_nodes, layer_2_nodes, critic_lr, tau, 'critic', actor.trainable_variables)
     PER = True
@@ -190,38 +177,25 @@ def test_rl():
         actor.update_target_network(sess)
         critic.update_target_network(sess)
 
-        if param_noise is not None:
-            actor.update_noise_params(sess)
-            noise_update_inter = 1
-
         # Run one training loop (biped-walker only)
         # if ENV == 'BipedalWalker-v2': pre_train(critic, actor, env, features, n_actions, sess)
+        rewards = []
 
         for i in range(num_episodes):
             s = env.reset()
             sum_reward = 0
             sum_q = 0
-            rewards = []
             j = 0
 
-            if param_noise is None:
-                noise_decay = np.clip(noise_decay-0.001,0.01,1)
-
-            if param_noise is not None:
-                if i % noise_update_inter == 0:
-                    actor.update_noise_params(sess)
-                    distance = actor.get_distance(s,sess)
-                    param_noise.adapt(distance)
-                    actor.distance = distance
+            # noise_decay = np.clip(noise_decay-0.001,0.01,1)
 
             while True:
 
                 env.render()
 
-                a = actor.predict_param(np.reshape(s, (1, features)), sess) #+ actor_noise()*noise_decay
+                a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
                 s1, r, done, _ = env.step(a[0])
 
-                rewards.append(r)
                 # Store in replay memory
                 if PER:
                     error = abs(r)  # D_i = max D
@@ -273,18 +247,25 @@ def test_rl():
                     # update target networks
                     actor.update_target_network(sess)
                     critic.update_target_network(sess)
-                    actor.update_noise_params(sess)
+                    # actor.update_noise_params(sess)
 
                 # else:
                     # per_mem.add(error,(np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
 
                 sum_reward += r
+
+
                 s = s1
                 j += 1
-
                 if done:
                     print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
+                    rewards.append(sum_reward)
                     print('===========')
+                    if i % 50 == 0:
+                        plt.plot(rewards)
+                        plt.show()
+                        plt.xlabel('Episode')
+                        plt.ylabel('Reward')
                     break
 
 
