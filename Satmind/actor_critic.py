@@ -4,7 +4,7 @@ import tensorflow as tf
 
 class Actor:
 
-    def __init__(self, features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, learning_rate, batch_size, name, param_noise_stddev=0.2):
+    def __init__(self, features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, learning_rate, batch_size, name):
 
         self.tau = tau
         self.action_bound = action_bound
@@ -15,7 +15,6 @@ class Actor:
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.name = name
-        self.param_noise_stddev = param_noise_stddev
 
         # create the actor network and target network
         # self.input, self.output, self.scaled_output = self.build_network(name)
@@ -23,9 +22,6 @@ class Actor:
         self.network_parameters = tf.trainable_variables()
         self.target_input, self.target_output, self.target_scaled_output = self.build_network_keras()
         self.target_network_parameters = tf.trainable_variables()[len(self.network_parameters):]
-
-        self.param_input, self.param_output, self.param_scaled_output = self.build_network_keras()
-        self.param_network_parameters = tf.trainable_variables()[len(self.network_parameters)+len(self.target_network_parameters):]
 
         # This is retrieved from the critic network
         self.action_gradient = tf.placeholder(tf.float32, [None, n_actions])
@@ -40,28 +36,18 @@ class Actor:
                                                  tf.multiply(self.target_network_parameters[i], 1. - self.tau))
                                                  for i in range(len(self.target_network_parameters))]
 
-        # self.distance = tf.sqrt(tf.reduce_mean(tf.square(self.network_parameters-self.param_network_parameters)))
-        self.distance = [tf.sqrt(tf.reduce_mean(tf.square(self.network_parameters[i] - self.param_network_parameters[i])))
-                         for i in range(len(self.network_parameters))]
-
-        self.update_param_network_parameters = [self.param_network_parameters[i].assign(self.network_parameters[i] +
-                                                    tf.random.normal(shape=tf.shape(self.param_network_parameters[i]),
-                                                        mean=0.0, stddev=self.param_noise_stddev))
-                                                for i in range(len(self.param_network_parameters))]
-
-        self.trainable_variables = len(self.network_parameters) + len(self.target_network_parameters) + len(self.param_network_parameters)
-
+        self.trainable_variables = len(self.network_parameters) + len(self.target_network_parameters)
 
     def build_network_keras(self):
 
         input = tf.keras.Input(shape=(self.features,))
         x = tf.keras.layers.Dense(self.layer_1_nodes)(input)
-        x = tf.contrib.layers.layer_norm(x)
-        # x = tf.keras.layers.GaussianNoise(stddev=0.2)(x)
+        # x = tf.contrib.layers.layer_norm(x)
+        x = tf.keras.layers.LayerNormalization()(x)
         x = tf.nn.relu(x)
         x = tf.keras.layers.Dense(self.layer_2_nodes)(x)
-        x = tf.contrib.layers.layer_norm(x)
-        # x = tf.keras.layers.GaussianNoise(stddev=0.2)(x)
+        x = tf.keras.layers.LayerNormalization()(x)
+        # x = tf.contrib.layers.layer_norm(x)
         x = tf.nn.relu(x)
 
         output = tf.keras.layers.Dense(self.n_actions, activation='tanh',  kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
@@ -77,9 +63,6 @@ class Actor:
         action = sess.run(self.target_scaled_output, {self.target_input: state})
         return action
 
-    def predict_param(self, state, sess):
-        return sess.run(self.param_scaled_output, {self.param_input: state})
-
     def train(self, state, action_gradient, sess):
         sess.run(self.train_op, {self.input: state, self.action_gradient: action_gradient})
 
@@ -89,18 +72,6 @@ class Actor:
         :return:
         """
         sess.run(self.update_target_network_parameters)
-
-    def update_noise_params(self, sess):
-        sess.run(self.update_param_network_parameters)
-
-    def get_distance(self, state, sess):
-        # return sess.run(self.distance)
-        state = np.reshape(state, (1, self.features))
-        action = self.predict(state, sess)
-        per_action = self.predict_param(state, sess)
-        return np.sqrt(np.mean(np.square(action-per_action)))
-        # return np.mean(sess.run([tf.sqrt(tf.reduce_mean(tf.square(self.network_parameters[i] - self.param_network_parameters[i])))
-                        #  for i in range(len(self.network_parameters))]))
 
 
     def __str__(self):
@@ -131,7 +102,7 @@ class Critic:
         # self.input, self.action, self.output  = self.build_network(name)
         self.input, self.action, self.output = self.build_network_keras()
 
-        self.network_parameters = tf.trainable_variables()[actor_trainable_variables-10:]
+        self.network_parameters = tf.trainable_variables()[actor_trainable_variables:]
 
         self.input_target, self.action_target, self.output_target = self.build_network_keras()
         self.target_network_parameters = tf.trainable_variables()[(len(self.network_parameters) + actor_trainable_variables):]
@@ -164,7 +135,7 @@ class Critic:
         x = tf.keras.layers.Dense(self.layer_1_nodes,
                                     kernel_regularizer=tf.contrib.layers.l2_regularizer(0.01),
                                     bias_regularizer=tf.contrib.layers.l2_regularizer(0.01))(input)
-        x = tf.contrib.layers.layer_norm(x)
+        x = tf.keras.layers.LayerNormalization()(x)
         x = tf.nn.relu(x)
 
         x = tf.keras.layers.concatenate([tf.keras.layers.Flatten()(x), action])

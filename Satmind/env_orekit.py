@@ -469,7 +469,7 @@ class OrekitEnv:
         # reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
         #current
         # Inclination change
-        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
+        reward = -(10*reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
 
         # Terminal staes
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
@@ -584,7 +584,7 @@ def main():
     dry_mass = 500.0
     fuel_mass = 150.0
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 10
+    duration = 24.0 * 60.0 ** 2 * 20
 
     # set the sc initial state
     a = 5500.0e3  # semi major axis (m)
@@ -596,8 +596,8 @@ def main():
     state = [a, e, i, omega, raan, lM]
 
     # target state
-    a_targ=25000.0e3
-    e_targ = .22
+    a_targ=15500.0e3
+    e_targ = .2
     i_targ = 5.0
     omega_targ = 20.0
     raan_targ = 20.0
@@ -617,9 +617,9 @@ def main():
         i_t = []
         s = env.reset()
         i_prev = radians(i)
-        F_s = 0.5
-        while env._currentOrbit.getA() < a_targ:
-        # while env._extrap_Date.compareTo(env.final_date) <= 0:
+        F_s = 0.8
+        # while env._currentOrbit.getA() < a_targ:
+        while env._extrap_Date.compareTo(env.final_date) <= 0:
             thrust_mag = np.clip(np.array([0.0001, F_s, 0.0001]),0.001, 1.0)
             position, r, done = env.step(thrust_mag)
         # print(env._extrap_Date)
@@ -628,7 +628,7 @@ def main():
         env.render_plots(save=False, show=True)
         # env.oedot_plots()
 
-        print(env._currentDate)
+        print(f'sec: {env._currentDate.durationFrom(env.final_date)}')
         print(f'Done\nSma: {env._currentOrbit.getA()}\n=====')
 
 
