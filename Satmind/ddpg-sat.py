@@ -93,8 +93,15 @@ def main(args):
 
     if args['savefig']:
         save_fig = True
+        if os.path.exists('results/rewards.npy'):
+            load_reward = np.load('results/rewards.npy')
+            rewards = np.ndarray.tolist(load_reward)
+        else:
+            rewards = []
     else:
         save_fig = False
+        rewards = []
+
 
     if args['showfig']:
         show = True
@@ -127,10 +134,10 @@ def main(args):
                 print(checkpoint_path)
                 saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
 
-            rewards = []
+            # rewards = []
             noise_decay = 1
-            # i = 251
-            for i in range(num_episodes):
+
+            for i in range(323,num_episodes):
                 s = env.reset()
                 sum_reward = 0
                 sum_q = 0
@@ -214,6 +221,8 @@ def main(args):
                               f'Final Orbit:{env._currentOrbit}\n'
                               f'Initial Orbit:{env._orbit}')
                         print('=========================')
+                        if save_fig:
+                            np.save('results/rewards.npy', np.array(rewards))
                         saver.save(sess, checkpoint_path+'/model.ckpt')
                         if env.target_hit:
                             n = range(j + 1)
@@ -247,7 +256,8 @@ def main(args):
                             plt.plot(rewards)
                             plt.xlabel('Episodes')
                             plt.ylabel('Rewards')
-                            if save_fig: plt.savefig('results/' + episode + '/Rewards.pdf')
+                            if save_fig:
+                                plt.savefig('results/' + episode + '/Rewards.pdf')
                             if show: plt.show()
 
                         break

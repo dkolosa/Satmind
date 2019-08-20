@@ -469,7 +469,7 @@ class OrekitEnv:
         # reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
         #current
         # Inclination change
-        reward = -(10*reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
+        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
 
         # Terminal staes
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
@@ -584,7 +584,7 @@ def main():
     dry_mass = 500.0
     fuel_mass = 150.0
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 20
+    duration = 24.0 * 60.0 ** 2 * 8
 
     # set the sc initial state
     a = 5500.0e3  # semi major axis (m)
