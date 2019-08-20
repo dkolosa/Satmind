@@ -135,7 +135,7 @@ def pre_train(critic, actor, env, features, n_actions, sess):
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
-    ENV = ENVS[3]
+    ENV = ENVS[2]
     env = gym.make(ENV)
     iter_per_episode = 200
     features = env.observation_space.shape[0]
@@ -151,9 +151,12 @@ def test_rl():
     batch_size = 128
     #Pendulum
     # layer_1_nodes, layer_2_nodes = 250, 150
-    layer_1_nodes, layer_2_nodes = 400, 300
+    #lander
+    # layer_1_nodes, layer_2_nodes = 400, 300
+    #Walker
+    layer_1_nodes, layer_2_nodes = 500, 400
 
-    tau = 0.001
+    tau = 0.01
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
 
@@ -180,20 +183,20 @@ def test_rl():
         # Run one training loop (biped-walker only)
         # if ENV == 'BipedalWalker-v2': pre_train(critic, actor, env, features, n_actions, sess)
         rewards = []
-
+        noise_decay = 1
         for i in range(num_episodes):
             s = env.reset()
             sum_reward = 0
             sum_q = 0
             j = 0
 
-            # noise_decay = np.clip(noise_decay-0.001,0.01,1)
+            noise_decay = np.clip(noise_decay-0.001,0.01,1)
 
             while True:
 
                 env.render()
 
-                a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
+                a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*noise_decay
                 s1, r, done, _ = env.step(a[0])
 
                 # Store in replay memory
