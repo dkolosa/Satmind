@@ -584,7 +584,7 @@ def main():
     dry_mass = 500.0
     fuel_mass = 150.0
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 8
+    duration = 24.0 * 60.0 ** 2 * 5
 
     # set the sc initial state
     a = 5500.0e3  # semi major axis (m)
@@ -596,7 +596,7 @@ def main():
     state = [a, e, i, omega, raan, lM]
 
     # target state
-    a_targ=15500.0e3
+    a_targ=10000.0e3
     e_targ = .2
     i_targ = 5.0
     omega_targ = 20.0
