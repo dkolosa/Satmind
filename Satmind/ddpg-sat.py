@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import os
+import pickle
 import argparse
 import datetime
 import json
@@ -27,7 +28,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 18
+    duration = 24.0 * 60.0 ** 2 * 5
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
@@ -76,7 +77,7 @@ def main(args):
     # Save model directory
     LOAD = False
     if args['model'] is not None:
-        checkpoint_path = args['model'] + '/'
+        checkpoint_path = args['model']
         # os.makedirs(checkpoint_path,exist_ok=True)
         if args['test']:
             TRAIN = False
@@ -101,7 +102,6 @@ def main(args):
     else:
         save_fig = False
         rewards = []
-
 
     if args['showfig']:
         show = True
@@ -137,7 +137,7 @@ def main(args):
             # rewards = []
             noise_decay = 1
 
-            for i in range(323,num_episodes):
+            for i in range(num_episodes):
                 s = env.reset()
                 sum_reward = 0
                 sum_q = 0
@@ -158,6 +158,11 @@ def main(args):
                     # replay.add((np.reshape(s, (features,)), np.reshape(a, (n_actions,)), r, np.reshape(s1,(features,)), done))
                     error = abs(r)
                     per_mem.add(error, (np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
+
+                    # Preserve memory state
+                    # with open('memory.pickle', 'wb') as f:
+                    #     pickle.dump(per_mem, f)
+
                     # sample from random memory
                     # if batch_size < replay.get_count:
                     #     mem = replay.experience_replay(batch_size)
@@ -235,38 +240,16 @@ def main(args):
                             elif i >= 100:
                                 episode = str(i)
                             env.render_plots(i, save=save_fig, show=show)
-                            thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
-                            plt.subplot(2, 2, 1)
-                            plt.plot(thrust_mag)
-                            plt.title('Thrust Magnitude (N)')
-                            plt.subplot(2, 2, 2)
-                            plt.plot(n, np.asarray(actions)[:, 0])
-                            plt.title('Thrust Magnitude (R)')
-                            plt.subplot(2, 2, 3)
-                            plt.plot(n, np.asarray(actions)[:, 1])
-                            plt.title('Thrust Magnitude (S)')
-                            plt.subplot(2, 2, 4)
-                            plt.plot(n, np.asarray(actions)[:, 2])
-                            plt.title('Thrust Magnitude (W)')
-                            plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
-                            plt.tight_layout()
-                            if save_fig: plt.savefig('results/' + episode + '/thrust.pdf')
-                            if show:
-                                plt.show()
-                            plt.plot(rewards)
-                            plt.xlabel('Episodes')
-                            plt.ylabel('Rewards')
-                            if save_fig:
-                                plt.savefig('results/' + episode + '/Rewards.pdf')
-                            if show: plt.show()
+                            plot_thrust(actions, episode, n, save_fig, show)
+                            plot_reward(episode, rewards, save_fig, show)
 
                         break
 
                 if i % 10 == 0:
                     n = range(j+1)
 
-                    save_fig = True if i % 10 == 0 else False
-                    show = True if i % 50 == 0 else False
+                    save_fig = True if i % 10 == 0 and save_fig else False
+                    show = True if i % 50 == 0 and show else False
 
                     env.render_target()
                     env.render_plots(i, save=save_fig, show=show)
@@ -287,56 +270,67 @@ def main(args):
                     # plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
                     # plt.title('Thrust (N)')
                     # plt.legend(('R', 'S', 'W'))
-
-                    plt.subplot(2, 2, 1)
-                    plt.plot(thrust_mag)
-                    plt.title('Thrust Magnitude (N)')
-                    plt.subplot(2, 2, 2)
-                    plt.plot(n, np.asarray(actions)[:, 0])
-                    plt.title('Thrust Magnitude (R)')
-                    plt.subplot(2, 2, 3)
-                    plt.plot(n, np.asarray(actions)[:, 1])
-                    plt.title('Thrust Magnitude (S)')
-                    plt.subplot(2, 2, 4)
-                    plt.plot(n, np.asarray(actions)[:, 2])
-                    plt.title('Thrust Magnitude (W)')
-                    plt.tight_layout()
-                    if save_fig: plt.savefig('results/' + episode + '/thrust.pdf')
-                    if show:
-                        plt.show()
-                    plt.plot(rewards)
-                    plt.xlabel('Episodes')
-                    plt.ylabel('Rewards')
-                    if save_fig: plt.savefig('results/' + episode + '/Rewards.pdf')
-                    if show: plt.show()
-
+                    plot_thrust(actions, episode, n, save_fig, show)
+                    plot_reward(episode, rewards, save_fig, show)
 
         else:
             if args['model'] is not None:
                 saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
-            env.render_target()
-            for i in range(num_episodes):
-                s = env.reset()
-                sum_reward = 0
-                actions = []
-                # while True:
-                for j in range(iter_per_episode):
-                    # env.render()
-                    a = actor.predict(np.reshape(s, (1, features)), sess)
-                    s1, r, done = env.step(a[0])
-                    s = s1
-                    sum_reward += r
-                    # if done:
-                    actions.append(a[0])
-                    if done or j >= iter_per_episode - 1:
-                        print(f'Episode: {i}, reward: {int(sum_reward)}')
-                        plt.plot(actions)
-                        plt.show()
-                        env.render_plots()
-                        break
-        plt.plot(rewards)
-        plt.tight_layout()
-        plt.savefig('results/rewards.pdf')
+                env.render_target()
+                for i in range(num_episodes):
+                    s = env.reset()
+                    sum_reward = 0
+                    actions = []
+                    # while True:
+                    for j in range(iter_per_episode):
+                        # env.render()
+                        a = actor.predict(np.reshape(s, (1, features)), sess)
+                        s1, r, done = env.step(a[0])
+                        s = s1
+                        sum_reward += r
+                        # if done:
+                        actions.append(a[0])
+                        if done or j >= iter_per_episode - 1:
+                            print(f'Episode: {i}, reward: {int(sum_reward)}')
+                            plt.plot(actions)
+                            plt.show()
+                            env.render_plots()
+                            break
+            else:
+                print('Cannot run non-existant model')
+        # plt.plot(rewards)
+        # plt.tight_layout()
+        # plt.savefig('results/rewards.pdf')
+        # plt.show()
+
+
+def plot_reward(episode, rewards, save_fig, show):
+    plt.plot(rewards)
+    plt.xlabel('Episodes')
+    plt.ylabel('Rewards')
+    if save_fig:
+        plt.savefig('results/' + episode + '/Rewards.pdf')
+    if show: plt.show()
+
+
+def plot_thrust(actions, episode, n, save_fig, show):
+    thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
+    plt.subplot(2, 2, 1)
+    plt.plot(thrust_mag)
+    plt.title('Thrust Magnitude (N)')
+    plt.subplot(2, 2, 2)
+    plt.plot(n, np.asarray(actions)[:, 0])
+    plt.title('Thrust Magnitude (R)')
+    plt.subplot(2, 2, 3)
+    plt.plot(n, np.asarray(actions)[:, 1])
+    plt.title('Thrust Magnitude (S)')
+    plt.subplot(2, 2, 4)
+    plt.plot(n, np.asarray(actions)[:, 2])
+    plt.title('Thrust Magnitude (W)')
+    plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
+    plt.tight_layout()
+    if save_fig: plt.savefig('results/' + episode + '/thrust.pdf')
+    if show:
         plt.show()
 
 
