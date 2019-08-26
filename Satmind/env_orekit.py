@@ -429,11 +429,6 @@ class OrekitEnv:
                    self._currentOrbit.getHxDot(), self._currentOrbit.getHyDot()
                    ]
 
-        # state_1 = [self._currentOrbit.getA() / self.r_target_state[0],
-        #            self._currentOrbit.getEquinoctialEx(),
-        #            self._currentOrbit.getEquinoctialEy(),
-        #            self._currentOrbit.getHx(),
-        #            self._currentOrbit.getHy()]
 
         self.adot_orbit.append(self._currentOrbit.getADot())
         self.exdot_orbit.append(self._currentOrbit.getEquinoctialExDot())
@@ -459,18 +454,16 @@ class OrekitEnv:
                           self._currentOrbit.getHx(), self._currentOrbit.getHy(), self._currentOrbit.getLv()])
 
         # Inclination change reward
-        # reward_a  = abs(self.r_target_state[0] - state[0]) / self.r_target_state[0]
         reward_a = np.sqrt((self.r_target_state[0] - state[0])**2) / self.r_initial_state[0]
         reward_ex = np.sqrt((self.r_target_state[1] - state[1])**2)
         reward_ey = np.sqrt((self.r_target_state[2] - state[2])**2)
         reward_hx = np.sqrt((self.r_target_state[3] - state[3])**2)
         reward_hy = np.sqrt((self.r_target_state[4] - state[4])**2)
-        # print(f'r_a: {reward_a*10}, ex: {reward_ex*10}, ey: {reward_ey*10}, hx: {reward_hx*10}, hy: {reward_hy*10}')
         # reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
         #current
         # Inclination change
-        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
-
+        reward = -(reward_a*10 + reward_hx*10 + reward_hy*10 + reward_ex*10 + reward_ey)
+        # reward = -reward_a
         # Terminal staes
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
            abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
@@ -478,7 +471,7 @@ class OrekitEnv:
            abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
            abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
             # self.final_date.durationFrom(self._extrap_Date) <= 360:
-            reward += 1
+            reward += 10
             done = True
             print('hit')
             self.target_hit = True
@@ -584,23 +577,23 @@ def main():
     dry_mass = 500.0
     fuel_mass = 150.0
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 5
+    duration = 24.0 * 60.0 ** 2 * 12
 
     # set the sc initial state
-    a = 5500.0e3  # semi major axis (m)
-    e = 0.2  # eccentricity
-    i = 5.0  # inclination
-    omega = 20.0  # perigee argument
-    raan = 20.0  # right ascension of ascending node
+    a = 20000.0e3  # semi major axis (m) (altitude)
+    e = 0.1  # eccentricity
+    i = 1.0  # inclination
+    omega = 10.0  # perigee argument
+    raan = 10.0  # right ascension of ascending node
     lM = 10.0  # mean anomaly
     state = [a, e, i, omega, raan, lM]
 
     # target state
-    a_targ=10000.0e3
-    e_targ = .2
-    i_targ = 5.0
-    omega_targ = 20.0
-    raan_targ = 20.0
+    a_targ = 35000.0e3  # altitude
+    e_targ = 0.1
+    i_targ = 1.0
+    omega_targ = 10.0
+    raan_targ = 10.0
     lM_targ = 10.0
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
     stepT = 1000.0
@@ -608,29 +601,27 @@ def main():
     env = OrekitEnv(state, state_targ, date, duration, mass, stepT)
 
     env.render_target()
-    fw = [-0.6]
+    # fw = [-0.6]
     fuel = []
-    noise = OrnsteinUhlenbeck(np.zeros(3))
-    for f in fw:
+    # noise = OrnsteinUhlenbeck(np.zeros(3))
+    # for f in fw:
 
-        reward = []
-        i_t = []
-        s = env.reset()
-        i_prev = radians(i)
-        F_s = 0.8
-        # while env._currentOrbit.getA() < a_targ:
-        while env._extrap_Date.compareTo(env.final_date) <= 0:
-            thrust_mag = np.clip(np.array([0.0001, F_s, 0.0001]),0.001, 1.0)
-            position, r, done = env.step(thrust_mag)
-        # print(env._extrap_Date)
-        # plt.plot(reward)
-        # plt.show()
-        env.render_plots(save=False, show=True)
-        # env.oedot_plots()
-
-        print(f'sec: {env._currentDate.durationFrom(env.final_date)}')
-        print(f'Done\nSma: {env._currentOrbit.getA()}\n=====')
-
+    reward = []
+    s = env.reset()
+    F_s = 0.5
+    # while env._currentOrbit.getA() < env._targetOrbit.getA():
+    while env._extrap_Date.compareTo(env.final_date) <= 0:
+        thrust_mag = np.clip(np.array([0.00, F_s, -0.00]),0.001, 1.0)
+        position, r, done = env.step(thrust_mag)
+        reward.append(r)
+    print(env._extrap_Date)
+    plt.plot(reward)
+    plt.show()
+    env.render_plots(save=False, show=True)
+    # env.oedot_plots()
+    print(f'days: {(env._currentDate.durationFrom(env.final_date)/3600)/24}')
+    print(f'Done\nSma: {env._currentOrbit.getA()/1e3} km\n=====')
+    print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3} km')
 
 if __name__ == '__main__':
     main()
