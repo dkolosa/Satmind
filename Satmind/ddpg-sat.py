@@ -15,6 +15,7 @@ from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 stepT = 1000.0
 
+
 def orekit_setup():
 
     input_file = 'input.json'
@@ -28,7 +29,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 5
+    duration = 24.0 * 60.0 ** 2 * 9
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
@@ -48,9 +49,9 @@ def main(args):
     np.random.seed(1234)
 
     num_episodes = 10000
-    batch_size = 128
+    batch_size = 250
 
-    layer_1_nodes, layer_2_nodes = 500, 450
+    layer_1_nodes, layer_2_nodes = 1500, 1250
     tau = 0.01
     actor_lr, critic_lr = 0.001, 0.0001
     GAMMA = 0.99
@@ -88,7 +89,7 @@ def main(args):
         TRAIN = True
         today = datetime.date.today()
         path = 'models/'
-        checkpoint_path =path+str(today)+'-'+ENV +'/'
+        checkpoint_path =path+str(today)+'-'+ENV
         os.makedirs(checkpoint_path, exist_ok=True)
         print(f'Model will be saved in: {checkpoint_path}')
 
@@ -109,7 +110,7 @@ def main(args):
         show = False
 
     # Save the model parameters (for reproducibility)
-    params = checkpoint_path + 'model_params.txt'
+    params = checkpoint_path + '/model_params.txt'
     with open(params, 'w+') as text_file:
         text_file.write("enviornment params:\n")
         text_file.write("enviornment: " + ENV + "\n")
@@ -131,7 +132,6 @@ def main(args):
             actor.update_target_network(sess)
             critic.update_target_network(sess)
             if LOAD:
-                print(checkpoint_path)
                 saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
 
             # rewards = []
