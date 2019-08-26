@@ -135,7 +135,7 @@ def pre_train(critic, actor, env, features, n_actions, sess):
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
-    ENV = ENVS[2]
+    ENV = ENVS[3]
     env = gym.make(ENV)
     iter_per_episode = 200
     features = env.observation_space.shape[0]

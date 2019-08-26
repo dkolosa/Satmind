@@ -82,7 +82,7 @@
   {
     "initial_orbit":
     {
-      "sma": 5500000.0,
+      "sma": 14000000.0,
       "ecc":  0.1,
       "incl": 1.0,
       "omega": 10.0,
@@ -92,11 +92,11 @@
 
     "initial_date":
     {
-      "year": 2018,
-      "month": 2,
-      "day": 28,
-      "hour": 12,
-      "minute": 10,
+      "year": 2019,
+      "month": 9,
+      "day": 4,
+      "hour": 9,
+      "minute": 30,
       "second": 0.0
     },
 
@@ -108,7 +108,7 @@
 
     "target_orbit":
     {
-      "sma": 12000000.0,
+      "sma": 35000000.0,
       "ecc":  0.1,
       "incl": 1.0,
       "omega": 10.0,

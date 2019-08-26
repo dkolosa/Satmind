@@ -15,6 +15,7 @@ from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 stepT = 1000.0
 
+
 def orekit_setup():
 
     input_file = 'input.json'
@@ -28,7 +29,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 5
+    duration = 24.0 * 60.0 ** 2 * 14
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
@@ -48,9 +49,9 @@ def main(args):
     np.random.seed(1234)
 
     num_episodes = 10000
-    batch_size = 128
+    batch_size = 250
 
-    layer_1_nodes, layer_2_nodes = 500, 450
+    layer_1_nodes, layer_2_nodes = 2000, 1000
     tau = 0.01
     actor_lr, critic_lr = 0.001, 0.0001
     GAMMA = 0.99
@@ -63,8 +64,8 @@ def main(args):
     # Replay memory buffer
     # replay = Uniform_Memory(buffer_size=1000000)
     per_mem = Per_Memory(capacity=10000000)
-    thrust_values = np.array([0.00, 0.2, -0.4])
-    # per_mem.pre_populate(env, features, n_actions, thrust_values)
+    thrust_values = np.array([0.00, 0.6, 0.00])
+    per_mem.pre_populate(env, features, n_actions, thrust_values)
 
     # replay = Experience(buffer_size=1000000)
     # thrust_values = np.array([0.00, 0.0, -0.7])
@@ -75,41 +76,10 @@ def main(args):
     saver = tf.compat.v1.train.Saver()
 
     # Save model directory
-    LOAD = False
-    if args['model'] is not None:
-        checkpoint_path = args['model']
-        # os.makedirs(checkpoint_path,exist_ok=True)
-        if args['test']:
-            TRAIN = False
-        else:
-            TRAIN = True
-            LOAD = True
-    else:
-        TRAIN = True
-        today = datetime.date.today()
-        path = 'models/'
-        checkpoint_path =path+str(today)+'-'+ENV +'/'
-        os.makedirs(checkpoint_path, exist_ok=True)
-        print(f'Model will be saved in: {checkpoint_path}')
-
-    if args['savefig']:
-        save_fig = True
-        if os.path.exists('results/rewards.npy'):
-            load_reward = np.load('results/rewards.npy')
-            rewards = np.ndarray.tolist(load_reward)
-        else:
-            rewards = []
-    else:
-        save_fig = False
-        rewards = []
-
-    if args['showfig']:
-        show = True
-    else:
-        show = False
+    LOAD, TRAIN, checkpoint_path, rewards, save_fig, show = mdoel_saving(ENV, args)
 
     # Save the model parameters (for reproducibility)
-    params = checkpoint_path + 'model_params.txt'
+    params = checkpoint_path + '/model_params.txt'
     with open(params, 'w+') as text_file:
         text_file.write("enviornment params:\n")
         text_file.write("enviornment: " + ENV + "\n")
@@ -131,7 +101,6 @@ def main(args):
             actor.update_target_network(sess)
             critic.update_target_network(sess)
             if LOAD:
-                print(checkpoint_path)
                 saver.restore(sess, tf.train.latest_checkpoint(checkpoint_path))
 
             # rewards = []
@@ -262,14 +231,6 @@ def main(args):
                     elif i >= 100:
                         episode = str(i)
 
-                    # plt.subplot(2,1,1)
-                    # plt.plot(thrust_mag)
-                    # plt.title('Thrust Magnitude (N)')
-                    # plt.subplot(2,1,2)
-                    # plt.plot(n,np.asarray(actions)[:,0], n, np.asarray(actions)[:,1], n, np.asarray(actions)[:,2])
-                    # plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
-                    # plt.title('Thrust (N)')
-                    # plt.legend(('R', 'S', 'W'))
                     plot_thrust(actions, episode, n, save_fig, show)
                     plot_reward(episode, rewards, save_fig, show)
 
@@ -302,6 +263,40 @@ def main(args):
         # plt.tight_layout()
         # plt.savefig('results/rewards.pdf')
         # plt.show()
+
+
+def mdoel_saving(ENV, args):
+    LOAD = False
+    if args['model'] is not None:
+        checkpoint_path = args['model']
+        # os.makedirs(checkpoint_path,exist_ok=True)
+        if args['test']:
+            TRAIN = False
+        else:
+            TRAIN = True
+            LOAD = True
+    else:
+        TRAIN = True
+        today = datetime.date.today()
+        path = 'models/'
+        checkpoint_path = path + str(today) + '-' + ENV
+        os.makedirs(checkpoint_path, exist_ok=True)
+        print(f'Model will be saved in: {checkpoint_path}')
+    if args['savefig']:
+        save_fig = True
+        if os.path.exists('results/rewards.npy'):
+            load_reward = np.load('results/rewards.npy')
+            rewards = np.ndarray.tolist(load_reward)
+        else:
+            rewards = []
+    else:
+        save_fig = False
+        rewards = []
+    if args['showfig']:
+        show = True
+    else:
+        show = False
+    return LOAD, TRAIN, checkpoint_path, rewards, save_fig, show
 
 
 def plot_reward(episode, rewards, save_fig, show):
@@ -340,5 +335,6 @@ if __name__ == "__main__":
     parser.add_argument('--test', help="pass if testing a model", action='store_true')
     parser.add_argument('--savefig',help="Save figures to file", action='store_true')
     parser.add_argument('--showfig', help='Display plotted figures', action='store_true')
+    parser.add_argument('--mission', help="path of the mission file (json)", type=str)
     args = vars(parser.parse_args())
     main(args)
