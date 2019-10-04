@@ -104,7 +104,7 @@ class OrekitEnv:
         self._orbit_tolerance = {'a': 10000, 'ex': 0.01, 'ey': 0.01, 'hx': 0.001, 'hy': 0.001, 'lv': 0.01}
 
         self.randomize = True
-        self._orbit_randomizer = {'a': 1000.0e3, 'e': 0.02, 'i': 0.02, 'w': 2.0, 'omega': 2.0, 'lv': 5.0}
+        self._orbit_randomizer = {'a': 100.0e3, 'e': 0.05, 'i': 0.3, 'w': 5.0, 'omega': 5.0, 'lv': 5.0}
         self.seed_state = state
         self.seed_target = state_targ
         self.target_hit = False
@@ -271,7 +271,7 @@ class OrekitEnv:
         ax.set_xlabel('X (km)')
         ax.set_ylabel('Y (km)')
         ax.set_zlabel('Z (km)')
-        ax.set_zlim(-1500, 1500)
+        ax.set_zlim(-7000, 7000)
         if save:
             plt.savefig(save_path + '3d.pdf')
         plt.figure(3)
@@ -283,6 +283,11 @@ class OrekitEnv:
         plt.tight_layout()
         if save:
             plt.savefig(save_path + 'oe.pdf')
+
+        if save:
+            np.save(save_path+'oe.npy', np.array(oe))
+            np.save(save_path+'xyz.npy', np.array([self.px, self.py, self.pz]))
+
         if show: plt.show()
         ax.clear()
 
@@ -314,12 +319,18 @@ class OrekitEnv:
         # Randomizes the initial orbit
         if self.randomize:
             self._orbit = None
+            # a_rand = self.seed_state[0]
+            # e_rand = self.seed_state[1]
+            # w_rand = self.seed_state[3]
+            # omega_rand = self.seed_state[4]
+            # lv_rand = self.seed_state[5]
+
             a_rand = random.uniform(self.seed_state[0]-self._orbit_randomizer['a'], self._orbit_randomizer['a']+ self.seed_state[0])
             e_rand = random.uniform(self.seed_state[1]-self._orbit_randomizer['e'], self._orbit_randomizer['e']+ self.seed_state[1])
             i_rand = random.uniform(self.seed_state[2]-self._orbit_randomizer['i'], self._orbit_randomizer['i']+ self.seed_state[2])
-            w_rand = random.uniform(self.seed_state[2]-self._orbit_randomizer['w'], self._orbit_randomizer['w']+ self.seed_state[3])
-            omega_rand = random.uniform(self.seed_state[3]-self._orbit_randomizer['omega'], self._orbit_randomizer['omega']+ self.seed_state[4])
-            lv_rand = random.uniform(self.seed_state[4]-self._orbit_randomizer['lv'], self._orbit_randomizer['lv']+ self.seed_state[5])
+            w_rand = random.uniform(self.seed_state[3]-self._orbit_randomizer['w'], self._orbit_randomizer['w']+ self.seed_state[3])
+            omega_rand = random.uniform(self.seed_state[4]-self._orbit_randomizer['omega'], self._orbit_randomizer['omega']+ self.seed_state[4])
+            lv_rand = random.uniform(self.seed_state[5]-self._orbit_randomizer['lv'], self._orbit_randomizer['lv']+ self.seed_state[5])
             state = [a_rand, e_rand, i_rand, w_rand, omega_rand, lv_rand]
             self.create_orbit(state, self._initial_date, target=False)
         else:
@@ -454,15 +465,17 @@ class OrekitEnv:
                           self._currentOrbit.getHx(), self._currentOrbit.getHy(), self._currentOrbit.getLv()])
 
         # Inclination change reward
-        reward_a = np.sqrt((self.r_target_state[0] - state[0])**2) / self.r_initial_state[0]
+        reward_a = np.sqrt((self.r_target_state[0] - state[0])**2) / self.r_target_state[0]
         reward_ex = np.sqrt((self.r_target_state[1] - state[1])**2)
         reward_ey = np.sqrt((self.r_target_state[2] - state[2])**2)
         reward_hx = np.sqrt((self.r_target_state[3] - state[3])**2)
         reward_hy = np.sqrt((self.r_target_state[4] - state[4])**2)
-        # reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10)
+        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey)
+
+        # reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10) + (self.cuf_fuel_mass/ self.fuel_mass)*.01
         #current
         # Inclination change
-        reward = -(reward_a*10 + reward_hx*10 + reward_hy*10 + reward_ex*10 + reward_ey)
+        # reward = -(reward_a*10 + reward_hx*10 + reward_hy*10 + reward_ex*10 + reward_ey)
         # reward = -reward_a
         # Terminal staes
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
@@ -471,7 +484,7 @@ class OrekitEnv:
            abs(self.r_target_state[3] - state[3]) <= self._orbit_tolerance['hx'] and \
            abs(self.r_target_state[4] - state[4]) <= self._orbit_tolerance['hy']:
             # self.final_date.durationFrom(self._extrap_Date) <= 360:
-            reward += 10
+            reward += 1
             done = True
             print('hit')
             self.target_hit = True
@@ -481,11 +494,11 @@ class OrekitEnv:
         if self.cuf_fuel_mass <= 0:
             print('Ran out of fuel')
             done = True
-            reward = -100
+            reward = -1
             return reward, done
 
         if self._currentOrbit.getA() < EARTH_RADIUS:
-            reward = -100
+            reward = -1
             done = True
             print('In earth')
             return reward, done
@@ -497,7 +510,7 @@ class OrekitEnv:
         target_sc = SpacecraftState(self._targetOrbit)
 
         # Orbit time for one orbit regardless of semi-major axis
-        orbit_time = sqrt(4 * pi**2 * self._targetOrbit.getA()**3 / MU) * 1.1
+        orbit_time = sqrt(4 * pi**2 * self._targetOrbit.getA()**3 / MU) * 2.0
         minStep = 1.e-3
         maxStep = 1.e+3
 
@@ -515,7 +528,7 @@ class OrekitEnv:
 
         target_date = self.final_date.shiftedBy(orbit_time)
         extrapDate = self.final_date
-        stepT = 500.0
+        stepT = 100.0
 
         # know this is the state for final_date + time for orbit
         while extrapDate.compareTo(target_date) <= 0:

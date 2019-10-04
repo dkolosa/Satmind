@@ -13,7 +13,7 @@ import Satmind.utils
 from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 
-stepT = 1000.0
+stepT = 500.0
 
 
 def orekit_setup():
@@ -21,7 +21,7 @@ def orekit_setup():
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data['sma_change']
+        mission = data['Orbit_Raising']
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
@@ -29,7 +29,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 14
+    duration = 24.0 * 60.0 ** 2 * 3
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
@@ -37,7 +37,7 @@ def orekit_setup():
 
 def main(args):
     ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma')
-    ENV = ENVS[2]
+    ENV = ENVS[0]
 
     env, duration = orekit_setup()
     iter_per_episode = int(duration / stepT)
@@ -48,10 +48,10 @@ def main(args):
 
     np.random.seed(1234)
 
-    num_episodes = 10000
+    num_episodes = 1000
     batch_size = 250
 
-    layer_1_nodes, layer_2_nodes = 2000, 1000
+    layer_1_nodes, layer_2_nodes = 500, 450
     tau = 0.01
     actor_lr, critic_lr = 0.001, 0.0001
     GAMMA = 0.99
@@ -65,7 +65,7 @@ def main(args):
     # replay = Uniform_Memory(buffer_size=1000000)
     per_mem = Per_Memory(capacity=10000000)
     thrust_values = np.array([0.00, 0.6, 0.00])
-    per_mem.pre_populate(env, features, n_actions, thrust_values)
+    # per_mem.pre_populate(env, features, n_actions, thrust_values)
 
     # replay = Experience(buffer_size=1000000)
     # thrust_values = np.array([0.00, 0.0, -0.7])
@@ -319,12 +319,15 @@ def plot_thrust(actions, episode, n, save_fig, show):
     plt.subplot(2, 2, 3)
     plt.plot(n, np.asarray(actions)[:, 1])
     plt.title('Thrust Magnitude (S)')
+    plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
     plt.subplot(2, 2, 4)
     plt.plot(n, np.asarray(actions)[:, 2])
     plt.title('Thrust Magnitude (W)')
     plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
     plt.tight_layout()
-    if save_fig: plt.savefig('results/' + episode + '/thrust.pdf')
+    if save_fig:
+        plt.savefig('results/' + episode + '/thrust.pdf')
+        np.save('results/' + episode+'/' + 'thrust.npy', np.asarray(actions))
     if show:
         plt.show()
 
