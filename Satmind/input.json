@@ -52,9 +52,9 @@
 
     "initial_date":
     {
-      "year": 2018,
-      "month": 2,
-      "day": 28,
+      "year": 2019,
+      "month": 10,
+      "day": 10,
       "hour": 12,
       "minute": 10,
       "second": 0.0
@@ -68,11 +68,11 @@
 
     "target_orbit":
     {
-      "sma": 6300000.0,
-      "ecc":  0.23,
-      "incl": 5.3,
-      "omega": 24.0,
-      "rann": 24.0,
+      "sma": 6500000.0,
+      "ecc":  0.24,
+      "incl": 5.8,
+      "omega": 26.0,
+      "rann": 26.0,
       "true_anomaly": 12.0
     },
     "duration": 1.0
@@ -82,7 +82,7 @@
   {
     "initial_orbit":
     {
-      "sma": 14000000.0,
+      "sma": 5000000.0,
       "ecc":  0.1,
       "incl": 1.0,
       "omega": 10.0,
@@ -108,7 +108,7 @@
 
     "target_orbit":
     {
-      "sma": 35000000.0,
+      "sma": 10000000.0,
       "ecc":  0.1,
       "incl": 1.0,
       "omega": 10.0,

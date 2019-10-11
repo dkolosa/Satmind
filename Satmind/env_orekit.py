@@ -470,6 +470,7 @@ class OrekitEnv:
         reward_ey = np.sqrt((self.r_target_state[2] - state[2])**2)
         reward_hx = np.sqrt((self.r_target_state[3] - state[3])**2)
         reward_hy = np.sqrt((self.r_target_state[4] - state[4])**2)
+
         reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey)
 
         # reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10) + (self.cuf_fuel_mass/ self.fuel_mass)*.01
@@ -603,7 +604,7 @@ def main():
 
     # target state
     a_targ = 35000.0e3  # altitude
-    e_targ = 0.1
+    e_targ = 0.3
     i_targ = 1.0
     omega_targ = 10.0
     raan_targ = 10.0
@@ -621,10 +622,10 @@ def main():
 
     reward = []
     s = env.reset()
-    F_s = 0.5
-    # while env._currentOrbit.getA() < env._targetOrbit.getA():
+    F_s = 0.1
+    # while env._currentOrbit.getA() < env._targetOrbit.getE():
     while env._extrap_Date.compareTo(env.final_date) <= 0:
-        thrust_mag = np.clip(np.array([0.00, F_s, -0.00]),0.001, 1.0)
+        thrust_mag = np.clip(np.array([1.0, F_s, -1.00]),0.001, 1.0)
         position, r, done = env.step(thrust_mag)
         reward.append(r)
     print(env._extrap_Date)

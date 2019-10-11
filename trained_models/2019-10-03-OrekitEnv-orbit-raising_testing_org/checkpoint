@@ -1,0 +1,2 @@
+model_checkpoint_path: "/home/dan/Satmind/Satmind/models/2019-10-03-OrekitEnv-orbit-raising_testing/model.ckpt"
+all_model_checkpoint_paths: "/home/dan/Satmind/Satmind/models/2019-10-03-OrekitEnv-orbit-raising_testing/model.ckpt"

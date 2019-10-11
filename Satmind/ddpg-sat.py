@@ -21,7 +21,7 @@ def orekit_setup():
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data['Orbit_Raising']
+        mission = data['sma_change']
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
@@ -29,7 +29,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 3
+    duration = 24.0 * 60.0 ** 2 * 10
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
@@ -37,7 +37,7 @@ def orekit_setup():
 
 def main(args):
     ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma')
-    ENV = ENVS[0]
+    ENV = ENVS[2]
 
     env, duration = orekit_setup()
     iter_per_episode = int(duration / stepT)
@@ -51,7 +51,7 @@ def main(args):
     num_episodes = 1000
     batch_size = 250
 
-    layer_1_nodes, layer_2_nodes = 500, 450
+    layer_1_nodes, layer_2_nodes = 1028, 850
     tau = 0.01
     actor_lr, critic_lr = 0.001, 0.0001
     GAMMA = 0.99
@@ -112,12 +112,12 @@ def main(args):
                 sum_q = 0
                 actions = []
                 env.target_hit = False
-                noise_decay = np.clip(noise_decay - 0.001, 0.01, 1)
+                noise_decay = np.clip(noise_decay - 0.0001, 0.01, 1)
 
                 for j in range(iter_per_episode):
 
                     # Select an action
-                    a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*noise_decay, -action_bound, action_bound)
+                    a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise(), -action_bound, action_bound)
 
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
