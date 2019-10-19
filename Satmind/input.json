@@ -2,9 +2,9 @@
   {
     "initial_orbit":
     {
-      "sma": 5500000.0,
+      "sma": 20000000.0,
       "ecc":  0.10,
-      "incl": 2.0,
+      "incl": 13.0,
       "omega": 10.0,
       "rann": 10.0,
       "true_anomaly": 20.0
@@ -14,7 +14,7 @@
     {
       "year": 2018,
       "month": 2,
-      "day": 28,
+      "day": 16,
       "hour": 12,
       "minute": 10,
       "second": 0.0
@@ -22,15 +22,15 @@
 
     "spacecraft_parameters":
     {
-      "dry_mass": 1000.0,
+      "dry_mass": 500.0,
       "fuel_mass": 150.0
     },
 
     "target_orbit":
     {
-      "sma": 5500000.0,
+      "sma": 20000000.0,
       "ecc":  0.10,
-      "incl": 3.0,
+      "incl": 14.3,
       "omega": 10.0,
       "rann": 10.0,
       "true_anomaly": 10.0
@@ -52,9 +52,9 @@
 
     "initial_date":
     {
-      "year": 2018,
-      "month": 2,
-      "day": 28,
+      "year": 2019,
+      "month": 10,
+      "day": 10,
       "hour": 12,
       "minute": 10,
       "second": 0.0
@@ -62,59 +62,91 @@
 
     "spacecraft_parameters":
     {
-      "dry_mass": 1000.0,
+      "dry_mass": 500.0,
       "fuel_mass": 150.0
     },
 
     "target_orbit":
     {
-      "sma": 6600000.0,
+      "sma": 6500000.0,
       "ecc":  0.24,
-      "incl": 6.0,
-      "omega": 24.0,
-      "rann": 24.0,
+      "incl": 5.8,
+      "omega": 26.0,
+      "rann": 26.0,
       "true_anomaly": 12.0
     },
     "duration": 1.0
   },
 
-  "LEO_to_GEO":
+  "sma_change":
   {
     "initial_orbit":
     {
-      "sma": 5500000.0,
-      "ecc":  0.2,
-      "incl": 5.0,
-      "omega": 20.0,
-      "rann": 20.0,
+      "sma": 5000000.0,
+      "ecc":  0.1,
+      "incl": 1.0,
+      "omega": 10.0,
+      "rann": 10.0,
       "true_anomaly": 10.0
     },
 
     "initial_date":
     {
-      "year": 2018,
-      "month": 2,
-      "day": 28,
-      "hour": 12,
-      "minute": 10,
+      "year": 2019,
+      "month": 9,
+      "day": 4,
+      "hour": 9,
+      "minute": 30,
       "second": 0.0
     },
 
     "spacecraft_parameters":
     {
-      "dry_mass": 1000.0,
-      "fuel_mass": 150.0
+      "dry_mass": 500.0,
+      "fuel_mass": 200.0
     },
 
     "target_orbit":
     {
-      "sma": 45000000.0,
+      "sma": 10000000.0,
       "ecc":  0.1,
       "incl": 1.0,
-      "omega": 1.0,
-      "rann": 1.0,
-      "true_anomaly": 60.0
+      "omega": 10.0,
+      "rann": 10.0,
+      "true_anomaly": 10.0
     },
     "duration" : 10.0
+  },
+
+  "meo_geo": {
+    "initial_orbit": {
+      "sma": 20000000.0,
+      "ecc": 0.1,
+      "incl": 1.0,
+      "omega": 10.0,
+      "rann": 10.0,
+      "true_anomaly": 10.0
+    },
+    "initial_date": {
+      "year": 2019,
+      "month": 9,
+      "day": 4,
+      "hour": 9,
+      "minute": 30,
+      "second": 0.0
+    },
+    "spacecraft_parameters": {
+      "dry_mass": 500.0,
+      "fuel_mass": 200.0
+    },
+    "target_orbit": {
+      "sma": 35000000.0,
+      "ecc": 0.1,
+      "incl": 1.0,
+      "omega": 10.0,
+      "rann": 10.0,
+      "true_anomaly": 10.0
+    },
+    "duration": 10.0
   }
 }

@@ -1,11 +1,11 @@
 import tensorflow as tf
 import numpy as np
 import gym
-import gym.spaces
+# import matplotlib.pyplot as plt
 
-from Satmind.actor_critic import Actor, Critic
-from Satmind.utils import OrnsteinUhlenbeck
-from Satmind.replay_memory import Per_Memory, Uniform_Memory
+from actor_critic import Actor, Critic
+from utils import OrnsteinUhlenbeck
+from replay_memory import Per_Memory, Experience
 
 
 def test_training():
@@ -38,12 +38,35 @@ def test_training():
             assert (b != a).any()
 
 
+def upadte_perturbed_actor(self,actor, perturbed_actor, param_noise):
+    updates =[]
+    for var, perturbed_var in zip(actor.vars, perturbed_actor.vars):
+        if var in actor.perturbable_vars:
+            updates.append(perturbed_var.assign(var + tf.random_normal(tf.shape(var), mean=0., stddev=param_noise)))
+        else:
+            updates.append(perturbed_var.assign(var))
+    return tf.group(*updates)
+
+
+def setup_noise(actor, obs, sess):
+    # Make a copy of the acotr policy (no noise)
+    param_noise_actor = copy(actor)
+    self.perturb_policy_op = self.upadte_perturbed_actor(actor, param_noise_actor, self.param_noise_stddev)
+
+    # Configure separate copy for stddev adoption.
+    adaptive_param_noise_actor = copy(actor)
+    adaptive_actor_tf = adaptive_param_noise_actor(obs)
+    self.perturb_adaptive_policy_ops = self.upadte_perturbed_actor(actor, adaptive_param_noise_actor,
+                                                                   self.param_noise_stddev)
+
+    self.adaptive_policy_distance = tf.sqrt(tf.reduce_mean(tf.square(actor - adaptive_actor_tf)))
+
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
 
-    ENV = ENVS[2]
+    ENV = ENVS[0]
     env = gym.make(ENV)
-    iter_per_episode = 600
+    iter_per_episode = 200
     features = env.observation_space.shape[0]
     n_actions = env.action_space.shape[0]
     action_bound = env.action_space.high
@@ -51,10 +74,10 @@ def test_rl():
     env.seed(1234)
     np.random.seed(1234)
 
-    num_episodes = 1000
-    batch_size = 128
+    num_episodes = 5000
+    batch_size = 64
 
-    layer_1_nodes, layer_2_nodes = 500, 450
+    layer_1_nodes, layer_2_nodes = 400, 350
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
@@ -83,11 +106,13 @@ def test_rl():
             sum_q = 0
             rewards = []
             j = 0
-            # for j in range(iter_per_episode):
+
+            #for j in range(iter_per_episode):
             while True:
+
                 env.render()
 
-                a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
+                a = actor.predict(np.reshape(s, (1, features)), sess)
                 s1, r, done, _ = env.step(a[0])
 
                 rewards.append(r)
