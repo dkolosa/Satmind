@@ -256,6 +256,7 @@ class OrekitEnv:
                    self.r_target_state[4], self.r_target_state[5]]
         plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000, '-b',
                  np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, '-r')
+        # plt.title('Inclination change maneuver')
         plt.xlabel("x (km)")
         plt.ylabel("y (km)")
         plt.tight_layout()
@@ -272,6 +273,8 @@ class OrekitEnv:
         ax.set_ylabel('Y (km)')
         ax.set_zlabel('Z (km)')
         ax.set_zlim(-7000, 7000)
+        # plt.title('Inclination change maneuver')
+        plt.tight_layout()
         if save:
             plt.savefig(save_path + '3d.pdf')
         plt.figure(3)
@@ -471,9 +474,9 @@ class OrekitEnv:
         reward_hx = np.sqrt((self.r_target_state[3] - state[3])**2)
         reward_hy = np.sqrt((self.r_target_state[4] - state[4])**2)
 
-        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey)
+        # reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey)
 
-        # reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10) + (self.cuf_fuel_mass/ self.fuel_mass)*.01
+        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10) + (self.cuf_fuel_mass/ self.fuel_mass)*.01
         #current
         # Inclination change
         # reward = -(reward_a*10 + reward_hx*10 + reward_hy*10 + reward_ex*10 + reward_ey)
@@ -591,12 +594,12 @@ def main():
     dry_mass = 500.0
     fuel_mass = 150.0
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 12
+    duration = 24.0 * 60.0 ** 2 * 2
 
     # set the sc initial state
-    a = 20000.0e3  # semi major axis (m) (altitude)
+    a = 10000.0e3  # semi major axis (m) (altitude)
     e = 0.1  # eccentricity
-    i = 1.0  # inclination
+    i = 5.0  # inclination
     omega = 10.0  # perigee argument
     raan = 10.0  # right ascension of ascending node
     lM = 10.0  # mean anomaly
@@ -605,12 +608,12 @@ def main():
     # target state
     a_targ = 35000.0e3  # altitude
     e_targ = 0.3
-    i_targ = 1.0
+    i_targ = 10.0
     omega_targ = 10.0
     raan_targ = 10.0
     lM_targ = 10.0
     state_targ = [a_targ, e_targ, i_targ, omega_targ, raan_targ, lM_targ]
-    stepT = 1000.0
+    stepT = 500.0
 
     env = OrekitEnv(state, state_targ, date, duration, mass, stepT)
 
@@ -622,20 +625,30 @@ def main():
 
     reward = []
     s = env.reset()
-    F_s = 0.1
-    # while env._currentOrbit.getA() < env._targetOrbit.getE():
+    F_s = 0.0
+    # while env._currentOrbit.getI() < env._targetOrbit.getI():
     while env._extrap_Date.compareTo(env.final_date) <= 0:
-        thrust_mag = np.clip(np.array([1.0, F_s, -1.00]),0.001, 1.0)
+        thrust_mag = np.array([0.0, F_s, -3.0])
         position, r, done = env.step(thrust_mag)
         reward.append(r)
-    print(env._extrap_Date)
-    plt.plot(reward)
+    # print(env._extrap_Date)
+    # plt.plot(reward)
+    # plt.show()
+    plt.subplot(2,1,1)
+    plt.plot(env.hx_orbit)
+    plt.ylabel('hx')
+    plt.subplot(2,1,2)
+    plt.plot(env.hy_orbit)
+    plt.ylabel('hy')
+    plt.xlabel('Mission step 500 seconds per iteration')
+    plt.tight_layout()
+    plt.savefig('seesaw.pdf')
     plt.show()
-    env.render_plots(save=False, show=True)
+    # env.render_plots(save=True, show=True, episode=4)
     # env.oedot_plots()
-    print(f'days: {(env._currentDate.durationFrom(env.final_date)/3600)/24}')
-    print(f'Done\nSma: {env._currentOrbit.getA()/1e3} km\n=====')
-    print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3} km')
+    # print(f'days: {(env._currentDate.durationFrom(env.final_date)/3600)/24}')
+    # print(f'Done\ninc:: {env._currentOrbit.getI()} \n=====')
+    # print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3} km')
 
 if __name__ == '__main__':
     main()

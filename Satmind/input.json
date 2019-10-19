@@ -116,5 +116,37 @@
       "true_anomaly": 10.0
     },
     "duration" : 10.0
+  },
+
+  "meo_geo": {
+    "initial_orbit": {
+      "sma": 20000000.0,
+      "ecc": 0.1,
+      "incl": 1.0,
+      "omega": 10.0,
+      "rann": 10.0,
+      "true_anomaly": 10.0
+    },
+    "initial_date": {
+      "year": 2019,
+      "month": 9,
+      "day": 4,
+      "hour": 9,
+      "minute": 30,
+      "second": 0.0
+    },
+    "spacecraft_parameters": {
+      "dry_mass": 500.0,
+      "fuel_mass": 200.0
+    },
+    "target_orbit": {
+      "sma": 35000000.0,
+      "ecc": 0.1,
+      "incl": 1.0,
+      "omega": 10.0,
+      "rann": 10.0,
+      "true_anomaly": 10.0
+    },
+    "duration": 10.0
   }
 }

@@ -21,7 +21,7 @@ def orekit_setup():
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data['sma_change']
+        mission = data['inclination_change']
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
@@ -29,7 +29,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 10
+    duration = 24.0 * 60.0 ** 2 * 4
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration
@@ -48,10 +48,10 @@ def main(args):
 
     np.random.seed(1234)
 
-    num_episodes = 1000
+    num_episodes = 500
     batch_size = 250
 
-    layer_1_nodes, layer_2_nodes = 1028, 850
+    layer_1_nodes, layer_2_nodes = 500, 450
     tau = 0.01
     actor_lr, critic_lr = 0.001, 0.0001
     GAMMA = 0.99
@@ -90,7 +90,7 @@ def main(args):
 
     # Render target
     env.render_target()
-    env.randomize = False
+    env.randomize = True
 
     # Depricated
     # with tf.Session() as sess:
@@ -253,9 +253,9 @@ def main(args):
                         actions.append(a[0])
                         if done or j >= iter_per_episode - 1:
                             print(f'Episode: {i}, reward: {int(sum_reward)}')
-                            plt.plot(actions)
-                            plt.show()
+                            n = range(j + 1)
                             env.render_plots()
+                            plot_thrust(actions=actions,episode='00',n=n,save_fig=save_fig, show=show)
                             break
             else:
                 print('Cannot run non-existant model')
