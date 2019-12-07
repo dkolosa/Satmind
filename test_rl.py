@@ -133,9 +133,10 @@ def pre_train(critic, actor, env, features, n_actions, sess):
 
 
 def test_rl():
-    ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2')
+    ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2',
+            'BipedalWalkerHardcore-v2')
 
-    ENV = ENVS[3]
+    ENV = ENVS[4]
     env = gym.make(ENV)
     iter_per_episode = 200
     features = env.observation_space.shape[0]
@@ -148,13 +149,14 @@ def test_rl():
     # num_episodes = 251
     num_episodes = 1001
 
-    batch_size = 128
+    batch_size = 250
     #Pendulum
     # layer_1_nodes, layer_2_nodes = 250, 150
     #lander
-    # layer_1_nodes, layer_2_nodes = 400, 300
+    # layer_1_nodes, layer_2_nodes = 450, 300
     #Walker
-    layer_1_nodes, layer_2_nodes = 500, 400
+    # layer_1_nodes, layer_2_nodes = 500, 400
+    layer_1_nodes, layer_2_nodes = 2048, 1028
 
     tau = 0.01
     actor_lr, critic_lr = 0.0001, 0.001
@@ -170,9 +172,11 @@ def test_rl():
 
     # Replay memory buffer
     if PER:
-        memory = Per_Memory(capacity=100000)
+        memory = Per_Memory(capacity=10000000)
     else:
         memory = Uniform_Memory(buffer_size=1000)
+
+    saver = tf.compat.v1.train.Saver()
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -252,25 +256,19 @@ def test_rl():
                     critic.update_target_network(sess)
                     # actor.update_noise_params(sess)
 
-                # else:
-                    # per_mem.add(error,(np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
+                else:
+                    memory.add(error,(np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
 
                 sum_reward += r
-
 
                 s = s1
                 j += 1
                 if done:
                     print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
-                    rewards.append(sum_reward)
+                    # rewards.append(sum_reward)
                     print('===========')
-                    if i % 50 == 0:
-                        plt.plot(rewards)
-                        plt.show()
-                        plt.xlabel('Episode')
-                        plt.ylabel('Reward')
+                    saver.save(sess, 'test_walkder/model.ckpt')
                     break
-
 
 
 if __name__ == '__main__':

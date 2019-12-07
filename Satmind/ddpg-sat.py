@@ -107,7 +107,7 @@ def main(args):
             # rewards = []
             noise_decay = 1
 
-            for i in range(435,num_episodes):
+            for i in range(437,num_episodes):
                 s = env.reset()
                 sum_reward = 0
                 sum_q = 0
