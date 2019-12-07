@@ -48,9 +48,12 @@ class Actor:
         x = tf.keras.layers.Dense(self.layer_2_nodes)(x)
         x = tf.keras.layers.LayerNormalization()(x)
         x = tf.nn.relu(x)
-        # x = tf.keras.layers.Dense(500)(x)
-        # x = tf.keras.layers.LayerNormalization()(x)
-        # x = tf.nn.relu(x)
+        x = tf.keras.layers.Dense(512)(x)
+        x = tf.keras.layers.LayerNormalization()(x)
+        x = tf.nn.relu(x)
+        x = tf.keras.layers.Dense(256)(x)
+        x = tf.keras.layers.LayerNormalization()(x)
+        x = tf.nn.relu(x)
         output = tf.keras.layers.Dense(self.n_actions, activation='tanh',  kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
         scaled_output = tf.multiply(output, self.action_bound)
 
@@ -143,9 +146,14 @@ class Critic:
         x = tf.keras.layers.Dense(self.layer_2_nodes, activation='relu',
                                   kernel_regularizer=tf.contrib.layers.l2_regularizer(0.01),
                                   bias_regularizer=tf.contrib.layers.l2_regularizer(0.01))(x)
-        # x = tf.keras.layers.Dense(500, activation='relu',
-        #                           kernel_regularizer=tf.contrib.layers.l2_regularizer(0.01),
-        #                           bias_regularizer=tf.contrib.layers.l2_regularizer(0.01))(x)
+
+        x = tf.keras.layers.Dense(512, activation='relu',
+                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(0.01),
+                                  bias_regularizer=tf.contrib.layers.l2_regularizer(0.01))(x)
+
+        x = tf.keras.layers.Dense(256, activation='relu',
+                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(0.01),
+                                  bias_regularizer=tf.contrib.layers.l2_regularizer(0.01))(x)
         output = tf.keras.layers.Dense(1,activation='linear', kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
 
         return input, action, output

@@ -18,10 +18,12 @@ stepT = 500.0
 
 def orekit_setup():
 
+    mission_type = ['inclination_change', 'Orbit_Raising', 'sma_change', 'meo_geo']
+
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data['inclination_change']
+        mission = data[mission_type[1]]
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
@@ -29,29 +31,30 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 4
+    duration = 24.0 * 60.0 ** 2 * 10
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
-    return env, duration
+    return env, duration, mission
 
 
 def main(args):
-    ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma')
+    ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
     ENV = ENVS[2]
 
-    env, duration = orekit_setup()
+    env, duration, mission = orekit_setup()
     iter_per_episode = int(duration / stepT)
+
     # Network inputs and outputs
     features = env.observation_space
-    n_actions = 3
-    action_bound = 0.8
+    n_actions = env.action_space
+    action_bound = env.action_bound
 
     np.random.seed(1234)
 
-    num_episodes = 500
-    batch_size = 250
+    num_episodes = 2000
+    batch_size = 128
 
-    layer_1_nodes, layer_2_nodes = 500, 450
+    layer_1_nodes, layer_2_nodes = 2048, 1028
     tau = 0.01
     actor_lr, critic_lr = 0.001, 0.0001
     GAMMA = 0.99
@@ -64,15 +67,13 @@ def main(args):
     # Replay memory buffer
     # replay = Uniform_Memory(buffer_size=1000000)
     per_mem = Per_Memory(capacity=10000000)
-    thrust_values = np.array([0.00, 0.6, 0.00])
+
     # per_mem.pre_populate(env, features, n_actions, thrust_values)
 
     # replay = Experience(buffer_size=1000000)
     # thrust_values = np.array([0.00, 0.0, -0.7])
     # replay.populate_memory(env, features, n_actions, thrust_values)
 
-    # Depricated
-    # saver = tf.train.Saver()
     saver = tf.compat.v1.train.Saver()
 
     # Save model directory
@@ -106,7 +107,7 @@ def main(args):
             # rewards = []
             noise_decay = 1
 
-            for i in range(num_episodes):
+            for i in range(435,num_episodes):
                 s = env.reset()
                 sum_reward = 0
                 sum_q = 0
@@ -300,6 +301,7 @@ def mdoel_saving(ENV, args):
 
 
 def plot_reward(episode, rewards, save_fig, show):
+    plt.figure()
     plt.plot(rewards)
     plt.xlabel('Episodes')
     plt.ylabel('Rewards')
@@ -310,6 +312,7 @@ def plot_reward(episode, rewards, save_fig, show):
 
 def plot_thrust(actions, episode, n, save_fig, show):
     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
+    plt.figure()
     plt.subplot(2, 2, 1)
     plt.plot(thrust_mag)
     plt.title('Thrust Magnitude (N)')

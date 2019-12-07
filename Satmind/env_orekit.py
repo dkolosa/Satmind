@@ -104,7 +104,7 @@ class OrekitEnv:
         self._orbit_tolerance = {'a': 10000, 'ex': 0.01, 'ey': 0.01, 'hx': 0.001, 'hy': 0.001, 'lv': 0.01}
 
         self.randomize = True
-        self._orbit_randomizer = {'a': 100.0e3, 'e': 0.05, 'i': 0.3, 'w': 5.0, 'omega': 5.0, 'lv': 5.0}
+        self._orbit_randomizer = {'a': 4000.0e3, 'e': 0.2, 'i': 2.0, 'w': 10.0, 'omega': 10.0, 'lv': 5.0}
         self.seed_state = state
         self.seed_target = state_targ
         self.target_hit = False
@@ -119,9 +119,9 @@ class OrekitEnv:
         self.create_orbit(state_targ, self.final_date, target=True)
 
         self.stepT = stepT
-        self.action_space = 3  # output thrust
+        self.action_space = 3  # output thrust directions
         self.observation_space = 10  # states
-        self.action_bound = 0.9  # TFC coefficient
+        self.action_bound = 0.6  # Max thrust limit
         self._isp = 3100.0
 
         self.r_target_state = np.array(
@@ -254,15 +254,14 @@ class OrekitEnv:
         oe = [np.asarray(self.a_orbit)/1e3, self.ex_orbit, self.ey_orbit, self.hx_orbit, self.hy_orbit, self.lv_orbit]
         oe_target = [self.r_target_state[0]/1e3, self.r_target_state[1], self.r_target_state[2], self.r_target_state[3],
                    self.r_target_state[4], self.r_target_state[5]]
-        plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000, '-b',
-                 np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, '-r')
-        # plt.title('Inclination change maneuver')
-        plt.xlabel("x (km)")
-        plt.ylabel("y (km)")
-        plt.tight_layout()
-        if save:
-            plt.savefig(save_path + '2d.pdf')
-        if show: plt.show()
+        # plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000, '-b',
+        #          np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, '-r')
+        # plt.xlabel("x (km)")
+        # plt.ylabel("y (km)")
+        # plt.tight_layout()
+        # if save:
+        #     plt.savefig(save_path + '2d.pdf')
+        # if show: plt.show()
         fig = plt.figure(2)
         ax = fig.gca(projection='3d')
         ax.plot(np.asarray(self.px)/1000, np.asarray(self.py)/1000, np.asarray(self.pz)/1000,label='Satellite Trajectory')
@@ -307,8 +306,6 @@ class OrekitEnv:
         gravityProvider = GravityFieldFactory.getNormalizedProvider(8, 8)
         self._prop.addForceModel(HolmesFeatherstoneAttractionModel(earth.getBodyFrame(), gravityProvider))
 
-        # self._prop.addForceModel(newattr)
-
     def reset(self):
         """
         Resets the orekit enviornment
@@ -322,11 +319,11 @@ class OrekitEnv:
         # Randomizes the initial orbit
         if self.randomize:
             self._orbit = None
-            # a_rand = self.seed_state[0]
-            # e_rand = self.seed_state[1]
-            # w_rand = self.seed_state[3]
-            # omega_rand = self.seed_state[4]
-            # lv_rand = self.seed_state[5]
+            a_rand = self.seed_state[0]
+            e_rand = self.seed_state[1]
+            w_rand = self.seed_state[3]
+            omega_rand = self.seed_state[4]
+            lv_rand = self.seed_state[5]
 
             a_rand = random.uniform(self.seed_state[0]-self._orbit_randomizer['a'], self._orbit_randomizer['a']+ self.seed_state[0])
             e_rand = random.uniform(self.seed_state[1]-self._orbit_randomizer['e'], self._orbit_randomizer['e']+ self.seed_state[1])
@@ -462,7 +459,7 @@ class OrekitEnv:
 
         done = False
 
-        thrust_mag = np.linalg.norm(thrust)
+        # thrust_mag = np.linalg.norm(thrust)
 
         state = np.array([self._currentOrbit.getA(), self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
                           self._currentOrbit.getHx(), self._currentOrbit.getHy(), self._currentOrbit.getLv()])
@@ -476,11 +473,10 @@ class OrekitEnv:
 
         # reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey)
 
-        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10) + (self.cuf_fuel_mass/ self.fuel_mass)*.01
+        reward = -(reward_a + reward_hx*10 + reward_hy*10 + reward_ex + reward_ey*10) + (self.cuf_fuel_mass/ self.fuel_mass)
         #current
         # Inclination change
         # reward = -(reward_a*10 + reward_hx*10 + reward_hy*10 + reward_ex*10 + reward_ey)
-        # reward = -reward_a
         # Terminal staes
         if abs(self.r_target_state[0] - state[0]) <= self._orbit_tolerance['a'] and \
            abs(self.r_target_state[1] - state[1]) <= self._orbit_tolerance['ex'] and \
@@ -506,6 +502,10 @@ class OrekitEnv:
             done = True
             print('In earth')
             return reward, done
+
+        if self._extrap_Date.compareTo(self.final_date) >= 0:
+            reward = -1
+            done = True
 
         return reward, done
 
