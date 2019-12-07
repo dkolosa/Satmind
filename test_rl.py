@@ -146,17 +146,17 @@ def test_rl():
     env.seed(1234)
     np.random.seed(1234)
 
-    # num_episodes = 251
+    # num_episodes = 250
     num_episodes = 1001
 
-    batch_size = 250
+    batch_size = 200
     #Pendulum
     # layer_1_nodes, layer_2_nodes = 250, 150
     #lander
     # layer_1_nodes, layer_2_nodes = 450, 300
     #Walker
     # layer_1_nodes, layer_2_nodes = 500, 400
-    layer_1_nodes, layer_2_nodes = 2048, 1028
+    layer_1_nodes, layer_2_nodes = 500, 400
 
     tau = 0.01
     actor_lr, critic_lr = 0.0001, 0.001
