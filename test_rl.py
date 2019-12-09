@@ -136,7 +136,7 @@ def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2',
             'BipedalWalkerHardcore-v2')
 
-    ENV = ENVS[4]
+    ENV = ENVS[0]
     env = gym.make(ENV)
     iter_per_episode = 200
     features = env.observation_space.shape[0]
@@ -149,7 +149,7 @@ def test_rl():
     # num_episodes = 250
     num_episodes = 1001
 
-    batch_size = 200
+    batch_size = 100
     #Pendulum
     # layer_1_nodes, layer_2_nodes = 250, 150
     #lander
@@ -158,10 +158,9 @@ def test_rl():
     # layer_1_nodes, layer_2_nodes = 500, 400
     layer_1_nodes, layer_2_nodes = 500, 400
 
-    tau = 0.01
+    tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
-
 
     actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size,'actor')
     actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
@@ -172,7 +171,7 @@ def test_rl():
 
     # Replay memory buffer
     if PER:
-        memory = Per_Memory(capacity=10000000)
+        memory = Per_Memory(capacity=100000)
     else:
         memory = Uniform_Memory(buffer_size=1000)
 
@@ -229,6 +228,7 @@ def test_rl():
 
                     # Get q-value from the critic target
                     act_target = actor.predict_target(s1_rep, sess)
+
                     target_q = critic.predict_target(s1_rep, act_target, sess)
 
                     y_i = []
@@ -254,10 +254,6 @@ def test_rl():
                     # update target networks
                     actor.update_target_network(sess)
                     critic.update_target_network(sess)
-                    # actor.update_noise_params(sess)
-
-                else:
-                    memory.add(error,(np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
 
                 sum_reward += r
 

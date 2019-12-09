@@ -41,19 +41,34 @@ class Actor:
     def build_network_keras(self):
 
         input = tf.keras.Input(shape=(self.features,))
-        x = tf.keras.layers.Dense(self.layer_1_nodes)(input)
-        # x = tf.contrib.layers.layer_norm(x)
+
+        x = tf.keras.layers.Dense(self.layer_1_nodes,
+                                  kernel_initializer=tf.random_uniform_initializer(-1/np.sqrt(self.layer_1_nodes),
+                                                                                   1/np.sqrt(self.layer_1_nodes)),
+                                  bias_initializer=tf.random_uniform_initializer(-1 / np.sqrt(self.layer_1_nodes),
+                                                                                 1 / np.sqrt(self.layer_1_nodes)))(input)
+        x = tf.keras.layers.BatchNormalization()(x)
         # x = tf.keras.layers.LayerNormalization()(x)
         x = tf.nn.relu(x)
-        x = tf.keras.layers.Dense(self.layer_2_nodes)(x)
+
+        x = tf.keras.layers.Dense(self.layer_2_nodes,
+                                  kernel_initializer=tf.random_uniform_initializer(-1/np.sqrt(self.layer_2_nodes),
+                                                                                   1/np.sqrt(self.layer_2_nodes)),
+                                  bias_initializer=tf.random_uniform_initializer(-1/np.sqrt(self.layer_2_nodes),
+                                                                                 1/np.sqrt(self.layer_2_nodes)))(x)
+        x = tf.keras.layers.BatchNormalization()(x)
         # x = tf.keras.layers.LayerNormalization()(x)
         x = tf.nn.relu(x)
-        x = tf.keras.layers.Dense(512)(x)
+
+        x = tf.keras.layers.Dense(128,
+                                  kernel_initializer=tf.random_uniform_initializer(-1 / np.sqrt(128),
+                                                                                   1 / np.sqrt(128)),
+                                  bias_initializer=tf.random_uniform_initializer(-1 / np.sqrt(128),
+                                                                                 1 / np.sqrt(128)))(x)
+        x = tf.keras.layers.BatchNormalization()(x)
         # x = tf.keras.layers.LayerNormalization()(x)
         x = tf.nn.relu(x)
-        x = tf.keras.layers.Dense(256)(x)
-        # x = tf.keras.layers.LayerNormalization()(x)
-        x = tf.nn.relu(x)
+
         output = tf.keras.layers.Dense(self.n_actions, activation='tanh',  kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
         scaled_output = tf.multiply(output, self.action_bound)
 
@@ -114,6 +129,8 @@ class Critic:
         self.q_value = tf.placeholder(tf.float32, shape=[None, 1])
         self.importance = tf.placeholder(tf.float32, shape=[None, 1])
 
+        # self.target_q = tf.multiply(self.output_target, self.importance)
+
         self.update_target_network_parameters = \
             [self.target_network_parameters[i].assign(tf.multiply(self.network_parameters[i], self.tau) \
                                                   + tf.multiply(self.target_network_parameters[i], 1. - self.tau))
@@ -123,8 +140,6 @@ class Critic:
 
         self.error = self.output - self.q_value
         self.loss = tf.reduce_mean(tf.multiply(tf.square(self.error), self.importance))
-
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
         self.train_op = tf.train.AdamOptimizer(learning_rate).minimize(self.loss)
 
@@ -137,23 +152,15 @@ class Critic:
         action = tf.keras.Input(shape=(self.n_actions,))
 
         x = tf.keras.layers.Dense(self.layer_1_nodes,
-                                    kernel_regularizer=tf.contrib.layers.l2_regularizer(0.01),
-                                    bias_regularizer=tf.contrib.layers.l2_regularizer(0.01))(input)
+                                  kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(input)
         # x = tf.keras.layers.LayerNormalization()(x)
+        x = tf.keras.layers.BatchNormalization()(x)
         x = tf.nn.relu(x)
 
         x = tf.keras.layers.concatenate([tf.keras.layers.Flatten()(x), action])
         x = tf.keras.layers.Dense(self.layer_2_nodes, activation='relu',
-                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(0.01),
-                                  bias_regularizer=tf.contrib.layers.l2_regularizer(0.01))(x)
+                                  kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(x)
 
-        x = tf.keras.layers.Dense(300, activation='relu',
-                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(0.01),
-                                  bias_regularizer=tf.contrib.layers.l2_regularizer(0.01))(x)
-
-        x = tf.keras.layers.Dense(200, activation='relu',
-                                  kernel_regularizer=tf.contrib.layers.l2_regularizer(0.01),
-                                  bias_regularizer=tf.contrib.layers.l2_regularizer(0.01))(x)
         output = tf.keras.layers.Dense(1,activation='linear', kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
 
         return input, action, output
