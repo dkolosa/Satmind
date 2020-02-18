@@ -4,35 +4,59 @@ is based on the Deep Deterministic Policy Gradient (DDPG) algorithm and prioritz
 satellite that traverses a spacecraft enviornment. THe spacecraft's thruster is based on an electric proplution system which 
 produces a low amount of thrust (< 1 N) with a long mission time (days).
 
-
-## Purpose
-The purpose is use reinforcement learning to solve low-thrust trajectory problems.
+A total of four missions (3 unique) were implemented: orbit raining, inclination change, semimajor axis change, and MEO to GEO orbit.
 
 ## Dependencies
 Easiest way to install all the required packages is through Anaconda.
 
-- Python >= 3.5 or later
+- Python 3.6 or later
 - Tensorflow = 1.15
 - Orekit >=10.0
 - matplotlib for displaying results
 - openai gym for testing RL algorithm
 
-Use requirements.txt for easy setup using conda
+Use requirements.txt for easy setup using conda.
 
-`conda create --name Satmind --file requirements.txt`
+`conda create --name Satmind --file environment.yml`
 
 ## Usage
+
 `python test_rl.py` 
 
 tests to make sure RL algorithm is running correctly and runs in and openAI gym enviornment.
 
-`python Satmind/ddpg-sat.py`  
+`python Satmind/orekit-env.py`
 
-starts the main RL algorithm in the orekit envornment.
+runs an orkit scenario that produces a contineous thrust, successfully configured if program does not crash.
 
-Satmind/orekit-env.py
+### Pre-trained models
 
-Starts and configures the orekit enviornment
+To run the pre-trained models, ensure that the input file points to the correct corresponding mission.
+
+`python ddpg-sat.py --model <path to model>`
+
+## Train from scratch
+
+To run training from scratch pass:
+
+`python ddpg-sat.py`  
+
+## Arguments
+
+optional arguments:
+
+-  -h, --help         show this help message and exit
+-  --model MODEL      path of a trained tensorlfow model (str: path)
+-  --test             if testing a model (must pass a model as well)
+-  --savefig          Save figures to file (saves in results directory)
+-  --showfig          Display plotted figures
+
+## Configure
+
+- To change the orbit missions edit the input.json file. The initial and target states are in Keplarian orbital elements using degrees and the duration is expressed in days.
+- To change the hyperparameters for the neural netowkrs or RL algorithm are in the ddpg-sat.py
+
+
 
 
 

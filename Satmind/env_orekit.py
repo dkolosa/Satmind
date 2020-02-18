@@ -104,7 +104,7 @@ class OrekitEnv:
 
         self._orbit_tolerance = {'a': 10000, 'ex': 0.01, 'ey': 0.01, 'hx': 0.001, 'hy': 0.001, 'lv': 0.01}
 
-        self.randomize = True
+        self.randomize = False
         self._orbit_randomizer = {'a': 4000.0e3, 'e': 0.2, 'i': 2.0, 'w': 10.0, 'omega': 10.0, 'lv': 5.0}
         self.seed_state = state
         self.seed_target = state_targ
@@ -336,7 +336,6 @@ class OrekitEnv:
             self.create_orbit(state, self._initial_date, target=False)
         else:
             self._currentOrbit = self._orbit
-            # print(self._orbit)
 
         self._currentDate = self._initial_date
         self._extrap_Date = self._initial_date

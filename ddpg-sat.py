@@ -342,6 +342,5 @@ if __name__ == "__main__":
     parser.add_argument('--test', help="pass if testing a model", action='store_true')
     parser.add_argument('--savefig',help="Save figures to file", action='store_true')
     parser.add_argument('--showfig', help='Display plotted figures', action='store_true')
-    parser.add_argument('--mission', help="path of the mission file (json)", type=str)
     args = vars(parser.parse_args())
     main(args)
