@@ -104,3 +104,6 @@ ENV/
 
 Satmind/models
 Satmind/results
+models/
+.vscode/
+.idea/
