@@ -57,6 +57,8 @@ optional arguments:
 - To change the hyperparameters for the neural netowkrs or RL algorithm are in the ddpg-sat.py
 
 
+# License
 
+This software is distributed under the Apache 2.0 License.
 
 
