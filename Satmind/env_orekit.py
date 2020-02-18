@@ -616,24 +616,16 @@ def main():
     stepT = 500.0
 
     env = OrekitEnv(state, state_targ, date, duration, mass, stepT)
-
     env.render_target()
-    # fw = [-0.6]
-    fuel = []
-    # noise = OrnsteinUhlenbeck(np.zeros(3))
-    # for f in fw:
 
     reward = []
     s = env.reset()
-    F_s = 0.0
-    # while env._currentOrbit.getI() < env._targetOrbit.getI():
+    F_r, F_s, F_w = 0.0, 0.0, -3.0
     while env._extrap_Date.compareTo(env.final_date) <= 0:
-        thrust_mag = np.array([0.0, F_s, -3.0])
+        thrust_mag = np.array([F_r, F_s, F_w])
         position, r, done = env.step(thrust_mag)
         reward.append(r)
-    # print(env._extrap_Date)
-    # plt.plot(reward)
-    # plt.show()
+
     plt.subplot(2,1,1)
     plt.plot(env.hx_orbit)
     plt.ylabel('hx')
