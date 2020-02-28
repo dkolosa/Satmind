@@ -17,7 +17,7 @@ Easiest way to install all the required packages is through Anaconda.
 
 Use requirements.txt for easy setup using conda.
 
-`conda create --name Satmind --file environment.yml`
+`conda create -f environment.yml`
 
 ## Usage
 
