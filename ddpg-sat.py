@@ -23,7 +23,7 @@ def orekit_setup():
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data[mission_type[1]]
+        mission = data[mission_type[0]]
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
@@ -31,7 +31,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * duration
+    duration = 24.0 * 60.0 ** 2 * 4
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration, mission_type[1]
@@ -39,7 +39,7 @@ def orekit_setup():
 
 def main(args):
     ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
-    ENV = ENVS[2]
+    ENV = ENVS[1]
 
     env, duration, mission = orekit_setup()
     iter_per_episode = int(duration / stepT)
@@ -51,10 +51,10 @@ def main(args):
 
     np.random.seed(1234)
 
-    num_episodes = 2000
+    num_episodes = 1000
     batch_size = 128
 
-    layer_1_nodes, layer_2_nodes = 512, 450
+    layer_1_nodes, layer_2_nodes = 256, 128
     tau = 0.01
     actor_lr, critic_lr = 0.001, 0.0001
     GAMMA = 0.99
@@ -93,10 +93,12 @@ def main(args):
     env.render_target()
     env.randomize = True
 
+
     # Depricated
     # with tf.Session() as sess:
     with tf.compat.v1.Session() as sess:
-        sess.run(tf.global_variables_initializer())
+        sess.run(tf.compat.v1.global_variables_initializer())
+        tf.compat.v1.disable_eager_execution()
 
         if TRAIN:
             actor.update_target_network(sess)
@@ -187,7 +189,7 @@ def main(args):
                         rewards.append(sum_reward)
                         print(f'I: {degrees(env._currentOrbit.getI())}')
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
-                        print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
+                        print(f'diff:   a: {(env.r_target_state[0] - env.currentOrbit.getA()) / 1e3},\n'
                               f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
                               f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
                               f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'

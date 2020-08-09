@@ -3,9 +3,9 @@
   {
     "initial_orbit":
     {
-      "sma": 20000000.0,
+      "sma": 10000000.0,
       "ecc":  0.10,
-      "incl": 13.0,
+      "incl": 5.0,
       "omega": 10.0,
       "rann": 10.0,
       "true_anomaly": 20.0
@@ -29,9 +29,9 @@
 
     "target_orbit":
     {
-      "sma": 20000000.0,
+      "sma": 10000000.0,
       "ecc":  0.10,
-      "incl": 14.3,
+      "incl": 8.0,
       "omega": 10.0,
       "rann": 10.0,
       "true_anomaly": 10.0
