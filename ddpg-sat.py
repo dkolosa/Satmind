@@ -23,7 +23,7 @@ def orekit_setup():
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
-        mission = data[mission_type[0]]
+        mission = data[mission_type[1]]
         state = list(mission['initial_orbit'].values())
         state_targ = list(mission['target_orbit'].values())
         date = list(mission['initial_date'].values())
@@ -31,7 +31,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 4
+    duration = 24.0 * 60.0 ** 2 * 5
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration, mission_type[1]
@@ -39,7 +39,7 @@ def orekit_setup():
 
 def main(args):
     ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
-    ENV = ENVS[1]
+    ENV = ENVS[0]
 
     env, duration, mission = orekit_setup()
     iter_per_episode = int(duration / stepT)
@@ -54,9 +54,9 @@ def main(args):
     num_episodes = 1000
     batch_size = 128
 
-    layer_1_nodes, layer_2_nodes = 256, 128
+    layer_1_nodes, layer_2_nodes = 64, 32
     tau = 0.01
-    actor_lr, critic_lr = 0.001, 0.0001
+    actor_lr, critic_lr = 0.0001, 0.0001
     GAMMA = 0.99
 
     # Initialize actor and critic network and targets
@@ -91,7 +91,7 @@ def main(args):
 
     # Render target
     env.render_target()
-    env.randomize = True
+    env.randomize = False
 
 
     # Depricated
@@ -120,7 +120,8 @@ def main(args):
                 for j in range(iter_per_episode):
 
                     # Select an action
-                    a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise(), -action_bound, action_bound)
+                    # a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*0.01, -action_bound, action_bound)
+                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()* 0.01
 
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
@@ -189,14 +190,15 @@ def main(args):
                         rewards.append(sum_reward)
                         print(f'I: {degrees(env._currentOrbit.getI())}')
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
-                        print(f'diff:   a: {(env.r_target_state[0] - env.currentOrbit.getA()) / 1e3},\n'
-                              f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
-                              f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
-                              f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
-                              f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}\n'
+                        print(f'diff:   a (km): {(env._targetOrbit.getA() - env.currentOrbit.getA()) / 1e3},\n'
+                              f'ex: {env._targetOrbit.getEquinoctialEx() - env._currentOrbit.getEquinoctialEx()},\t'
+                              f'ey: {env._targetOrbit.getEquinoctialEy() - env._currentOrbit.getEquinoctialEy()},\n'
+                              f'hx: {env._targetOrbit.getEquinoctialHx() - env._currentOrbit.getHx()},\t'
+                              f'hy: {env._targetOrbit.getHy() - env._currentOrbit.getHy()}\n'
                               f'Fuel Mass: {env.cuf_fuel_mass}\n'
-                              f'Final Orbit:{env._currentOrbit}\n'
-                              f'Initial Orbit:{env._orbit}')
+                              f'Initial Orbit:{env._orbit}\n'
+                              f'Current Orbit:{env._currentOrbit}\n'
+                              f'Target Orbit:{env._targetOrbit}')
                         print('=========================')
                         if save_fig:
                             np.save('results/rewards.npy', np.array(rewards))
