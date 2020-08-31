@@ -81,7 +81,6 @@ class OrekitEnv:
         self.cuf_fuel_mass = self.fuel_mass
         self.initial_mass = self.dry_mass + self.fuel_mass
 
-
         self.px = []
         self.py = []
         self.pz = []
@@ -135,8 +134,8 @@ class OrekitEnv:
         self.r_initial_state = np.array([self._orbit.getA(), self._orbit.getEquinoctialEx(), self._orbit.getEquinoctialEy(),
                                   self._orbit.getHx(), self._orbit.getHy()])
 
-        self.r_target_state = self.get_state(self._targetOrbit, with_derivatives=False)
-        self.r_initial_state = self.get_state(self._orbit, with_derivatives=False)
+        # self.r_target_state = self.get_state(self._targetOrbit, with_derivatives=False)
+        # self.r_initial_state = self.get_state(self._orbit, with_derivatives=False)
 
         self._target_coord = self._targetOrbit.getPVCoordinates().getPosition()
 
@@ -256,10 +255,10 @@ class OrekitEnv:
 
         plt.clf()
         oe_fig = plt.figure(1)
-        oe_params = ('sma', 'e_x', 'e_y', 'h_x', 'h_y', 'lv')
-        oe = [np.asarray(self.a_orbit)/1e3, self.ex_orbit, self.ey_orbit, self.hx_orbit, self.hy_orbit, self.lv_orbit]
+        oe_params = ('sma', 'e_x', 'e_y', 'h_x', 'h_y')
+        oe = [np.asarray(self.a_orbit)/1e3, self.ex_orbit, self.ey_orbit, self.hx_orbit, self.hy_orbit]
         oe_target = [self.r_target_state[0]/1e3, self.r_target_state[1], self.r_target_state[2], self.r_target_state[3],
-                   self.r_target_state[4], self.r_target_state[5]]
+                   self.r_target_state[4]]
         # plt.plot(np.asarray(self.px) / 1000, np.asarray(self.py) / 1000, '-b',
         #          np.asarray(self.target_px)/1000, np.asarray(self.target_py)/1000, '-r')
         # plt.xlabel("x (km)")
@@ -328,19 +327,7 @@ class OrekitEnv:
         # Randomizes the initial orbit (change to target)
         if self.randomize:
             # self._orbit = None
-            a_rand = self.seed_state[0]
-            e_rand = self.seed_state[1]
-            w_rand = self.seed_state[3]
-            omega_rand = self.seed_state[4]
-            lv_rand = self.seed_state[5]
-
-            a_rand = random.uniform(self.seed_state[0]-self._orbit_randomizer['a'], self._orbit_randomizer['a']+ self.seed_state[0])
-            e_rand = random.uniform(self.seed_state[1]-self._orbit_randomizer['e'], self._orbit_randomizer['e']+ self.seed_state[1])
-            i_rand = random.uniform(self.seed_state[2]-self._orbit_randomizer['i'], self._orbit_randomizer['i']+ self.seed_state[2])
-            w_rand = random.uniform(self.seed_state[3]-self._orbit_randomizer['w'], self._orbit_randomizer['w']+ self.seed_state[3])
-            omega_rand = random.uniform(self.seed_state[4]-self._orbit_randomizer['omega'], self._orbit_randomizer['omega']+ self.seed_state[4])
-            lv_rand = random.uniform(self.seed_state[5]-self._orbit_randomizer['lv'], self._orbit_randomizer['lv']+ self.seed_state[5])
-            state = [a_rand, e_rand, i_rand, w_rand, omega_rand, lv_rand]
+            state = self.randomize_state()
             self.create_orbit(state, self._initial_date, target=True)
 
         self._currentOrbit = self._orbit
@@ -384,6 +371,28 @@ class OrekitEnv:
 
         return state
 
+    def randomize_state(self):
+
+        a_rand = self.seed_state[0]
+        e_rand = self.seed_state[1]
+        w_rand = self.seed_state[3]
+        omega_rand = self.seed_state[4]
+        lv_rand = self.seed_state[5]
+        a_rand = random.uniform(self.seed_state[0] - self._orbit_randomizer['a'],
+                                self._orbit_randomizer['a'] + self.seed_state[0])
+        e_rand = random.uniform(self.seed_state[1] - self._orbit_randomizer['e'],
+                                self._orbit_randomizer['e'] + self.seed_state[1])
+        i_rand = random.uniform(self.seed_state[2] - self._orbit_randomizer['i'],
+                                self._orbit_randomizer['i'] + self.seed_state[2])
+        w_rand = random.uniform(self.seed_state[3] - self._orbit_randomizer['w'],
+                                self._orbit_randomizer['w'] + self.seed_state[3])
+        omega_rand = random.uniform(self.seed_state[4] - self._orbit_randomizer['omega'],
+                                    self._orbit_randomizer['omega'] + self.seed_state[4])
+        lv_rand = random.uniform(self.seed_state[5] - self._orbit_randomizer['lv'],
+                                 self._orbit_randomizer['lv'] + self.seed_state[5])
+        state = [a_rand, e_rand, i_rand, w_rand, omega_rand, lv_rand]
+        return state
+
     @property
     def getTotalMass(self):
         """
@@ -395,21 +404,21 @@ class OrekitEnv:
     def get_state(self, orbit, with_derivatives=True):
         with_derivatives = False
         if with_derivatives:
-            state = [orbit.getA()/ self._orbit.getA(), orbit.getEquinoctialEx(), orbit.getEquinoctialEy(),
+            state = [orbit.getA() / self._orbit.getA(), orbit.getEquinoctialEx(), orbit.getEquinoctialEy(),
                      orbit.getHx(), orbit.getHy(),
                      orbit.getADot(), orbit.getEquinoctialExDot(),
                      orbit.getEquinoctialEyDot(),
                      orbit.getHxDot(), orbit.getHyDot()]
         else:
             state = [orbit.getA()/ self._orbit.getA(), orbit.getEquinoctialEx(), orbit.getEquinoctialEy(),
-                       orbit.getHx(), orbit.getHy()]
+                     orbit.getHx(), orbit.getHy()]
 
         return state
 
     def step(self, thrust):
         """
         Take a propagation step
-        :param thrust_mag: Thrust magnitude (Newtons, float)
+        :param thrust: Thrust magnitude (Newtons, float)
         :return: spacecraft state (np.array), reward value (float), don\
         e (bbol)
         """
@@ -417,11 +426,6 @@ class OrekitEnv:
         thrust_dir = thrust / thrust_mag
         DIRECTION = Vector3D(float(thrust_dir[0]), float(thrust_dir[1]), float(thrust_dir[2]))
         thrust_mag = float(thrust_mag)
-
-        # if thrust_mag < 0:
-        #     thrust_mag = abs(float(thrust_mag))
-        # else:
-        #     thrust_mag = float(thrust_mag)
 
         thrust_force = ConstantThrustManeuver(self._extrap_Date, self.stepT, thrust_mag, self._isp, attitude, DIRECTION)
         # thrust_force.init(SpacecraftState(self._currentOrbit, float(self.mass + self.fuel_mass)), self._extrap_Date)
@@ -479,23 +483,15 @@ class OrekitEnv:
         state = np.array([self._currentOrbit.getA(), self._currentOrbit.getEquinoctialEx(), self._currentOrbit.getEquinoctialEy(),
                           self._currentOrbit.getHx(), self._currentOrbit.getHy(), self._currentOrbit.getLv()])
 
-        current_coord = self._currentOrbit.getPVCoordinates().getPosition()
-        x_cur = current_coord.getX()
-        y_cur = current_coord.getY()
-        z_cur = current_coord.getZ()
-
-        reward = -np.sqrt((self._target_coord.getX() - x_cur)**2
-                 + (self._target_coord.getY() - y_cur)**2
-                 + (self._target_coord.getZ() - z_cur)**2)
 
         # Inclination change reward
-        # reward_a = np.sqrt((self._targetOrbit.getA() - state[0])**2) / self._orbit.getA()
-        # reward_ex = np.sqrt((self.r_target_state[1] - state[1])**2)
-        # reward_ey = np.sqrt((self.r_target_state[2] - state[2])**2)
-        # reward_hx = np.sqrt((self.r_target_state[3] - state[3])**2)
-        # reward_hy = np.sqrt((self.r_target_state[4] - state[4])**2)
+        reward_a = np.sqrt((self._targetOrbit.getA() - state[0])**2) / np.sqrt((self._targetOrbit.getA()+self._orbit.getA())**2)
+        reward_ex = np.sqrt((self.r_target_state[1] - state[1])**2)
+        reward_ey = np.sqrt((self.r_target_state[2] - state[2])**2)
+        reward_hx = np.sqrt((self.r_target_state[3] - state[3])**2)
+        reward_hy = np.sqrt((self.r_target_state[4] - state[4])**2)
         #
-        # reward = -(reward_a + reward_hx + reward_hy + reward_ex + reward_ey)
+        reward = -(reward_a + reward_hx + reward_hy + reward_ex + reward_ey)
         # print(f'r_a:{reward_a} \t, {reward_ex}\t {reward_ey}, \t {reward_hx},\t {reward_hy}')
         # print(f'{self._targetOrbit.getA()}')
 
@@ -527,17 +523,6 @@ class OrekitEnv:
             done = True
             print('In earth')
             return reward, done
-
-        return reward, done
-
-    def reward_cart(self):
-
-        done = False
-
-        pvc = self._currentOrbit.getPVCoordinates()
-        reward_x = pvc[0]
-
-        reward = reward_x
 
         return reward, done
 

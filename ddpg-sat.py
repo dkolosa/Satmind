@@ -13,7 +13,7 @@ import Satmind.utils
 from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 
-stepT = 500.0
+stepT = 600.0
 
 
 def orekit_setup():
@@ -121,7 +121,7 @@ def main(args):
 
                     # Select an action
                     # a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*0.01, -action_bound, action_bound)
-                    a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()* 0.01
+                    a = np.abs(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise() * 0.1)
 
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
@@ -188,18 +188,21 @@ def main(args):
                     s = s1
                     if done or j >= iter_per_episode - 1:
                         rewards.append(sum_reward)
-                        print(f'I: {degrees(env._currentOrbit.getI())}')
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                         print(f'diff:   a (km): {(env._targetOrbit.getA() - env.currentOrbit.getA()) / 1e3},\n'
-                              f'ex: {env._targetOrbit.getEquinoctialEx() - env._currentOrbit.getEquinoctialEx()},\t'
-                              f'ey: {env._targetOrbit.getEquinoctialEy() - env._currentOrbit.getEquinoctialEy()},\n'
-                              f'hx: {env._targetOrbit.getEquinoctialHx() - env._currentOrbit.getHx()},\t'
-                              f'hy: {env._targetOrbit.getHy() - env._currentOrbit.getHy()}\n'
+                              f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
+                              f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
+                              f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
+                              f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}\n'
                               f'Fuel Mass: {env.cuf_fuel_mass}\n'
                               f'Initial Orbit:{env._orbit}\n'
-                              f'Current Orbit:{env._currentOrbit}\n'
+                              f'Final Orbit:{env._currentOrbit}\n'
                               f'Target Orbit:{env._targetOrbit}')
                         print('=========================')
+                        n = range(j + 1)
+                        if i % 10 == 0:
+                            plot_thrust(actions, str(i), n, save_fig=False, show=True)
+
                         if save_fig:
                             np.save('results/rewards.npy', np.array(rewards))
                         saver.save(sess, checkpoint_path+'/model.ckpt')
@@ -219,7 +222,7 @@ def main(args):
 
                         break
 
-                if i % 10 == 0:
+                if i % 5 == 0:
                     n = range(j+1)
 
                     save_fig = True if i % 10 == 0 and save_fig else False
@@ -235,7 +238,6 @@ def main(args):
                         episode = '0' + str(i)
                     elif i >= 100:
                         episode = str(i)
-
                     plot_thrust(actions, episode, n, save_fig, show)
                     plot_reward(episode, rewards, save_fig, show)
 
@@ -319,17 +321,17 @@ def plot_thrust(actions, episode, n, save_fig, show):
     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
     plt.figure()
     plt.subplot(2, 2, 1)
-    plt.plot(thrust_mag)
-    plt.title('Thrust Magnitude (N)')
+    plt.plot(thrust_mag*1e3)
+    plt.title('Thrust Magnitude (mN)')
     plt.subplot(2, 2, 2)
-    plt.plot(n, np.asarray(actions)[:, 0])
+    plt.plot(n, np.asarray(actions)[:, 0]*1e3)
     plt.title('Thrust Magnitude (R)')
     plt.subplot(2, 2, 3)
-    plt.plot(n, np.asarray(actions)[:, 1])
+    plt.plot(n, np.asarray(actions)[:, 1]*1e3)
     plt.title('Thrust Magnitude (S)')
     plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
     plt.subplot(2, 2, 4)
-    plt.plot(n, np.asarray(actions)[:, 2])
+    plt.plot(n, np.asarray(actions)[:, 2]*1e3)
     plt.title('Thrust Magnitude (W)')
     plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
     plt.tight_layout()
