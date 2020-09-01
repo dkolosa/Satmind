@@ -136,6 +136,7 @@ class OrekitEnv:
 
         # self.r_target_state = self.get_state(self._targetOrbit, with_derivatives=False)
         # self.r_initial_state = self.get_state(self._orbit, with_derivatives=False)
+        self.a_norm = np.sqrt((self._targetOrbit.getA() - self._orbit.getA())**2)
 
         self._target_coord = self._targetOrbit.getPVCoordinates().getPosition()
 
@@ -168,7 +169,6 @@ class OrekitEnv:
         """
         a, e, i, omega, raan, lM = state
 
-        a += EARTH_RADIUS
         i = radians(i)
         omega = radians(omega)
         raan = radians(raan)
@@ -363,7 +363,7 @@ class OrekitEnv:
         #                   self._orbit.getHx(),
         #                   self._orbit.getHy(), 0, 0, 0, 0,0])
 
-        state = np.array([self._orbit.getA(),
+        state = np.array([self._orbit.getA()/ self.a_norm,
                           self._orbit.getEquinoctialEx(),
                           self._orbit.getEquinoctialEy(),
                           self._orbit.getHx(),
@@ -404,13 +404,13 @@ class OrekitEnv:
     def get_state(self, orbit, with_derivatives=True):
         with_derivatives = False
         if with_derivatives:
-            state = [orbit.getA() / self._orbit.getA(), orbit.getEquinoctialEx(), orbit.getEquinoctialEy(),
+            state = [orbit.getA() / self.a_norm, orbit.getEquinoctialEx(), orbit.getEquinoctialEy(),
                      orbit.getHx(), orbit.getHy(),
                      orbit.getADot(), orbit.getEquinoctialExDot(),
                      orbit.getEquinoctialEyDot(),
                      orbit.getHxDot(), orbit.getHyDot()]
         else:
-            state = [orbit.getA()/ self._orbit.getA(), orbit.getEquinoctialEx(), orbit.getEquinoctialEy(),
+            state = [orbit.getA() / self.a_norm, orbit.getEquinoctialEx(), orbit.getEquinoctialEy(),
                      orbit.getHx(), orbit.getHy()]
 
         return state
@@ -485,13 +485,13 @@ class OrekitEnv:
 
 
         # Inclination change reward
-        reward_a = np.sqrt((self._targetOrbit.getA() - state[0])**2) / np.sqrt((self._targetOrbit.getA()+self._orbit.getA())**2)
+        reward_a = np.sqrt((self._targetOrbit.getA() - state[0])**2) / self.a_norm
         reward_ex = np.sqrt((self.r_target_state[1] - state[1])**2)
         reward_ey = np.sqrt((self.r_target_state[2] - state[2])**2)
         reward_hx = np.sqrt((self.r_target_state[3] - state[3])**2)
         reward_hy = np.sqrt((self.r_target_state[4] - state[4])**2)
-        #
-        reward = -(reward_a + reward_hx + reward_hy + reward_ex + reward_ey)
+
+        reward = -(reward_a + 10*reward_hx + 10*reward_hy + 10*reward_ex + 10*reward_ey)
         # print(f'r_a:{reward_a} \t, {reward_ex}\t {reward_ey}, \t {reward_hx},\t {reward_hy}')
         # print(f'{self._targetOrbit.getA()}')
 
@@ -518,11 +518,11 @@ class OrekitEnv:
             reward = -1
             return reward, done
 
-        if self._currentOrbit.getA() < EARTH_RADIUS:
-            reward = -10
-            done = True
-            print('In earth')
-            return reward, done
+        # if self._currentOrbit.getA() < EARTH_RADIUS:
+        #     reward = -10
+        #     done = True
+        #     print('In earth')
+        #     return reward, done
 
         return reward, done
 
@@ -618,7 +618,7 @@ def main():
     duration = 24.0 * 60.0 ** 2 * 2
 
     # set the sc initial state
-    a = 10000.0e3  # semi major axis (m) (altitude)
+    a = 5500.0e3  # semi major axis (m) (altitude)
     e = 0.1  # eccentricity
     i = 5.0  # inclination
     omega = 10.0  # perigee argument
@@ -641,7 +641,7 @@ def main():
 
     reward = []
     s = env.reset()
-    F_r, F_s, F_w = 0.0, 0.5, 0.0
+    F_r, F_s, F_w = 0.0, 0.0, -0.6
     while env._extrap_Date.compareTo(env.final_date) <= 0:
         thrust_mag = np.array([F_r, F_s, F_w])
         position, r, done = env.step(thrust_mag)

@@ -60,16 +60,7 @@ class Actor:
         x = tf.keras.layers.LayerNormalization()(x)
         x = tf.nn.relu(x)
 
-        # x = tf.keras.layers.Dense(128,
-        #                           kernel_initializer=tf.random_uniform_initializer(-1 / np.sqrt(128),
-        #                                                                            1 / np.sqrt(128)),
-        #                           bias_initializer=tf.random_uniform_initializer(-1 / np.sqrt(128),
-        #                                                                          1 / np.sqrt(128)))(x)
-        # # x = tf.keras.layers.BatchNormalization()(x)
-        # x = tf.keras.layers.LayerNormalization()(x)
-        # x = tf.nn.relu(x)
-
-        output = tf.keras.layers.Dense(self.n_actions, activation='sigmoid',  kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
+        output = tf.keras.layers.Dense(self.n_actions, activation='tanh',  kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
         scaled_output = tf.multiply(output, self.action_bound)
 
         return input, output, scaled_output
@@ -153,15 +144,15 @@ class Critic:
 
         x = tf.keras.layers.Dense(self.layer_1_nodes,
                                   kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(input)
-        x = tf.keras.layers.LayerNormalization()(x)
-        # x = tf.keras.layers.BatchNormalization()(x)
+        # x = tf.keras.layers.LayerNormalization()(x)
+        x = tf.keras.layers.BatchNormalization()(x)
         x = tf.nn.relu(x)
 
         x = tf.keras.layers.concatenate([tf.keras.layers.Flatten()(x), action])
         x = tf.keras.layers.Dense(self.layer_2_nodes, activation='relu',
                                   kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(x)
 
-        output = tf.keras.layers.Dense(1,activation='linear', kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
+        output = tf.keras.layers.Dense(1, activation='linear', kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
 
         return input, action, output
 

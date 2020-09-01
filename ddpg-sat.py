@@ -13,7 +13,7 @@ import Satmind.utils
 from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 
-stepT = 600.0
+stepT = 400.0
 
 
 def orekit_setup():
@@ -31,7 +31,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 5
+    duration = 24.0 * 60.0 ** 2 * 12
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration, mission_type[1]
@@ -52,9 +52,9 @@ def main(args):
     np.random.seed(1234)
 
     num_episodes = 1000
-    batch_size = 128
+    batch_size = 64
 
-    layer_1_nodes, layer_2_nodes = 64, 32
+    layer_1_nodes, layer_2_nodes = 450, 300
     tau = 0.01
     actor_lr, critic_lr = 0.0001, 0.0001
     GAMMA = 0.99
@@ -189,20 +189,16 @@ def main(args):
                     if done or j >= iter_per_episode - 1:
                         rewards.append(sum_reward)
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
-                        print(f'diff:   a (km): {(env._targetOrbit.getA() - env.currentOrbit.getA()) / 1e3},\n'
-                              f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
-                              f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
-                              f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
-                              f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}\n'
-                              f'Fuel Mass: {env.cuf_fuel_mass}\n'
+                        print(f'diff:   a (km): {((env._targetOrbit.getA() - env.currentOrbit.getA()) / 1e3):.4f},\n'
+                              f'ex: {(env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()):.3f},\t'
+                              f'ey: {(env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()):.3f},\n'
+                              f'hx: {(env.r_target_state[3] - env._currentOrbit.getHx()):.3f},\t'
+                              f'hy: {(env.r_target_state[4] - env._currentOrbit.getHy()):.4f}\n'
+                              f'Fuel Mass: {(env.cuf_fuel_mass):.3f}\n'
                               f'Initial Orbit:{env._orbit}\n'
                               f'Final Orbit:{env._currentOrbit}\n'
                               f'Target Orbit:{env._targetOrbit}')
                         print('=========================')
-                        n = range(j + 1)
-                        if i % 10 == 0:
-                            plot_thrust(actions, str(i), n, save_fig=False, show=True)
-
                         if save_fig:
                             np.save('results/rewards.npy', np.array(rewards))
                         saver.save(sess, checkpoint_path+'/model.ckpt')
@@ -292,11 +288,11 @@ def mdoel_saving(ENV, args):
         print(f'Model will be saved in: {checkpoint_path}')
     if args['savefig']:
         save_fig = True
-        if os.path.exists('results/rewards.npy'):
-            load_reward = np.load('results/rewards.npy')
-            rewards = np.ndarray.tolist(load_reward)
-        else:
-            rewards = []
+        # if os.path.exists('results/rewards.npy'):
+        #     load_reward = np.load('results/rewards.npy')
+        #     rewards = np.ndarray.tolist(load_reward)
+        # else:
+        rewards = []
     else:
         save_fig = False
         rewards = []

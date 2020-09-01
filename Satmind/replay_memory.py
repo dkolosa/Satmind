@@ -23,7 +23,7 @@ class Uniform_Memory:
             self.buffer.popleft()
             self.buffer.append(experience)
 
-    def smaple(self, batch_size):
+    def sample(self, batch_size):
         """
         Get a random experience from the deque
         :return:  experience: (state, action, reward, next state, terminal(done))
