@@ -63,17 +63,17 @@
 
     "spacecraft_parameters":
     {
-      "dry_mass": 500.0,
+      "dry_mass": 350.0,
       "fuel_mass": 150.0
     },
 
     "target_orbit":
     {
-      "sma": 9000000.0,
-      "ecc":  0.3,
-      "incl": 6.0,
-      "omega": 26.0,
-      "rann": 26.0,
+      "sma": 7500000.0,
+      "ecc":  0.33,
+      "incl": 5.5,
+      "omega": 30.0,
+      "rann": 30.0,
       "true_anomaly": 12.0
     },
     "duration": 4.0
