@@ -10,6 +10,7 @@ from Satmind.utils import OrnsteinUhlenbeck, AdaptiveParamNoiseSpec
 from Satmind.replay_memory import Per_Memory, Uniform_Memory
 
 
+
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2',
             'BipedalWalkerHardcore-v2')
@@ -120,9 +121,11 @@ def test_rl():
                 # grad = critic.action_gradient(s_rep, a_output, sess)
                 # actor.train(s_rep, grad[0], sess)
 
-                # update target networks
-                # actor.update_target_network(sess)
-                # critic.update_target_network(sess)
+                # update target network
+                update_actor = update_target_network(actor, actor_target)
+                actor_target.set_weights(update_actor)
+                update_critic = update_target_network(critic, critic_target)
+                critic_target.set_weights(update_critic)
 
             sum_reward += r
 
@@ -132,14 +135,21 @@ def test_rl():
                 print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q / float(j)))
                 # rewards.append(sum_reward)
                 print('===========')
-                saver.save(sess, 'test_walkder/model.ckpt')
                 break
-
-
 
 def loss_fn(y_true, y_pred, importance):
     error = tf.math.square(y_true, y_pred)
     return tf.reduce_mean(tf.math.multiply(error, importance))
+
+
+def update_target_network(network_params, target_network_params, tau=.01):
+
+    update = []
+    for layer, target_layer in zip(network_params.layers, target_network_params.layers):
+        target_weights = target_layer.get_weights()
+        network_weights = layer.get_weights()
+        update.append(network_weights*tau + target_weights*(1-tau))
+    return np.array(update)
 
 
 

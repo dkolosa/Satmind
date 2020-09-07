@@ -13,7 +13,7 @@ import Satmind.utils
 from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 
-stepT = 400.0
+stepT = 800.0
 
 
 def orekit_setup():
@@ -31,7 +31,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 12
+    duration = 24.0 * 60.0 ** 2 * 15
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration, mission_type[1]
