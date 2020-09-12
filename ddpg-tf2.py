@@ -1,10 +1,9 @@
 import tensorflow as tf
-from tensorflow.losses import mean_squared_error
 from tensorflow.keras.optimizers import Adam
 import numpy as np
 import gym
 import gym.spaces
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from Satmind.tf2model import Critic, Actor
 from Satmind.utils import OrnsteinUhlenbeck, AdaptiveParamNoiseSpec
 from Satmind.replay_memory import Per_Memory, Uniform_Memory
@@ -18,8 +17,8 @@ def test_rl():
     ENV = ENVS[0]
     env = gym.make(ENV)
     iter_per_episode = 200
-    features = env.observation_space.shape[0]
-    n_actions = env.action_space.shape[0]
+    n_state = env.observation_space.shape[0]
+    n_action = env.action_space.shape[0]
     action_bound = env.action_space.high
 
     env.seed(1234)
@@ -29,7 +28,7 @@ def test_rl():
 
     batch_size = 64
     #Pendulum
-    layer_1_nodes, layer_2_nodes = 120, 64
+    layer_1_nodes, layer_2_nodes = 32, 64
     #lander
 
     tau = 0.001
@@ -37,22 +36,22 @@ def test_rl():
     GAMMA = 0.99
     ep = 0.001
 
-    actor = Actor(n_actions)
-    critic = Critic()
+    actor = Actor(n_action, layer_1_nodes, layer_2_nodes)
+    critic = Critic(layer_1_nodes, layer_2_nodes)
 
-    actor_target = Actor(n_actions)
-    critic_target = Critic()
+    actor_target = Actor(n_action, layer_1_nodes, layer_2_nodes)
+    critic_target = Critic(layer_1_nodes, layer_2_nodes)
 
-    actor_noise = OrnsteinUhlenbeck()
+    actor_noise = OrnsteinUhlenbeck(np.zeros(n_action))
 
     actor.compile(optimizer=Adam(learning_rate=actor_lr))
     critic.compile(optimizer=Adam(learning_rate=critic_lr))
 
-    PER = True
+    PER = False
     if PER:
         memory = Per_Memory(capacity=100000)
     else:
-        memory = Uniform_Memory(buffer_size=1000)
+        memory = Uniform_Memory(buffer_size=100000)
 
     for i in range(num_episodes):
         s = env.reset()
@@ -63,57 +62,68 @@ def test_rl():
         while True:
             env.render()
 
-            a = actor.predict(s + actor_noise())
-            s1, r, done, _ = env.step(a[0])
+            a = actor(tf.convert_to_tensor([s], dtype=tf.float32))
+            s1, r, done, _ = env.step(tf.squeeze(a, 1) + actor_noise())
 
             # Store in replay memory
             if PER:
                 error = abs(r + ep)  # D_i = max D
                 memory.add(error, (
-                np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
+                np.reshape(s, (n_state,)), np.reshape(a, (n_action,)), r, np.reshape(s1, (n_state,)), done))
             else:
                 memory.add(
-                    (np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
+                    (np.reshape(s, (n_state,)), np.reshape(a[0], (n_action,)), r, np.reshape(s1, (n_state,)), done))
 
             # sample from memory
-            # if batch_size < memory.get_count:
-            # mem = memory.sample(batch_size)
-            # s_rep = np.array([_[0] for _ in mem])
-            # a_rep = np.array([_[1] for _ in mem])
-            # r_rep = np.array([_[2] for _ in mem])
-            # s1_rep = np.array([_[3] for _ in mem])
-            # d_rep = np.array([_[4] for _ in mem])
+            if batch_size < memory.get_count:
+                mem = memory.sample(batch_size)
+                s_rep = tf.convert_to_tensor(np.array([_[0] for _ in mem]), dtype=tf.float32)
+                a_rep = tf.convert_to_tensor(np.array([_[1] for _ in mem]), dtype=tf.float32)
+                r_rep = tf.convert_to_tensor(np.array([_[2] for _ in mem]), dtype=tf.float32)
+                s1_rep = tf.convert_to_tensor(np.array([_[3] for _ in mem]), dtype=tf.float32)
+                d_rep = tf.convert_to_tensor(np.array([_[4] for _ in mem]), dtype=tf.float32)
 
-            if batch_size < memory.count:
-                mem, idxs, isweight = memory.sample(batch_size)
-                s_rep = np.array([_[0] for _ in mem])
-                a_rep = np.array([_[1] for _ in mem])
-                r_rep = np.array([_[2] for _ in mem])
-                s1_rep = np.array([_[3] for _ in mem])
-                d_rep = np.array([_[4] for _ in mem])
+            # if batch_size < memory.count:
+            #     mem, idxs, isweight = memory.sample(batch_size)
+            #     s_rep = np.array([_[0] for _ in mem])
+            #     a_rep = np.array([_[1] for _ in mem])
+            #     r_rep = np.array([_[2] for _ in mem])
+            #     s1_rep = np.array([_[3] for _ in mem])
+            #     d_rep = np.array([_[4] for _ in mem])
 
-                # Get q-value from the critic target
-                act_target = actor.predict(s1_rep)
+                with tf.GradientTape() as crit_tape:
+                    targ_actions = actor_target(s1_rep)
+                    target_q = tf.squeeze(critic_target(s1_rep, targ_actions), 1)
+                    q = tf.squeeze(critic(s_rep, a_rep), 1)
+                    sum_q += np.amax(q)
+                    y_i = r_rep + GAMMA * target_q*(1-d_rep)
+                    critic_loss = tf.keras.losses.MSE(y_i, q)
 
-                target_q = critic.predict(s1_rep, act_target)
+                critic_gradient = crit_tape.gradient(critic_loss, critic.trainable_variables)
+                critic.optimizer.apply_gradients(zip(critic_gradient, critic.trainable_variables))
 
-                y_i = []
-                for x in range(batch_size):
-                    if d_rep[x]:
-                        y_i.append(r_rep[x])
-                    else:
-                        y_i.append(r_rep[x] + GAMMA * target_q[x])
+                with tf.GradientTape() as act_tape:
+                    actor_policy = actor(s_rep)
+                    actor_loss = -critic(s_rep, actor_policy)
+                    actor_loss = tf.math.reduce_mean(actor_loss)
 
-                # update the critic network
-                error, predicted_q, _ = critic.fit(s_rep, a_rep, np.reshape(y_i, (batch_size, 1)),
-                                                     np.reshape(isweight, (batch_size, 1)), sess)
-                loss = mean_squared_error(y_i, critic.predict(s_rep, a_rep))
-                opt = Adam(loss)
-                for n in range(batch_size):
-                    idx = idxs[n]
-                    memory.update(idx, abs(error[n][0]))
+                actor_gradient = act_tape.gradient(actor_loss, actor.trainable_variables)
+                actor.optimizer.apply_gradients(zip(actor_gradient, actor.trainable_variables))
 
-                sum_q += np.amax(predicted_q)
+                # update target network
+                update_target_network(actor, actor_target, tau)
+                update_target_network(critic, critic_target, tau)
+
+                # # update the critic network
+                # error, predicted_q, _ = critic.fit(s_rep, a_rep, np.reshape(y_i, (batch_size, 1)),
+                #                                      np.reshape(isweight, (batch_size, 1)), sess)
+                # loss = mean_squared_error(y_i, critic.predict(s_rep, a_rep))
+                # opt = Adam(loss)
+                # for n in range(batch_size):
+                #     idx = idxs[n]
+                #     memory.update(idx, abs(error[n][0]))
+
+                # sum_q += np.amax(predicted_q)
 
 
                 # update actor policy
@@ -121,35 +131,27 @@ def test_rl():
                 # grad = critic.action_gradient(s_rep, a_output, sess)
                 # actor.train(s_rep, grad[0], sess)
 
-                # update target network
-                update_actor = update_target_network(actor, actor_target)
-                actor_target.set_weights(update_actor)
-                update_critic = update_target_network(critic, critic_target)
-                critic_target.set_weights(update_critic)
-
             sum_reward += r
-
             s = s1
             j += 1
             if done:
-                print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q / float(j)))
+                print('Episode: {}, reward: {}, q_max: {}'.format(i, int(sum_reward), sum_q))
                 # rewards.append(sum_reward)
                 print('===========')
                 break
+
 
 def loss_fn(y_true, y_pred, importance):
     error = tf.math.square(y_true, y_pred)
     return tf.reduce_mean(tf.math.multiply(error, importance))
 
 
-def update_target_network(network_params, target_network_params, tau=.01):
-
+def update_target_network(network_params, target_network_params, tau=.001):
     update = []
-    for layer, target_layer in zip(network_params.layers, target_network_params.layers):
-        target_weights = target_layer.get_weights()
-        network_weights = layer.get_weights()
-        update.append(network_weights*tau + target_weights*(1-tau))
-    return np.array(update)
+    targets = target_network_params.weights
+    for i, weight in enumerate(network_params.weights):
+        update.append(weight*tau + targets[i]*(1-tau))
+    network_params.set_weights(update)
 
 
 

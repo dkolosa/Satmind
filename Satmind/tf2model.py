@@ -5,38 +5,40 @@ import os
 
 
 class Critic(tf.keras.Model):
-    def __init__(self, layer_1, layer_2, name='Critic',
+    def __init__(self, layer_1, layer_2, model_name='Critic',
                  checkpoint_dir=''):
         super(Critic, self).__init__()
-        self.layer_1 = Dense(layer_1, activation='relu')
-        self.layer_2 = Dense(layer_2, activation='relu')
+        self.layer_1 = Dense(layer_1, activation=None, kernel_regularizer=tf.keras.regularizers.l2(l=0.01))
+        self.layer_2 = Dense(layer_2, activation=None,  kernel_regularizer=tf.keras.regularizers.l2(l=0.01))
         self.q = Dense(1, activation=None)
-        self.name = name
+        self.model_name = model_name
         self.checkpoint_dir = checkpoint_dir
-        self.checkpoint = os.path.join(self.checkpoint_dir, name+ '_ddpg.h5')
+        self.checkpoint = os.path.join(self.checkpoint_dir, self.model_name + '_ddpg.h5')
 
     def call(self, state, action):
-        action = self.layer_1(tf.concat([state, action], axis=1))
-        action = self.layers_2(action)
-        q = self.q(action)
+        x = self.layer_1(state)
+        x = tf.keras.activations.relu(x)
+        x = self.layer_2(tf.concat([action, x], axis=1))
+        x = tf.keras.activations.relu(x)
+        q = self.q(x)
         return q
 
 
 class Actor(tf.keras.Model):
-    def __init__(self, n_actions, layer_1=64, layer_2=32, name='Actor',
+    def __init__(self, n_actions, layer_1=64, layer_2=32, model_name='Actor',
                  checkpoint_dir=''):
         super(Actor, self).__init__()
-        self.layer_1 = Dense(layer_1, activation='relu')
-        self.layer_2 = Dense(layer_2, activation='relu')
+        self.layer_1 = Dense(layer_1, activation=None)
+        self.layer_2 = Dense(layer_2, activation=None)
         self.action = Dense(n_actions, activation='tanh')
-        self.name = name
+        self.model_name = model_name
         self.checkpoint_dir = checkpoint_dir
-        self.checkpoint = os.path.join(self.checkpoint_dir, name+ '_ddpg.h5')
+        self.checkpoint = os.path.join(self.checkpoint_dir, self.model_name + '_ddpg.h5')
 
     def call(self, x):
         x = self.layer_1(x)
-        x = tf.keras.layers.BatchNormalization(x)
+        x = tf.keras.activations.relu(x)
         x = self.layer_2(x)
-        x = tf.keras.layers.BatchNormalization(x)
-        act = self.action(x)
-        return act
+        x = tf.keras.activations.relu(x)
+        x = self.action(x)
+        return x
