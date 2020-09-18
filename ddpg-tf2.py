@@ -10,10 +10,10 @@ from Satmind.replay_memory import Per_Memory, Uniform_Memory
 
 
 def test_rl():
-    ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v2', 'LunarLanderContinuous-v2',
-            'BipedalWalkerHardcore-v2')
+    ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v3', 'LunarLanderContinuous-v2',
+            'BipedalWalkerHardcore-v3')
 
-    ENV = ENVS[0]
+    ENV = ENVS[2]
     env = gym.make(ENV)
     iter_per_episode = 200
     n_state = env.observation_space.shape[0]
@@ -25,9 +25,9 @@ def test_rl():
 
     num_episodes = 1001
 
-    batch_size = 64
+    batch_size = 128
     #Pendulum
-    layer_1_nodes, layer_2_nodes = 256, 128
+    layer_1_nodes, layer_2_nodes = 512, 256
     #lander
 
     tau = 0.01
