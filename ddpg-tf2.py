@@ -13,7 +13,7 @@ def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v3', 'LunarLanderContinuous-v2',
             'BipedalWalkerHardcore-v3')
 
-    ENV = ENVS[0]
+    ENV = ENVS[4]
     env = gym.make(ENV)
     iter_per_episode = 200
     n_state = env.observation_space.shape[0]
