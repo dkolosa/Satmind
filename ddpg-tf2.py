@@ -160,9 +160,12 @@ class DDPG():
         self.actor_target.save_weights(os.path.join(save_dir, self.actor_target.model_name))
         self.critic_target.save_weights(os.path.join(save_dir, self.critic_target.model_name))
 
-
     def load_model(self):
-        pass
+        self.actor.load_weights(save_dir, self.actor.model_name)
+        self.critic.load_weights(save_dir, self.critic.model_name)
+        self.actor_target.load_weights(save_dir, self.actor_target.model_name)
+        self.critic_target.load_weights(save_dir, self.critic_target.model_name)
+
 
 
 if __name__ == '__main__':
