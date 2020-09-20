@@ -54,7 +54,7 @@ def test_rl():
     save = False
     # If loading model, a gradient update must be called once before loading weights
     if load_models:
-        load_model(PER, actor_noise, agent, batch_size, env, ep, n_action, n_state)
+        load_model(PER, agent, batch_size, env, ep, n_action, n_state)
 
     for i in range(num_episodes):
         s = env.reset()
@@ -89,10 +89,10 @@ def test_rl():
                 break
 
 
-def load_model(PER, actor_noise, agent, batch_size, env, ep, n_action, n_state):
+def load_model(PER, agent, batch_size, env, ep, n_action, n_state):
     for i in range(batch_size + 1):
         s = env.reset()
-        a = agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] + actor_noise()
+        a = agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0]
         s1, r, done, _ = env.step(a)
         # Store in replay memory
         if PER:
