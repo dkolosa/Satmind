@@ -9,19 +9,17 @@ from Satmind.utils import OrnsteinUhlenbeck, AdaptiveParamNoiseSpec
 from Satmind.replay_memory import Per_Memory, Uniform_Memory
 import os, datetime
 
-ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v3', 'LunarLanderContinuous-v2',
-        'BipedalWalkerHardcore-v3')
-ENV = ENVS[0]
-
-model_dir = os.path.join(os.getcwd(), 'models')
-os.makedirs(os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV), exist_ok=True)
-save_dir = os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV)
 
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v3', 'LunarLanderContinuous-v2',
             'BipedalWalkerHardcore-v3')
 
     ENV = ENVS[0]
+
+    model_dir = os.path.join(os.getcwd(), 'models')
+    os.makedirs(os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV), exist_ok=True)
+    save_dir = os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV)
+
     env = gym.make(ENV)
     iter_per_episode = 200
     n_state = env.observation_space.shape[0]
@@ -47,10 +45,16 @@ def test_rl():
     actor_noise = OrnsteinUhlenbeck(np.zeros(n_action))
 
     agent = DDPG(n_action, action_bound, layer_1_nodes, layer_2_nodes, actor_lr, critic_lr, PER, GAMMA,
-                 tau, batch_size)
+                 tau, batch_size, save_dir)
 
     agent.update_target_network(agent.actor, agent.actor_target, agent.tau)
     agent.update_target_network(agent.critic, agent.critic_target, agent.tau)
+
+    load_models = True
+    save = False
+    # If loading model, a gradient update must be called once before loading weights
+    if load_models:
+        load_model(PER, actor_noise, agent, batch_size, env, ep, n_action, n_state)
 
     for i in range(num_episodes):
         s = env.reset()
@@ -81,18 +85,38 @@ def test_rl():
                 print('Episode: {}, reward: {}, q_max: {}'.format(i, int(sum_reward), sum_q))
                 # rewards.append(sum_reward)
                 print('===========')
-                agent.save_model()
+                if save:
+                    agent.save_model()
                 break
+
+
+def load_model(PER, actor_noise, agent, batch_size, env, ep, n_action, n_state):
+    for i in range(batch_size + 1):
+        s = env.reset()
+        a = agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] + actor_noise()
+        s1, r, done, _ = env.step(a)
+        # Store in replay memory
+        if PER:
+            error = abs(r + ep)  # D_i = max D
+            agent.memory.add(error, (
+                np.reshape(s, (n_state,)), np.reshape(a, (n_action,)), r, np.reshape(s1, (n_state,)), done))
+        else:
+            agent.memory.add(
+                (np.reshape(s, (n_state,)), np.reshape(a, (n_action,)), r, np.reshape(s1, (n_state,)), done))
+    agent.train()
+    agent.load_model()
 
 
 class DDPG():
     def __init__(self, n_action, action_bound, layer_1_nodes, layer_2_nodes, actor_lr, critic_lr, PER, GAMMA,
-                 tau, batch_size):
+                 tau, batch_size, save_dir):
 
         self.GAMMA = GAMMA
         self.batch_size = batch_size
         self.tau = tau
         self.PER = PER
+
+        self.save_dir = save_dir
 
         self.actor = Actor(n_action, action_bound, layer_1_nodes, layer_2_nodes)
         self.critic = Critic(layer_1_nodes, layer_2_nodes)
@@ -155,17 +179,16 @@ class DDPG():
         target_network_params.set_weights(target_weights)
 
     def save_model(self):
-        self.actor.save_weights(os.path.join(save_dir, self.actor.model_name))
-        self.critic.save_weights(os.path.join(save_dir, self.critic.model_name))
-        self.actor_target.save_weights(os.path.join(save_dir, self.actor_target.model_name))
-        self.critic_target.save_weights(os.path.join(save_dir, self.critic_target.model_name))
+        self.actor.save_weights(os.path.join(self.save_dir, self.actor.model_name))
+        self.critic.save_weights(os.path.join(self.save_dir, self.critic.model_name))
+        self.actor_target.save_weights(os.path.join(self.save_dir, self.actor_target.model_name))
+        self.critic_target.save_weights(os.path.join(self.save_dir, self.critic_target.model_name))
 
     def load_model(self):
-        self.actor.load_weights(save_dir, self.actor.model_name)
-        self.critic.load_weights(save_dir, self.critic.model_name)
-        self.actor_target.load_weights(save_dir, self.actor_target.model_name)
-        self.critic_target.load_weights(save_dir, self.critic_target.model_name)
-
+        self.actor.load_weights(os.path.join(self.save_dir, self.actor.model_name))
+        self.critic.load_weights(os.path.join(self.save_dir, self.critic.model_name))
+        self.actor_target.load_weights(os.path.join(self.save_dir, self.actor_target.model_name))
+        self.critic_target.load_weights(os.path.join(self.save_dir, self.critic_target.model_name))
 
 
 if __name__ == '__main__':
