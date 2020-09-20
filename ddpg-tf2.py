@@ -66,7 +66,6 @@ def test_rl():
 
             a = actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] + actor_noise()
             s1, r, done, _ = env.step(a)
-
             # Store in replay memory
             if PER:
                 error = abs(r + ep)  # D_i = max D
