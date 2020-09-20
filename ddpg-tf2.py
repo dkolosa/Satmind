@@ -7,7 +7,15 @@ import gym.spaces
 from Satmind.tf2model import Critic, Actor
 from Satmind.utils import OrnsteinUhlenbeck, AdaptiveParamNoiseSpec
 from Satmind.replay_memory import Per_Memory, Uniform_Memory
+import os, datetime
 
+ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v3', 'LunarLanderContinuous-v2',
+        'BipedalWalkerHardcore-v3')
+ENV = ENVS[0]
+
+model_dir = os.path.join(os.getcwd(), 'models')
+os.makedirs(os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV), exist_ok=True)
+save_dir = os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV)
 
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v3', 'LunarLanderContinuous-v2',
@@ -73,6 +81,7 @@ def test_rl():
                 print('Episode: {}, reward: {}, q_max: {}'.format(i, int(sum_reward), sum_q))
                 # rewards.append(sum_reward)
                 print('===========')
+                agent.save_model()
                 break
 
 
@@ -88,8 +97,8 @@ class DDPG():
         self.actor = Actor(n_action, action_bound, layer_1_nodes, layer_2_nodes)
         self.critic = Critic(layer_1_nodes, layer_2_nodes)
 
-        self.actor_target = Actor(n_action, action_bound, layer_1_nodes, layer_2_nodes)
-        self.critic_target = Critic(layer_1_nodes, layer_2_nodes)
+        self.actor_target = Actor(n_action, action_bound, layer_1_nodes, layer_2_nodes, model_name='actor_target')
+        self.critic_target = Critic(layer_1_nodes, layer_2_nodes, model_name='critic_target')
 
         self.actor.compile(optimizer=Adam(learning_rate=actor_lr))
         self.critic.compile(optimizer=Adam(learning_rate=critic_lr))
@@ -144,6 +153,16 @@ class DDPG():
         for i in range(len(target_weights)):  # set tau% of target model to be new weights
             target_weights[i] = weights[i] * tau + target_weights[i] * (1 - tau)
         target_network_params.set_weights(target_weights)
+
+    def save_model(self):
+        self.actor.save_weights(os.path.join(save_dir, self.actor.model_name))
+        self.critic.save_weights(os.path.join(save_dir, self.critic.model_name))
+        self.actor_target.save_weights(os.path.join(save_dir, self.actor_target.model_name))
+        self.critic_target.save_weights(os.path.join(save_dir, self.critic_target.model_name))
+
+
+    def load_model(self):
+        pass
 
 
 if __name__ == '__main__':
