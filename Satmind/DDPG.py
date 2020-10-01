@@ -32,6 +32,10 @@ class DDPG():
         else:
             self.memory = Uniform_Memory(buffer_size=100000)
 
+        self.sum_q = 0
+        self.actor_loss = 0
+        self.critic_loss = 0
+
     def train(self):
         # sample from memory
         if self.batch_size < self.memory.get_count:
@@ -51,15 +55,17 @@ class DDPG():
                 d_rep = tf.convert_to_tensor(np.array([_[4] for _ in mem]), dtype=tf.float32)
 
             if self.batch_size < self.memory.get_count:
-                td_error = self.loss_critic(a_rep, d_rep, r_rep, s1_rep, s_rep)
-                self.loss_actor(s_rep)
+                td_error, critic_loss = self.loss_critic(a_rep, d_rep, r_rep, s1_rep, s_rep)
+                actor_loss = self.loss_actor(s_rep)
 
-                update_error = np.abs(np.array(td_error))
                 if self.PER:
+                    update_error = np.abs(np.array(td_error))
                     for n in range(self.batch_size):
                         self.memory.update(idxs[n], update_error[n])
 
-            # sum_q += np.amax(tf.squeeze(self.critic(s_rep, a_rep), 1))
+            self.sum_q += np.amax(tf.squeeze(self.critic(s_rep, a_rep), 1))
+            self.actor_loss += np.amax(actor_loss)
+            self.critic_loss += np.amax(critic_loss)
 
             # update target network
             self.update_target_network(self.actor, self.actor_target, self.tau)
@@ -72,6 +78,7 @@ class DDPG():
             actor_loss = -tf.reduce_mean(self.critic(s_rep, actions))
         actor_grad = tape.gradient(actor_loss, self.actor.trainable_variables)  # compute actor gradient
         self.actor.optimizer.apply_gradients(zip(actor_grad, self.actor.trainable_variables))
+        return actor_loss
 
     @tf.function
     def loss_critic(self,a_rep, d_rep, r_rep, s1_rep, s_rep):
@@ -87,7 +94,7 @@ class DDPG():
                 critic_loss = tf.math.reduce_mean(tf.math.square(td_error) * self.isweight)
         critic_gradient = tape.gradient(critic_loss, self.critic.trainable_variables)
         self.critic.optimizer.apply_gradients(zip(critic_gradient, self.critic.trainable_variables))
-        return td_error
+        return td_error, critic_loss
 
     def update_target_network(self, network_params, target_network_params, tau=.001):
         weights = network_params.get_weights()

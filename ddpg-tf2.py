@@ -55,7 +55,9 @@ def test_rl():
     for i in range(num_episodes):
         s = env.reset()
         sum_reward = 0
-        sum_q = 0
+        agent.sum_q = 0
+        agent.actor_loss = 0
+        agent.critic_loss = 0
         j = 0
 
         while True:
@@ -77,7 +79,7 @@ def test_rl():
             s = s1
             j += 1
             if done:
-                print('Episode: {}, reward: {}, q_max: {}'.format(i, int(sum_reward), sum_q))
+                print(f'Episode: {i}, reward: {int(sum_reward)}, q_max: {agent.sum_q / float(j)},\nactor loss:{agent.actor_loss / float(j)}, critic loss:{agent.critic_loss/ float(j)}')
                 # rewards.append(sum_reward)
                 print('===========')
                 if save:
