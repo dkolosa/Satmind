@@ -30,12 +30,11 @@ def test_rl():
     np.random.seed(1234)
 
     num_episodes = 1001
-    PER = False
+    PER = True
 
-    batch_size = 128
+    batch_size = 5
     #Pendulum
     layer_1_nodes, layer_2_nodes = 512, 256
-    #lander
 
     tau = 0.01
     actor_lr, critic_lr = 0.0001, 0.001
@@ -50,7 +49,7 @@ def test_rl():
     agent.update_target_network(agent.actor, agent.actor_target, agent.tau)
     agent.update_target_network(agent.critic, agent.critic_target, agent.tau)
 
-    load_models = True
+    load_models = False
     save = False
     # If loading model, a gradient update must be called once before loading weights
     if load_models:
@@ -69,7 +68,7 @@ def test_rl():
             s1, r, done, _ = env.step(a)
             # Store in replay memory
             if PER:
-                error = abs(r + ep)  # D_i = max D
+                error = 1 # D_i = max D
                 agent.memory.add(error, (
                 np.reshape(s, (n_state,)), np.reshape(a, (n_action,)), r, np.reshape(s1, (n_state,)), done))
             else:
@@ -136,15 +135,31 @@ class DDPG():
     def train(self):
         # sample from memory
         if self.batch_size < self.memory.get_count:
-            mem = self.memory.sample(self.batch_size)
-            s_rep = tf.convert_to_tensor(np.array([_[0] for _ in mem]), dtype=tf.float32)
-            a_rep = tf.convert_to_tensor(np.array([_[1] for _ in mem]), dtype=tf.float32)
-            r_rep = tf.convert_to_tensor(np.array([_[2] for _ in mem]), dtype=tf.float32)
-            s1_rep = tf.convert_to_tensor(np.array([_[3] for _ in mem]), dtype=tf.float32)
-            d_rep = tf.convert_to_tensor(np.array([_[4] for _ in mem]), dtype=tf.float32)
+            if self.PER:
+                mem, idxs, self.isweight = self.memory.sample(self.batch_size)
+                s_rep = tf.convert_to_tensor(np.array([_[0] for _ in mem]), dtype=tf.float32)
+                a_rep = tf.convert_to_tensor(np.array([_[1] for _ in mem]), dtype=tf.float32)
+                r_rep = tf.convert_to_tensor(np.array([_[2] for _ in mem]), dtype=tf.float32)
+                s1_rep = tf.convert_to_tensor(np.array([_[3] for _ in mem]), dtype=tf.float32)
+                d_rep = tf.convert_to_tensor(np.array([_[4] for _ in mem]), dtype=tf.float32)
+            else:
+                mem = self.memory.sample(self.batch_size)
+                s_rep = tf.convert_to_tensor(np.array([_[0] for _ in mem]), dtype=tf.float32)
+                a_rep = tf.convert_to_tensor(np.array([_[1] for _ in mem]), dtype=tf.float32)
+                r_rep = tf.convert_to_tensor(np.array([_[2] for _ in mem]), dtype=tf.float32)
+                s1_rep = tf.convert_to_tensor(np.array([_[3] for _ in mem]), dtype=tf.float32)
+                d_rep = tf.convert_to_tensor(np.array([_[4] for _ in mem]), dtype=tf.float32)
 
-            self.loss_critic(a_rep, d_rep, r_rep, s1_rep, s_rep)
-            self.loss_actor(s_rep)
+            if self.batch_size < self.memory.get_count:
+                td_error = self.loss_critic(a_rep, d_rep, r_rep, s1_rep, s_rep)
+                self.loss_actor(s_rep)
+
+                update_error = np.abs(np.array(td_error))
+                if self.PER:
+                    for n in range(self.batch_size):
+                        self.memory.update(idxs[n], update_error[n])
+
+            # sum_q += np.amax(tf.squeeze(self.critic(s_rep, a_rep), 1))
 
             # update target network
             self.update_target_network(self.actor, self.actor_target, self.tau)
@@ -165,10 +180,14 @@ class DDPG():
         y_i = r_rep + self.GAMMA * target_q * (1 - d_rep)
         with tf.GradientTape() as tape:
             q = tf.squeeze(self.critic(s_rep, a_rep), 1)
-            td_error = q - y_i
-            critic_loss = tf.math.reduce_mean(tf.math.square(td_error))
+            td_error = y_i - q
+            if not self.PER:
+                critic_loss = tf.math.reduce_mean(tf.math.square(td_error))
+            else:
+                critic_loss = tf.math.reduce_mean(tf.math.square(td_error) * self.isweight)
         critic_gradient = tape.gradient(critic_loss, self.critic.trainable_variables)
         self.critic.optimizer.apply_gradients(zip(critic_gradient, self.critic.trainable_variables))
+        return td_error
 
     def update_target_network(self, network_params, target_network_params, tau=.001):
         weights = network_params.get_weights()

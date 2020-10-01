@@ -149,7 +149,7 @@ def test_rl():
     # num_episodes = 250
     num_episodes = 1001
 
-    batch_size = 64
+    batch_size = 5
     #Pendulum
     # layer_1_nodes, layer_2_nodes = 120, 64
     #lander

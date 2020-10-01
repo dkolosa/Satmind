@@ -138,3 +138,7 @@ class Per_Memory:  # stored as ( s, a, r, next_state, done ) in SumTree
             # state = state_1
             # i += 1
         print("Population complete")
+
+    @property
+    def get_count(self):
+        return self.count

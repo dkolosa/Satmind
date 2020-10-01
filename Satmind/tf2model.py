@@ -8,8 +8,6 @@ class Critic(tf.keras.Model):
         super(Critic, self).__init__()
         self.layer_1 = Dense(layer_1, activation=None, kernel_regularizer=tf.keras.regularizers.l2(l=0.01))
         self.layer_2 = Dense(layer_2, activation=None,  kernel_regularizer=tf.keras.regularizers.l2(l=0.01))
-        self.bnl1 = tf.keras.layers.BatchNormalization()
-        self.bnl2 = tf.keras.layers.BatchNormalization()
 
         self.q = Dense(1, activation=None)
         self.model_name = model_name+ '_ddpg.h5'
