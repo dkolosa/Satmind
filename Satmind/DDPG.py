@@ -41,27 +41,21 @@ class DDPG():
         if self.batch_size < self.memory.get_count:
             if self.PER:
                 mem, idxs, self.isweight = self.memory.sample(self.batch_size)
-                s_rep = tf.convert_to_tensor(np.array([_[0] for _ in mem]), dtype=tf.float32)
-                a_rep = tf.convert_to_tensor(np.array([_[1] for _ in mem]), dtype=tf.float32)
-                r_rep = tf.convert_to_tensor(np.array([_[2] for _ in mem]), dtype=tf.float32)
-                s1_rep = tf.convert_to_tensor(np.array([_[3] for _ in mem]), dtype=tf.float32)
-                d_rep = tf.convert_to_tensor(np.array([_[4] for _ in mem]), dtype=tf.float32)
             else:
                 mem = self.memory.sample(self.batch_size)
-                s_rep = tf.convert_to_tensor(np.array([_[0] for _ in mem]), dtype=tf.float32)
-                a_rep = tf.convert_to_tensor(np.array([_[1] for _ in mem]), dtype=tf.float32)
-                r_rep = tf.convert_to_tensor(np.array([_[2] for _ in mem]), dtype=tf.float32)
-                s1_rep = tf.convert_to_tensor(np.array([_[3] for _ in mem]), dtype=tf.float32)
-                d_rep = tf.convert_to_tensor(np.array([_[4] for _ in mem]), dtype=tf.float32)
+            s_rep = tf.convert_to_tensor(np.array([_[0] for _ in mem]), dtype=tf.float32)
+            a_rep = tf.convert_to_tensor(np.array([_[1] for _ in mem]), dtype=tf.float32)
+            r_rep = tf.convert_to_tensor(np.array([_[2] for _ in mem]), dtype=tf.float32)
+            s1_rep = tf.convert_to_tensor(np.array([_[3] for _ in mem]), dtype=tf.float32)
+            d_rep = tf.convert_to_tensor(np.array([_[4] for _ in mem]), dtype=tf.float32)
 
-            if self.batch_size < self.memory.get_count:
-                td_error, critic_loss = self.loss_critic(a_rep, d_rep, r_rep, s1_rep, s_rep)
-                actor_loss = self.loss_actor(s_rep)
+            td_error, critic_loss = self.loss_critic(a_rep, d_rep, r_rep, s1_rep, s_rep)
+            actor_loss = self.loss_actor(s_rep)
 
-                if self.PER:
-                    update_error = np.abs(np.array(td_error))
-                    for n in range(self.batch_size):
-                        self.memory.update(idxs[n], update_error[n])
+            if self.PER:
+                update_error = np.abs(np.array(td_error))
+                for n in range(self.batch_size):
+                    self.memory.update(idxs[n], update_error[n])
 
             self.sum_q += np.amax(tf.squeeze(self.critic(s_rep, a_rep), 1))
             self.actor_loss += np.amax(actor_loss)

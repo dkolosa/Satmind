@@ -63,7 +63,8 @@ def test_rl():
         while True:
             env.render()
 
-            a = agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] + actor_noise()
+            a = np.clip(agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] + actor_noise(), a_max=action_bound,
+                        a_min=-action_bound)
             s1, r, done, _ = env.step(a)
             # Store in replay memory
             if PER:
