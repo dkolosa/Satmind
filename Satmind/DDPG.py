@@ -54,8 +54,7 @@ class DDPG():
 
             if self.PER:
                 update_error = np.abs(np.array(td_error))
-                for n in range(self.batch_size):
-                    self.memory.update(idxs[n], update_error[n])
+                self.memory.update(idxs, update_error)
 
             self.sum_q += np.amax(tf.squeeze(self.critic(s_rep, a_rep), 1))
             self.actor_loss += np.amax(actor_loss)
