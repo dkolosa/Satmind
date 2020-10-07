@@ -1,8 +1,5 @@
 import tensorflow as tf
 import numpy as np
-import gym
-import gym.spaces
-import os, datetime
 from Satmind.utils import OrnsteinUhlenbeck
 from Satmind.DDPG import DDPG
 import os
@@ -28,14 +25,30 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 8
+    duration = 24.0 * 60.0 ** 2 * 9
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration, mission_type[1]
 
 
-def main():
+def load_model(PER, agent, batch_size, env, ep, n_action, n_state):
+    for i in range(batch_size + 1):
+        s = env.reset()
+        a = agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0]
+        s1, r, done, _ = env.step(a)
+        # Store in replay memory
+        if PER:
+            error = abs(r + ep)  # D_i = max D
+            agent.memory.add(error, (
+                np.reshape(s, (n_state,)), np.reshape(a, (n_action,)), r, np.reshape(s1, (n_state,)), done))
+        else:
+            agent.memory.add(
+                (np.reshape(s, (n_state,)), np.reshape(a, (n_action,)), r, np.reshape(s1, (n_state,)), done))
+    agent.train()
+    agent.load_model()
 
+
+def main():
     ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
     ENV = ENVS[0]
 
