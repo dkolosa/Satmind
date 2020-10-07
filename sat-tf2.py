@@ -10,7 +10,7 @@ import datetime
 import json
 from Satmind.env_orekit import OrekitEnv
 
-stepT = 800.0
+stepT = 500.0
 
 
 def orekit_setup():
@@ -28,7 +28,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 5
+    duration = 24.0 * 60.0 ** 2 * 8
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration, mission_type[1]
@@ -111,6 +111,7 @@ def main():
             j += 1
             if done or (j >= iter_per_episode - 1):
                 print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), agent.sum_q / float(j)))
+                print(f'actor loss: {agent.actor_loss / float(j)}, critic loss{agent.critic_loss / float(j)}')
                 print(f'diff:   a (km): {((env._targetOrbit.getA() - env.currentOrbit.getA()) / 1e3):.4f},\n'
                       f'ex: {(env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()):.3f},\t'
                       f'ey: {(env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()):.3f},\n'
