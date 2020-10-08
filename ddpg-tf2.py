@@ -11,7 +11,7 @@ def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v3', 'LunarLanderContinuous-v2',
             'BipedalWalkerHardcore-v3')
 
-    ENV = ENVS[0]
+    ENV = ENVS[2]
 
     model_dir = os.path.join(os.getcwd(), 'models')
     os.makedirs(os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV), exist_ok=True)
@@ -27,11 +27,11 @@ def test_rl():
     np.random.seed(1234)
 
     num_episodes = 1001
-    PER = False
+    PER = True
 
-    batch_size = 64
+    batch_size = 128
     #Pendulum
-    layer_1_nodes, layer_2_nodes = 256, 128
+    layer_1_nodes, layer_2_nodes = 512, 256
 
     tau = 0.01
     actor_lr, critic_lr = 0.0001, 0.001
@@ -47,10 +47,12 @@ def test_rl():
     agent.update_target_network(agent.critic, agent.critic_target, agent.tau)
 
     load_models = False
-    save = False
+    save = True
     # If loading model, a gradient update must be called once before loading weights
     if load_models:
         load_model(PER, agent, batch_size, env, ep, n_action, n_state)
+
+    noise_decay = 1.0
 
     for i in range(num_episodes):
         s = env.reset()
@@ -63,7 +65,7 @@ def test_rl():
         while True:
             env.render()
 
-            a = np.clip(agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] + actor_noise(), a_max=action_bound,
+            a = np.clip(agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] + actor_noise()*noise_decay, a_max=action_bound,
                         a_min=-action_bound)
             s1, r, done, _ = env.step(a)
             # Store in replay memory
@@ -85,6 +87,9 @@ def test_rl():
                 print('===========')
                 if save:
                     agent.save_model()
+                if sum_reward > 0:
+                    noise_decay = 0.001
+
                 break
 
 
@@ -106,4 +111,5 @@ def load_model(PER, agent, batch_size, env, ep, n_action, n_state):
 
 
 if __name__ == '__main__':
+    # with tf.device('/CPU:0'):
     test_rl()

@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow.keras.optimizers import Adam
 from Satmind.tf2model import Critic, Actor
 from Satmind.replay_memory import Per_Memory, Uniform_Memory
-
+import os
 
 class DDPG():
     def __init__(self, n_action, action_bound, layer_1_nodes, layer_2_nodes, actor_lr, critic_lr, PER, GAMMA,
@@ -53,8 +53,9 @@ class DDPG():
             actor_loss = self.loss_actor(s_rep)
 
             if self.PER:
-                update_error = np.abs(np.array(td_error))
-                self.memory.update(idxs, update_error)
+                for i in range(self.batch_size):
+                    update_error = np.abs(np.array(tf.reduce_mean(td_error)))
+                    self.memory.update(idxs[i], update_error)
 
             self.sum_q += np.amax(tf.squeeze(self.critic(s_rep, a_rep), 1))
             self.actor_loss += np.amax(actor_loss)
