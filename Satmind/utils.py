@@ -67,11 +67,11 @@ class SumTree:
 
     # update to the root node
     def _propagate(self, idx, change):
-        parent = (idx - 1) // 2
+        parent = (np.array(idx) - 1) // 2
 
         self.tree[parent] += change
 
-        if parent != 0:
+        if parent.all() != 0:
             self._propagate(parent, change)
 
     # find sample on leaf node

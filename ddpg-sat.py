@@ -13,7 +13,7 @@ import Satmind.utils
 from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 
-stepT = 500.0
+stepT = 800.0
 
 
 def orekit_setup():
@@ -31,7 +31,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * duration
+    duration = 24.0 * 60.0 ** 2 * 15
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration, mission_type[1]
@@ -39,7 +39,7 @@ def orekit_setup():
 
 def main(args):
     ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
-    ENV = ENVS[2]
+    ENV = ENVS[0]
 
     env, duration, mission = orekit_setup()
     iter_per_episode = int(duration / stepT)
@@ -51,12 +51,12 @@ def main(args):
 
     np.random.seed(1234)
 
-    num_episodes = 2000
-    batch_size = 128
+    num_episodes = 1000
+    batch_size = 64
 
-    layer_1_nodes, layer_2_nodes = 512, 450
+    layer_1_nodes, layer_2_nodes = 450, 300
     tau = 0.01
-    actor_lr, critic_lr = 0.001, 0.0001
+    actor_lr, critic_lr = 0.0001, 0.0001
     GAMMA = 0.99
 
     # Initialize actor and critic network and targets
@@ -91,12 +91,14 @@ def main(args):
 
     # Render target
     env.render_target()
-    env.randomize = True
+    env.randomize = False
+
 
     # Depricated
     # with tf.Session() as sess:
     with tf.compat.v1.Session() as sess:
-        sess.run(tf.global_variables_initializer())
+        sess.run(tf.compat.v1.global_variables_initializer())
+        tf.compat.v1.disable_eager_execution()
 
         if TRAIN:
             actor.update_target_network(sess)
@@ -118,7 +120,8 @@ def main(args):
                 for j in range(iter_per_episode):
 
                     # Select an action
-                    a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise(), -action_bound, action_bound)
+                    # a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*0.01, -action_bound, action_bound)
+                    a = np.abs(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise() * 0.1)
 
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
@@ -185,16 +188,16 @@ def main(args):
                     s = s1
                     if done or j >= iter_per_episode - 1:
                         rewards.append(sum_reward)
-                        print(f'I: {degrees(env._currentOrbit.getI())}')
                         print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
-                        print(f'diff:   a: {(env.r_target_state[0] - env._currentOrbit.getA())/1e3},\n'
-                              f'ex: {env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()},\t'
-                              f'ey: {env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()},\n'
-                              f'hx: {env.r_target_state[3] - env._currentOrbit.getHx()},\t'
-                              f'hy: {env.r_target_state[4] - env._currentOrbit.getHy()}\n'
-                              f'Fuel Mass: {env.cuf_fuel_mass}\n'
+                        print(f'diff:   a (km): {((env._targetOrbit.getA() - env.currentOrbit.getA()) / 1e3):.4f},\n'
+                              f'ex: {(env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()):.3f},\t'
+                              f'ey: {(env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()):.3f},\n'
+                              f'hx: {(env.r_target_state[3] - env._currentOrbit.getHx()):.3f},\t'
+                              f'hy: {(env.r_target_state[4] - env._currentOrbit.getHy()):.4f}\n'
+                              f'Fuel Mass: {(env.cuf_fuel_mass):.3f}\n'
+                              f'Initial Orbit:{env._orbit}\n'
                               f'Final Orbit:{env._currentOrbit}\n'
-                              f'Initial Orbit:{env._orbit}')
+                              f'Target Orbit:{env._targetOrbit}')
                         print('=========================')
                         if save_fig:
                             np.save('results/rewards.npy', np.array(rewards))
@@ -215,7 +218,7 @@ def main(args):
 
                         break
 
-                if i % 10 == 0:
+                if i % 5 == 0:
                     n = range(j+1)
 
                     save_fig = True if i % 10 == 0 and save_fig else False
@@ -231,7 +234,6 @@ def main(args):
                         episode = '0' + str(i)
                     elif i >= 100:
                         episode = str(i)
-
                     plot_thrust(actions, episode, n, save_fig, show)
                     plot_reward(episode, rewards, save_fig, show)
 
@@ -286,11 +288,11 @@ def mdoel_saving(ENV, args):
         print(f'Model will be saved in: {checkpoint_path}')
     if args['savefig']:
         save_fig = True
-        if os.path.exists('results/rewards.npy'):
-            load_reward = np.load('results/rewards.npy')
-            rewards = np.ndarray.tolist(load_reward)
-        else:
-            rewards = []
+        # if os.path.exists('results/rewards.npy'):
+        #     load_reward = np.load('results/rewards.npy')
+        #     rewards = np.ndarray.tolist(load_reward)
+        # else:
+        rewards = []
     else:
         save_fig = False
         rewards = []
@@ -315,17 +317,17 @@ def plot_thrust(actions, episode, n, save_fig, show):
     thrust_mag = np.linalg.norm(np.asarray(actions), axis=1)
     plt.figure()
     plt.subplot(2, 2, 1)
-    plt.plot(thrust_mag)
-    plt.title('Thrust Magnitude (N)')
+    plt.plot(thrust_mag*1e3)
+    plt.title('Thrust Magnitude (mN)')
     plt.subplot(2, 2, 2)
-    plt.plot(n, np.asarray(actions)[:, 0])
+    plt.plot(n, np.asarray(actions)[:, 0]*1e3)
     plt.title('Thrust Magnitude (R)')
     plt.subplot(2, 2, 3)
-    plt.plot(n, np.asarray(actions)[:, 1])
+    plt.plot(n, np.asarray(actions)[:, 1]*1e3)
     plt.title('Thrust Magnitude (S)')
     plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
     plt.subplot(2, 2, 4)
-    plt.plot(n, np.asarray(actions)[:, 2])
+    plt.plot(n, np.asarray(actions)[:, 2]*1e3)
     plt.title('Thrust Magnitude (W)')
     plt.xlabel('Mission Step ' + str(stepT) + ' sec per step')
     plt.tight_layout()

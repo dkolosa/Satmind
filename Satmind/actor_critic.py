@@ -19,18 +19,18 @@ class Actor:
         # create the actor network and target network
         # self.input, self.output, self.scaled_output = self.build_network(name)
         self.input, self.output, self.scaled_output = self.build_network_keras()
-        self.network_parameters = tf.trainable_variables()
+        self.network_parameters = tf.compat.v1.trainable_variables()
         self.target_input, self.target_output, self.target_scaled_output = self.build_network_keras()
-        self.target_network_parameters = tf.trainable_variables()[len(self.network_parameters):]
+        self.target_network_parameters = tf.compat.v1.trainable_variables()[len(self.network_parameters):]
 
         # This is retrieved from the critic network
-        self.action_gradient = tf.placeholder(tf.float32, [None, n_actions])
+        self.action_gradient = tf.compat.v1.placeholder(tf.float32, [None, n_actions])
 
         self.unnorm_actor_grad = tf.gradients(self.scaled_output, self.network_parameters, -self.action_gradient)
-        self.actor_gradient = list(map(lambda x: tf.div(x, batch_size), self.unnorm_actor_grad))
+        self.actor_gradient = list(map(lambda x: tf.math.divide(x, batch_size), self.unnorm_actor_grad))
 
-        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-            self.train_op = tf.train.AdamOptimizer(learning_rate).apply_gradients(zip(self.actor_gradient, self.network_parameters))
+        with tf.control_dependencies(tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)):
+            self.train_op = tf.compat.v1.train.AdamOptimizer(learning_rate).apply_gradients(zip(self.actor_gradient, self.network_parameters))
 
         self.update_target_network_parameters = [self.target_network_parameters[i].assign(tf.multiply(self.network_parameters[i], self.tau) +
                                                  tf.multiply(self.target_network_parameters[i], 1. - self.tau))
@@ -47,8 +47,8 @@ class Actor:
                                                                                    1/np.sqrt(self.layer_1_nodes)),
                                   bias_initializer=tf.random_uniform_initializer(-1 / np.sqrt(self.layer_1_nodes),
                                                                                  1 / np.sqrt(self.layer_1_nodes)))(input)
-        x = tf.keras.layers.BatchNormalization()(x)
-        # x = tf.keras.layers.LayerNormalization()(x)
+        # x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.LayerNormalization()(x)
         x = tf.nn.relu(x)
 
         x = tf.keras.layers.Dense(self.layer_2_nodes,
@@ -56,17 +56,8 @@ class Actor:
                                                                                    1/np.sqrt(self.layer_2_nodes)),
                                   bias_initializer=tf.random_uniform_initializer(-1/np.sqrt(self.layer_2_nodes),
                                                                                  1/np.sqrt(self.layer_2_nodes)))(x)
-        x = tf.keras.layers.BatchNormalization()(x)
-        # x = tf.keras.layers.LayerNormalization()(x)
-        x = tf.nn.relu(x)
-
-        x = tf.keras.layers.Dense(128,
-                                  kernel_initializer=tf.random_uniform_initializer(-1 / np.sqrt(128),
-                                                                                   1 / np.sqrt(128)),
-                                  bias_initializer=tf.random_uniform_initializer(-1 / np.sqrt(128),
-                                                                                 1 / np.sqrt(128)))(x)
-        x = tf.keras.layers.BatchNormalization()(x)
-        # x = tf.keras.layers.LayerNormalization()(x)
+        # x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.LayerNormalization()(x)
         x = tf.nn.relu(x)
 
         output = tf.keras.layers.Dense(self.n_actions, activation='tanh',  kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
@@ -121,13 +112,13 @@ class Critic:
         # self.input, self.action, self.output  = self.build_network(name)
         self.input, self.action, self.output = self.build_network_keras()
 
-        self.network_parameters = tf.trainable_variables()[actor_trainable_variables:]
+        self.network_parameters = tf.compat.v1.trainable_variables()[actor_trainable_variables:]
 
         self.input_target, self.action_target, self.output_target = self.build_network_keras()
-        self.target_network_parameters = tf.trainable_variables()[(len(self.network_parameters) + actor_trainable_variables):]
+        self.target_network_parameters = tf.compat.v1.trainable_variables()[(len(self.network_parameters) + actor_trainable_variables):]
 
-        self.q_value = tf.placeholder(tf.float32, shape=[None, 1])
-        self.importance = tf.placeholder(tf.float32, shape=[None, 1])
+        self.q_value = tf.compat.v1.placeholder(tf.float32, shape=[None, 1])
+        self.importance = tf.compat.v1.placeholder(tf.float32, shape=[None, 1])
 
         # self.target_q = tf.multiply(self.output_target, self.importance)
 
@@ -141,7 +132,7 @@ class Critic:
         self.error = self.output - self.q_value
         self.loss = tf.reduce_mean(tf.multiply(tf.square(self.error), self.importance))
 
-        self.train_op = tf.train.AdamOptimizer(learning_rate).minimize(self.loss)
+        self.train_op = tf.compat.v1.train.AdamOptimizer(learning_rate).minimize(self.loss)
 
         # the action-value gradient to be used be the actor network
         self.action_grad = tf.gradients(self.output, self.action)
@@ -161,7 +152,7 @@ class Critic:
         x = tf.keras.layers.Dense(self.layer_2_nodes, activation='relu',
                                   kernel_regularizer=tf.keras.regularizers.l2(l=0.01))(x)
 
-        output = tf.keras.layers.Dense(1,activation='linear', kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
+        output = tf.keras.layers.Dense(1, activation='linear', kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)
 
         return input, action, output
 

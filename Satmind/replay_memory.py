@@ -23,7 +23,7 @@ class Uniform_Memory:
             self.buffer.popleft()
             self.buffer.append(experience)
 
-    def smaple(self, batch_size):
+    def sample(self, batch_size):
         """
         Get a random experience from the deque
         :return:  experience: (state, action, reward, next state, terminal(done))
@@ -138,3 +138,7 @@ class Per_Memory:  # stored as ( s, a, r, next_state, done ) in SumTree
             # state = state_1
             # i += 1
         print("Population complete")
+
+    @property
+    def get_count(self):
+        return self.count

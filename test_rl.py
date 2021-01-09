@@ -149,18 +149,19 @@ def test_rl():
     # num_episodes = 250
     num_episodes = 1001
 
-    batch_size = 100
+    batch_size = 5
     #Pendulum
-    # layer_1_nodes, layer_2_nodes = 250, 150
+    # layer_1_nodes, layer_2_nodes = 120, 64
     #lander
-    # layer_1_nodes, layer_2_nodes = 450, 300
+    layer_1_nodes, layer_2_nodes = 450, 300
     #Walker
     # layer_1_nodes, layer_2_nodes = 500, 400
-    layer_1_nodes, layer_2_nodes = 500, 400
+    # layer_1_nodes, layer_2_nodes = 500, 400
 
     tau = 0.001
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
+    ep = 0.001
 
     actor = Actor(features, n_actions, layer_1_nodes, layer_2_nodes, action_bound, tau, actor_lr, batch_size,'actor')
     actor_noise = OrnsteinUhlenbeck(np.zeros(n_actions))
@@ -193,18 +194,15 @@ def test_rl():
             sum_q = 0
             j = 0
 
-            noise_decay = np.clip(noise_decay-0.001,0.01,1)
-
             while True:
-
                 env.render()
 
-                a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*noise_decay
+                a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
                 s1, r, done, _ = env.step(a[0])
 
                 # Store in replay memory
                 if PER:
-                    error = abs(r)  # D_i = max D
+                    error = abs(r + ep)  # D_i = max D
                     memory.add(error, (np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1, (features,)), done))
                 else:
                     memory.add((np.reshape(s, (features,)), np.reshape(a[0], (n_actions,)), r, np.reshape(s1,(features,)), done))
