@@ -15,6 +15,8 @@ from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 stepT = 500.0
 
+#For Macos m1 chip through rosetta
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 def orekit_setup():
 
