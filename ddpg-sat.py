@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-import os, sys
+import os, sys, platform
 import pickle
 import argparse
 import datetime
@@ -15,13 +15,13 @@ from Satmind.replay_memory import Uniform_Memory, Per_Memory
 
 stepT = 500.0
 
-#For Macos m1 chip through rosetta
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
+#For Mac m1 chip through rosetta 2
+if platform.release() == '20.2.0' and platform.system() == 'Darwin':
+    os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
-def orekit_setup():
 
-    mission_type = ['inclination_change', 'Orbit_Raising', 'sma_change', 'meo_geo']
-
+def orekit_setup(mission_type):
+    '''This function loads the mission configuration from the input.json file'''
     input_file = 'input.json'
     with open(input_file) as input:
         data = json.load(input)
@@ -40,8 +40,8 @@ def orekit_setup():
 
 
 def main(args):
-    ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
-    ENV = ENVS[2]
+    mission_type = ('inclination_change', 'Orbit_Raising', 'sma_change', 'meo_geo')
+    ENV = ENVS[mission_type]
 
     env, duration, mission = orekit_setup()
     iter_per_episode = int(duration / stepT)
