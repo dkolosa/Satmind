@@ -47,8 +47,8 @@ class Actor:
                                                                                    1/np.sqrt(self.layer_1_nodes)),
                                   bias_initializer=tf.random_uniform_initializer(-1 / np.sqrt(self.layer_1_nodes),
                                                                                  1 / np.sqrt(self.layer_1_nodes)))(input)
-        # x = tf.keras.layers.BatchNormalization()(x)
-        x = tf.keras.layers.LayerNormalization()(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        # x = tf.keras.layers.LayerNormalization()(x)
         x = tf.nn.relu(x)
 
         x = tf.keras.layers.Dense(self.layer_2_nodes,
@@ -56,8 +56,8 @@ class Actor:
                                                                                    1/np.sqrt(self.layer_2_nodes)),
                                   bias_initializer=tf.random_uniform_initializer(-1/np.sqrt(self.layer_2_nodes),
                                                                                  1/np.sqrt(self.layer_2_nodes)))(x)
-        # x = tf.keras.layers.BatchNormalization()(x)
-        x = tf.keras.layers.LayerNormalization()(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        # x = tf.keras.layers.LayerNormalization()(x)
         x = tf.nn.relu(x)
 
         output = tf.keras.layers.Dense(self.n_actions, activation='tanh',  kernel_initializer=tf.random_uniform_initializer(-0.003,0.003))(x)

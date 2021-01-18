@@ -10,9 +10,7 @@ from Satmind.env_orekit import OrekitEnv
 stepT = 500.0
 
 
-def orekit_setup():
-
-    mission_type = ['inclination_change', 'Orbit_Raising', 'sma_change', 'meo_geo']
+def orekit_setup(mission_type):
 
     input_file = 'input.json'
     with open(input_file) as input:
@@ -27,11 +25,12 @@ def orekit_setup():
     mass = [dry_mass, fuel_mass]
     duration = 24.0 * 60.0 ** 2 * 9
 
-    env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
+    env = OrekitEnv(state, state_targ, date, duration, mass, stepT)
     return env, duration, mission_type[1]
 
 
 def load_model(PER, agent, batch_size, env, ep, n_action, n_state):
+
     for i in range(batch_size + 1):
         s = env.reset()
         a = agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0]
@@ -49,12 +48,13 @@ def load_model(PER, agent, batch_size, env, ep, n_action, n_state):
 
 
 def main():
-    ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
-    ENV = ENVS[0]
+    mission_type = ('inclination_change', 'Orbit_Raising', 'sma_change', 'meo_geo')
 
-    env, duration, mission = orekit_setup()
+    ENV = mission_type[2]
+
+    env, duration, mission = orekit_setup(ENV)
     iter_per_episode = int(duration / stepT)
-    ENV = mission
+
     # Network inputs and outputs
     n_state = env.observation_space
     n_action = env.action_space
@@ -139,5 +139,4 @@ def main():
                 break
 
 if __name__ == '__main__':
-    if __name__ == '__main__':
-        main()
+    main()

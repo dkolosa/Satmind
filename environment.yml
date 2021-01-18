@@ -1,4 +1,4 @@
-name: Satmind
+name: Satmind-tf1
 channels:
   - conda-forge
   - defaults
@@ -114,5 +114,5 @@ dependencies:
     - requests==2.21.0
     - tqdm==4.32.1
     - urllib3==1.24.1
-prefix: /home/dan/anaconda3/envs/Satmind
+prefix: /opt/anaconda3/envs/Satmind-tf1
 

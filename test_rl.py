@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import numpy as np
 import gym
 import gym.spaces
@@ -149,7 +149,7 @@ def test_rl():
     # num_episodes = 250
     num_episodes = 1001
 
-    batch_size = 5
+    batch_size = 6
     #Pendulum
     # layer_1_nodes, layer_2_nodes = 120, 64
     #lander
@@ -176,7 +176,7 @@ def test_rl():
     else:
         memory = Uniform_Memory(buffer_size=1000)
 
-    saver = tf.compat.v1.train.Saver()
+#    saver = tf.compat.v1.train.Saver()
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -195,7 +195,7 @@ def test_rl():
             j = 0
 
             while True:
-                env.render()
+                # env.render()
 
                 a = actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()
                 s1, r, done, _ = env.step(a[0])
@@ -261,9 +261,10 @@ def test_rl():
                     print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), sum_q/float(j)))
                     # rewards.append(sum_reward)
                     print('===========')
-                    saver.save(sess, 'test_walkder/model.ckpt')
+#                    saver.save(sess, 'test_walkder/model.ckpt')
                     break
 
 
 if __name__ == '__main__':
+    tf.disable_v2_behavior()
     test_rl()

@@ -11,7 +11,7 @@ def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v3', 'LunarLanderContinuous-v2',
             'BipedalWalkerHardcore-v3')
 
-    ENV = ENVS[2]
+    ENV = ENVS[0]
 
     model_dir = os.path.join(os.getcwd(), 'models')
     os.makedirs(os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV), exist_ok=True)
@@ -29,7 +29,7 @@ def test_rl():
     num_episodes = 1001
     PER = True
 
-    batch_size = 128
+    batch_size = 64
     #Pendulum
     layer_1_nodes, layer_2_nodes = 512, 256
 
@@ -48,6 +48,7 @@ def test_rl():
 
     load_models = False
     save = True
+
     # If loading model, a gradient update must be called once before loading weights
     if load_models:
         load_model(PER, agent, batch_size, env, ep, n_action, n_state)
@@ -63,7 +64,7 @@ def test_rl():
         j = 0
 
         while True:
-            env.render()
+            # env.render()
 
             a = np.clip(agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] + actor_noise()*noise_decay, a_max=action_bound,
                         a_min=-action_bound)

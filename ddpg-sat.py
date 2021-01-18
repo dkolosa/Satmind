@@ -1,5 +1,5 @@
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import matplotlib.pyplot as plt
 import os, sys
 import pickle
@@ -31,7 +31,7 @@ def orekit_setup():
         fuel_mass = mission['spacecraft_parameters']['fuel_mass']
         duration = mission['duration']
     mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 15
+    duration = 24.0 * 60.0 ** 2 * 2
 
     env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
     return env, duration, mission_type[1]
@@ -40,7 +40,8 @@ def orekit_setup():
 def main(args):
     ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
     ENV = ENVS[0]
-
+    
+    # tf.disable_v2_behavior()
     env, duration, mission = orekit_setup()
     iter_per_episode = int(duration / stepT)
     ENV = mission
