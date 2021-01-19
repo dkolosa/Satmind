@@ -1,4 +1,7 @@
 import numpy as np
+from Satmind.env_orekit import OrekitEnv
+import json
+
 
 class OrnsteinUhlenbeck():
     def __init__(self, mu, sigma=0.2, theta=.15, dt=1e-2, x0=None):
@@ -117,3 +120,23 @@ class SumTree:
         dataIdx = idx - self.capacity + 1
 
         return (idx, self.tree[idx], self.data[dataIdx])
+
+
+
+def orekit_setup(mission_type, stepT):
+
+    input_file = 'input.json'
+    with open(input_file) as input:
+        data = json.load(input)
+        mission = data[mission_type]
+        state = list(mission['initial_orbit'].values())
+        state_targ = list(mission['target_orbit'].values())
+        date = list(mission['initial_date'].values())
+        dry_mass = mission['spacecraft_parameters']['dry_mass']
+        fuel_mass = mission['spacecraft_parameters']['fuel_mass']
+        duration = mission['duration']
+    mass = [dry_mass, fuel_mass]
+    duration = 24.0 * 60.0 ** 2 * 1
+
+    env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
+    return env, duration

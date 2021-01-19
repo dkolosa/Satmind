@@ -2,11 +2,9 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import os, sys
-import pickle
 import argparse
 import datetime
 import json
-from math import degrees
 import Satmind.actor_critic as models
 from Satmind.env_orekit import OrekitEnv
 import Satmind.utils
@@ -16,34 +14,13 @@ from Satmind.replay_memory import Uniform_Memory, Per_Memory
 stepT = 800.0
 
 
-def orekit_setup():
-
-    mission_type = ['inclination_change', 'Orbit_Raising', 'sma_change', 'meo_geo']
-
-    input_file = 'input.json'
-    with open(input_file) as input:
-        data = json.load(input)
-        mission = data[mission_type[1]]
-        state = list(mission['initial_orbit'].values())
-        state_targ = list(mission['target_orbit'].values())
-        date = list(mission['initial_date'].values())
-        dry_mass = mission['spacecraft_parameters']['dry_mass']
-        fuel_mass = mission['spacecraft_parameters']['fuel_mass']
-        duration = mission['duration']
-    mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 15
-
-    env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
-    return env, duration, mission_type[1]
-
-
 def main(args):
-    ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
+    ENVS = ('Orbit_Raising', 'inclination_change', 'sma_change', 'meo_geo')
     ENV = ENVS[0]
 
-    env, duration, mission = orekit_setup()
+    env, duration = Satmind.utils.orekit_setup(ENV, stepT)
+
     iter_per_episode = int(duration / stepT)
-    ENV = mission
     # Network inputs and outputs
     features = env.observation_space
     n_actions = env.action_space
@@ -120,8 +97,8 @@ def main(args):
                 for j in range(iter_per_episode):
 
                     # Select an action
-                    # a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*0.01, -action_bound, action_bound)
-                    a = np.abs(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise() * 0.1)
+                    a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*0.01, -action_bound, action_bound)
+                    # a = np.abs(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise() * 0.1)
 
                     # Observe state and reward
                     s1, r, done = env.step(a[0])
