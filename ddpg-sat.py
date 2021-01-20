@@ -1,5 +1,7 @@
 import numpy as np
 import tensorflow as tf
+import tensorflow.compat.v1 as tfv1
+
 import matplotlib.pyplot as plt
 import os, sys
 import argparse
@@ -15,8 +17,9 @@ stepT = 800.0
 
 
 def main(args):
-    ENVS = ('Orbit_Raising', 'inclination_change', 'sma_change', 'meo_geo')
-    ENV = ENVS[0]
+    ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
+    ENV = ENVS[1]
+    tfv1.disable_v2_behavior()
 
     env, duration = Satmind.utils.orekit_setup(ENV, stepT)
 
@@ -29,7 +32,7 @@ def main(args):
     np.random.seed(1234)
 
     num_episodes = 1000
-    batch_size = 64
+    batch_size = 128
 
     layer_1_nodes, layer_2_nodes = 450, 300
     tau = 0.01

@@ -28,7 +28,7 @@ class DDPG():
         self.critic_target.compile(optimizer=Adam(learning_rate=critic_lr))
 
         if self.PER:
-            self.memory = Per_Memory(capacity=100000)
+            self.memory = Per_Memory(capacity=1000000)
         else:
             self.memory = Uniform_Memory(buffer_size=100000)
 
@@ -53,9 +53,12 @@ class DDPG():
             actor_loss = self.loss_actor(s_rep)
 
             if self.PER:
+                update_error = tf.abs(tf.reduce_mean(td_error)).numpy().tolist()
+                # print(update_error)
                 for i in range(self.batch_size):
-                    update_error = np.abs(np.array(tf.reduce_mean(td_error)))
                     self.memory.update(idxs[i], update_error)
+                # print(idxs)
+                # [self.memory.update(ind, update_error) for ind in enumerate(idxs)]
 
             self.sum_q += np.amax(tf.squeeze(self.critic(s_rep, a_rep), 1))
             self.actor_loss += np.amax(actor_loss)
