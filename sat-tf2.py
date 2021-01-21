@@ -1,34 +1,12 @@
 import tensorflow as tf
 import numpy as np
 from Satmind.utils import OrnsteinUhlenbeck
+from Satmind.utils import orekit_setup
 from Satmind.DDPG import DDPG
 import os
 import datetime
-import json
 from Satmind.env_orekit import OrekitEnv
-
 stepT = 500.0
-
-
-def orekit_setup():
-
-    mission_type = ['inclination_change', 'Orbit_Raising', 'sma_change', 'meo_geo']
-
-    input_file = 'input.json'
-    with open(input_file) as input:
-        data = json.load(input)
-        mission = data[mission_type[1]]
-        state = list(mission['initial_orbit'].values())
-        state_targ = list(mission['target_orbit'].values())
-        date = list(mission['initial_date'].values())
-        dry_mass = mission['spacecraft_parameters']['dry_mass']
-        fuel_mass = mission['spacecraft_parameters']['fuel_mass']
-        duration = mission['duration']
-    mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 9
-
-    env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
-    return env, duration, mission_type[1]
 
 
 def load_model(PER, agent, batch_size, env, ep, n_action, n_state):
@@ -49,12 +27,13 @@ def load_model(PER, agent, batch_size, env, ep, n_action, n_state):
 
 
 def main():
-    ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
-    ENV = ENVS[0]
-
-    env, duration, mission = orekit_setup()
+    ENVS = ('Orbit_Raising', 'inclination_change', 'sma_change', 'meo_geo')
+    ENV = ENVS[2]
+    
+    env, duration = orekit_setup(ENV, stepT)
+    
     iter_per_episode = int(duration / stepT)
-    ENV = mission
+    
     # Network inputs and outputs
     n_state = env.observation_space
     n_action = env.action_space
@@ -90,6 +69,8 @@ def main():
     agent.update_target_network(agent.actor, agent.actor_target, agent.tau)
     agent.update_target_network(agent.critic, agent.critic_target, agent.tau)
 
+    #TODO:
+    # Write the parameters file
     load_models = False
     save = False
     # If loading model, a gradient update must be called once before loading weights
@@ -139,5 +120,4 @@ def main():
                 break
 
 if __name__ == '__main__':
-    if __name__ == '__main__':
-        main()
+    main()

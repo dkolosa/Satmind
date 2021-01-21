@@ -66,7 +66,7 @@ def test_rl():
         j = 0
 
         while True:
-            # env.render()
+            #env.render()
 
             a = np.clip(agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] + actor_noise()*noise_decay, a_max=action_bound,
                         a_min=-action_bound)
