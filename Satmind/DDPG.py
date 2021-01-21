@@ -7,7 +7,7 @@ import os
 
 class DDPG():
     def __init__(self, n_action, action_bound, layer_1_nodes, layer_2_nodes, actor_lr, critic_lr, PER, GAMMA,
-                 tau, batch_size, save_dir):
+                 tau, batch_size, save_dir, actor_name, critic_name):
 
         self.GAMMA = GAMMA
         self.batch_size = batch_size
@@ -16,11 +16,11 @@ class DDPG():
 
         self.save_dir = save_dir
 
-        self.actor = Actor(n_action, action_bound, layer_1_nodes, layer_2_nodes)
-        self.critic = Critic(layer_1_nodes, layer_2_nodes)
+        self.actor = Actor(n_action, action_bound, layer_1_nodes, layer_2_nodes,model_name=actor_name)
+        self.critic = Critic(layer_1_nodes, layer_2_nodes,model_name=critic_name)
 
-        self.actor_target = Actor(n_action, action_bound, layer_1_nodes, layer_2_nodes, model_name='actor_target')
-        self.critic_target = Critic(layer_1_nodes, layer_2_nodes, model_name='critic_target')
+        self.actor_target = Actor(n_action, action_bound, layer_1_nodes, layer_2_nodes, model_name=actor_name+'_target')
+        self.critic_target = Critic(layer_1_nodes, layer_2_nodes, model_name=critic_name+'target')
 
         self.actor.compile(optimizer=Adam(learning_rate=actor_lr))
         self.critic.compile(optimizer=Adam(learning_rate=critic_lr))
