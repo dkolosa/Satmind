@@ -6,11 +6,14 @@ produces a low amount of thrust (< 1 N) with a long mission time (days).
 
 A total of four missions (3 unique) were implemented: orbit raining, inclination change, semimajor axis change, and MEO to GEO orbit.
 
+NOTE: Currently the tensorflow 2 implementation is in the development branch
+and not fully tested
+
 ## Dependencies
 Easiest way to install all the required packages is through Anaconda.
 
 - Python 3.6 or later
-- Tensorflow = 1.15
+- Tensorflow = 1.15 or Tensorflow = 2.x 
 - Orekit >=10.0
 - matplotlib for displaying results
 - openai gym for testing RL algorithm
@@ -19,9 +22,19 @@ Use requirements.txt for easy setup using conda.
 
 `conda create -f environment.yml`
 
+Can install minimal packages
+
+`conda install -c conda-forge tensorflow orekit matplotlib`
+
 ## Usage
 
+### For Tensorflow < 2.x
+
 `python test_rl.py` 
+
+### For Tensorflow 2.x
+
+`python ddpg-tf2.py`
 
 tests to make sure RL algorithm is running correctly and runs in and openAI gym enviornment.
 
@@ -35,11 +48,21 @@ To run the pre-trained models, ensure that the input file points to the correct 
 
 `python ddpg-sat.py --model <path to model>`
 
+
 ## Train from scratch
 
 To run training from scratch pass:
 
+### Tensorflow < 2.x
+
 `python ddpg-sat.py`  
+
+### Tensorflow 2.x
+
+`python sat-tf2.py`
+
+## NOTE: Currently the tensorflow 2 implementation does not support arguments,
+models are automatically saved in the models directory
 
 ## Arguments
 

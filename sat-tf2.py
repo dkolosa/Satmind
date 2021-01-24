@@ -1,32 +1,14 @@
 import tensorflow as tf
 import numpy as np
 from Satmind.utils import OrnsteinUhlenbeck
+from Satmind.utils import orekit_setup
 from Satmind.DDPG import DDPG
 import os
 import datetime
-import json
 from Satmind.env_orekit import OrekitEnv
+import argparse
 
 stepT = 500.0
-
-
-def orekit_setup(mission_type):
-
-    input_file = 'input.json'
-    with open(input_file) as input:
-        data = json.load(input)
-        mission = data[mission_type[1]]
-        state = list(mission['initial_orbit'].values())
-        state_targ = list(mission['target_orbit'].values())
-        date = list(mission['initial_date'].values())
-        dry_mass = mission['spacecraft_parameters']['dry_mass']
-        fuel_mass = mission['spacecraft_parameters']['fuel_mass']
-        duration = mission['duration']
-    mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 9
-
-    env = OrekitEnv(state, state_targ, date, duration, mass, stepT)
-    return env, duration, mission_type[1]
 
 
 def load_model(PER, agent, batch_size, env, ep, n_action, n_state):
@@ -47,6 +29,7 @@ def load_model(PER, agent, batch_size, env, ep, n_action, n_state):
     agent.load_model()
 
 
+<<<<<<< HEAD
 def main():
     mission_type = ('inclination_change', 'Orbit_Raising', 'sma_change', 'meo_geo')
 
@@ -55,6 +38,16 @@ def main():
     env, duration, mission = orekit_setup(ENV)
     iter_per_episode = int(duration / stepT)
 
+=======
+def main(args):
+    ENVS = ('Orbit_Raising', 'inclination_change', 'sma_change', 'meo_geo')
+    ENV = ENVS[2]
+    
+    env, duration = orekit_setup(ENV, stepT)
+    
+    iter_per_episode = int(duration / stepT)
+    
+>>>>>>> origin/dev-1.1-tf2-orekit
     # Network inputs and outputs
     n_state = env.observation_space
     n_action = env.action_space
@@ -62,15 +55,17 @@ def main():
 
     np.random.seed(1234)
 
-    model_dir = os.path.join(os.getcwd(), 'models')
-    os.makedirs(os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV), exist_ok=True)
-    save_dir = os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV)
+    if args['model'] is not None:
+        save_dir = args['model']
+    else:
+        model_dir = os.path.join(os.getcwd(), 'models')
+        os.makedirs(os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV), exist_ok=True)
+        save_dir = os.path.join(model_dir, str(datetime.date.today()) + '-' + ENV)
 
     num_episodes = 1001
     PER = False
 
     batch_size = 64
-    # Pendulum
     layer_1_nodes, layer_2_nodes = 256, 128
 
     tau = 0.01
@@ -84,17 +79,26 @@ def main():
 
     actor_noise = OrnsteinUhlenbeck(np.zeros(n_action))
 
+
+    actor_name = 'actor_l1-256_l2-128'
+    critic_name = 'critic_l1-256_l2-128'
+
     agent = DDPG(n_action, action_bound, layer_1_nodes, layer_2_nodes, actor_lr, critic_lr, PER, GAMMA,
-                 tau, batch_size, save_dir)
+                 tau, batch_size, save_dir, actor_name, critic_name)
 
     agent.update_target_network(agent.actor, agent.actor_target, agent.tau)
     agent.update_target_network(agent.critic, agent.critic_target, agent.tau)
 
+    #TODO:
+    # Write the parameters file
     load_models = False
-    save = False
+    save = True
     # If loading model, a gradient update must be called once before loading weights
     if load_models:
-        load_model(PER, agent, batch_size, env, ep, n_actions, n_state)
+        #select model passed in from cli
+        if args['model']:
+            load_model(PER, agent, batch_size, env, ep, n_action, n_state)
+
 
     for i in range(num_episodes):
         s = env.reset()
@@ -123,12 +127,12 @@ def main():
             s = s1
             j += 1
             if done or (j >= iter_per_episode - 1):
-                print('Episode: {}, reward: {}, Q_max: {}'.format(i, int(sum_reward), agent.sum_q / float(j)))
-                print(f'actor loss: {agent.actor_loss / float(j)}, critic loss{agent.critic_loss / float(j)}')
+                print(f'Episode: {i}, reward: {int(sum_reward)}, Q_max: {agent.sum_q/float(j):.4f}')
+                print(f'actor loss: {agent.actor_loss / float(j):.4f}, critic loss{agent.critic_loss / float(j):.4f}')
                 print(f'diff:   a (km): {((env._targetOrbit.getA() - env.currentOrbit.getA()) / 1e3):.4f},\n'
-                      f'ex: {(env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()):.3f},\t'
-                      f'ey: {(env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()):.3f},\n'
-                      f'hx: {(env.r_target_state[3] - env._currentOrbit.getHx()):.3f},\t'
+                      f'ex: {(env.r_target_state[1] - env._currentOrbit.getEquinoctialEx()):.4f},\t'
+                      f'ey: {(env.r_target_state[2] - env._currentOrbit.getEquinoctialEy()):.4f},\n'
+                      f'hx: {(env.r_target_state[3] - env._currentOrbit.getHx()):.4f},\t'
                       f'hy: {(env.r_target_state[4] - env._currentOrbit.getHy()):.4f}\n'
                       f'Fuel Mass: {(env.cuf_fuel_mass):.3f}\n'
                       f'Initial Orbit:{env._orbit}\n'
@@ -139,4 +143,11 @@ def main():
                 break
 
 if __name__ == '__main__':
+<<<<<<< HEAD
     main()
+=======
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--model', help="path of a trained tensorlfow model (str: path)", type=str)
+    args = vars(parser.parse_args())
+    main(args)
+>>>>>>> origin/dev-1.1-tf2-orekit

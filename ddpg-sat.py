@@ -1,12 +1,16 @@
 import numpy as np
+<<<<<<< HEAD
 import tensorflow.compat.v1 as tf
+=======
+import tensorflow as tf
+import tensorflow.compat.v1 as tfv1
+
+>>>>>>> origin/dev-1.1-tf2-orekit
 import matplotlib.pyplot as plt
 import os, sys
-import pickle
 import argparse
 import datetime
 import json
-from math import degrees
 import Satmind.actor_critic as models
 from Satmind.env_orekit import OrekitEnv
 import Satmind.utils
@@ -16,35 +20,19 @@ from Satmind.replay_memory import Uniform_Memory, Per_Memory
 stepT = 800.0
 
 
-def orekit_setup():
-
-    mission_type = ['inclination_change', 'Orbit_Raising', 'sma_change', 'meo_geo']
-
-    input_file = 'input.json'
-    with open(input_file) as input:
-        data = json.load(input)
-        mission = data[mission_type[1]]
-        state = list(mission['initial_orbit'].values())
-        state_targ = list(mission['target_orbit'].values())
-        date = list(mission['initial_date'].values())
-        dry_mass = mission['spacecraft_parameters']['dry_mass']
-        fuel_mass = mission['spacecraft_parameters']['fuel_mass']
-        duration = mission['duration']
-    mass = [dry_mass, fuel_mass]
-    duration = 24.0 * 60.0 ** 2 * 2
-
-    env = OrekitEnv(state, state_targ, date, duration,mass, stepT)
-    return env, duration, mission_type[1]
-
-
-def main(args):
     ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
     ENV = ENVS[0]
     
     # tf.disable_v2_behavior()
     env, duration, mission = orekit_setup()
+def main(args):
+    ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
+    ENV = ENVS[1]
+    tfv1.disable_v2_behavior()
+
+    env, duration = Satmind.utils.orekit_setup(ENV, stepT)
+
     iter_per_episode = int(duration / stepT)
-    ENV = mission
     # Network inputs and outputs
     features = env.observation_space
     n_actions = env.action_space
@@ -53,7 +41,7 @@ def main(args):
     np.random.seed(1234)
 
     num_episodes = 1000
-    batch_size = 64
+    batch_size = 128
 
     layer_1_nodes, layer_2_nodes = 450, 300
     tau = 0.01
@@ -121,8 +109,8 @@ def main(args):
                 for j in range(iter_per_episode):
 
                     # Select an action
-                    # a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*0.01, -action_bound, action_bound)
-                    a = np.abs(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise() * 0.1)
+                    a = np.clip(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise()*0.01, -action_bound, action_bound)
+                    # a = np.abs(actor.predict(np.reshape(s, (1, features)), sess) + actor_noise() * 0.1)
 
                     # Observe state and reward
                     s1, r, done = env.step(a[0])

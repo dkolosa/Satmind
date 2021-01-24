@@ -5,7 +5,7 @@ import gym.spaces
 import os, datetime
 from Satmind.utils import OrnsteinUhlenbeck
 from Satmind.DDPG import DDPG
-
+import matplotlib.pyplot as plt
 
 def test_rl():
     ENVS = ('Pendulum-v0', 'MountainCarContinuous-v0', 'BipedalWalker-v3', 'LunarLanderContinuous-v2',
@@ -26,7 +26,7 @@ def test_rl():
     env.seed(1234)
     np.random.seed(1234)
 
-    num_episodes = 1001
+    num_episodes = 101
     PER = True
 
     batch_size = 64
@@ -55,6 +55,9 @@ def test_rl():
 
     noise_decay = 1.0
 
+    actor_losses =[]
+    critic_losses = []
+
     for i in range(num_episodes):
         s = env.reset()
         sum_reward = 0
@@ -64,7 +67,7 @@ def test_rl():
         j = 0
 
         while True:
-            # env.render()
+            #env.render()
 
             a = np.clip(agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] + actor_noise()*noise_decay, a_max=action_bound,
                         a_min=-action_bound)
@@ -83,15 +86,28 @@ def test_rl():
             s = s1
             j += 1
             if done:
+                actor_losses.append(agent.actor_loss/float(j))
+                critic_losses.append(agent.critic_loss/float(j))
                 print(f'Episode: {i}, reward: {int(sum_reward)}, q_max: {agent.sum_q / float(j)},\nactor loss:{agent.actor_loss / float(j)}, critic loss:{agent.critic_loss/ float(j)}')
                 # rewards.append(sum_reward)
                 print('===========')
                 if save:
                     agent.save_model()
-                if sum_reward > 0:
-                    noise_decay = 0.001
+                # if sum_reward > 0:
+                #     noise_decay = 0.001
 
+                if i % 10 == 0:
+                    plt.figure()
+                    plt.subplot(2, 1, 1)
+                    plt.plot(actor_losses)
+                    plt.ylabel('actor loss:')
+                    plt.subplot(2, 1, 2)
+                    plt.plot(critic_losses)
+                    plt.ylabel('critic loss')
+                    plt.xlabel('episodes')
+                    plt.show()
                 break
+
 
 
 def load_model(PER, agent, batch_size, env, ep, n_action, n_state):
