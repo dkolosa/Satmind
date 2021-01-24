@@ -1,11 +1,5 @@
 import numpy as np
-<<<<<<< HEAD
-import tensorflow.compat.v1 as tf
-=======
 import tensorflow as tf
-import tensorflow.compat.v1 as tfv1
-
->>>>>>> origin/dev-1.1-tf2-orekit
 import matplotlib.pyplot as plt
 import os, sys
 import argparse
@@ -20,11 +14,8 @@ from Satmind.replay_memory import Uniform_Memory, Per_Memory
 stepT = 800.0
 
 
-    ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
-    ENV = ENVS[0]
+
     
-    # tf.disable_v2_behavior()
-    env, duration, mission = orekit_setup()
 def main(args):
     ENVS = ('OrekitEnv-orbit-raising', 'OrekitEnv-incl', 'OrekitEnv-sma', 'meo_geo')
     ENV = ENVS[1]
