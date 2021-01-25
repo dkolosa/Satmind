@@ -13,7 +13,7 @@ class TDDDPG():
         self.batch_size = batch_size
         self.tau = tau
         self.PER = PER
-        self.policy_delay = 10
+        self.policy_delay = 2
 
         self.save_dir = save_dir
 
@@ -61,10 +61,10 @@ class TDDDPG():
             if j % self.policy_delay == 0:
                 actor_loss = self.loss_actor(s_rep)
                 self.actor_loss += np.amax(actor_loss)
-
+            
             if self.PER:
                 for i in range(self.batch_size):
-                    update_error = np.abs(np.array(tf.reduce_mean(td_error)))
+                    update_error = np.array(tf.reduce_mean(td_error))
                     self.memory.update(idxs[i], update_error)
 
             self.sum_q += np.amax(tf.squeeze(self.critic(s_rep, a_rep), 1))
@@ -117,12 +117,7 @@ class TDDDPG():
         self.critic2.optimizer.apply_gradients(zip(critic_gradient2,
         self.critic2.trainable_variables))
 
-        # TODO:
-        #   Test the td_error and loss for network 1 vs 2
-        #   Maybe use the maximum td_error and critic loss of the two?
-        #   Or would it be better to use the min?
-        #   or take an average?
-        td_error = tf.math.minimum(td_error, td_error2)
+        td_error = tf.math.abs(tf.math.minimum(td_error, td_error2))
         critic_loss = tf.math.minimum(critic_loss, critic_loss2)
         return td_error, critic_loss
 
@@ -136,11 +131,9 @@ class TDDDPG():
     def save_model(self):
         self.actor.save_weights(os.path.join(self.save_dir, self.actor.model_name))
         self.critic.save_weights(os.path.join(self.save_dir, self.critic.model_name))
-        self.actor_target.save_weights(os.path.join(self.save_dir, self.actor_target.model_name))
-        self.critic_target.save_weights(os.path.join(self.save_dir, self.critic_target.model_name))
 
     def load_model(self):
         self.actor.load_weights(os.path.join(self.save_dir, self.actor.model_name))
         self.critic.load_weights(os.path.join(self.save_dir, self.critic.model_name))
-        self.actor_target.load_weights(os.path.join(self.save_dir, self.actor_target.model_name))
-        self.critic_target.load_weights(os.path.join(self.save_dir, self.critic_target.model_name))
+        self.actor_target.load_weights(os.path.join(self.save_dir, self.actor.model_name))
+        self.critic_target.load_weights(os.path.join(self.save_dir, self.critic.model_name))
