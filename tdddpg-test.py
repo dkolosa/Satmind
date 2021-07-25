@@ -29,16 +29,16 @@ def test_rl():
     num_episodes = 1001
     PER = True
 
-    batch_size = 64
+    batch_size = 32
     #Pendulum
-    layer_1_nodes, layer_2_nodes = 512, 256
+    layer_1_nodes, layer_2_nodes = 128, 128
 
     tau = 0.01
     actor_lr, critic_lr = 0.0001, 0.001
     GAMMA = 0.99
     ep = 0.001
 
-    actor_noise = OrnsteinUhlenbeck(np.zeros(n_action))
+    # actor_noise = OrnsteinUhlenbeck(np.zeros(n_action))
 
     agent = TDDDPG(n_action, action_bound, layer_1_nodes, layer_2_nodes, actor_lr, critic_lr, PER, GAMMA,tau, batch_size, save_dir)
 
@@ -63,10 +63,9 @@ def test_rl():
         j = 0
 
         while True:
-            # env.render()
+            env.render()
 
-            a = np.clip(agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] + actor_noise()*noise_decay, a_max=action_bound,
-                        a_min=-action_bound)
+            a = agent.actor(tf.convert_to_tensor([s], dtype=tf.float32))[0] # + actor_noise()*noise_decay, a_max=action_bound,a_min=-action_bound)
             s1, r, done, _ = env.step(a)
             # Store in replay memory
             if PER:
@@ -82,7 +81,7 @@ def test_rl():
             s = s1
             j += 1
             if done:
-                print(f'Episode: {i}, reward: {int(sum_reward)}, q_max: {agent.sum_q / float(j)},\nactor loss:{agent.actor_loss / float(j)}, critic loss:{agent.critic_loss/ float(j)}')
+                print(f'Episode: {i}, reward: {int(sum_reward)} q_max: {agent.sum_q / float(j)},\nactor loss:{agent.actor_loss / float(j)}, critic loss:{agent.critic_loss/ float(j)}')
                 # rewards.append(sum_reward)
                 print('===========')
                 if save:
