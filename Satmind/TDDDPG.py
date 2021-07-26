@@ -44,6 +44,7 @@ class TDDDPG():
         self.actor_loss = 0
         self.critic_loss = 0
 
+
     def train(self, j):
         # sample from memory
         if self.batch_size < self.memory.get_count:
