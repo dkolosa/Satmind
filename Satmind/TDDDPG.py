@@ -58,10 +58,9 @@ class TDDDPG():
             d_rep = tf.convert_to_tensor(np.array([_[4] for _ in mem]), dtype=tf.float32)
 
             td_error, critic_loss = self.loss_critic(a_rep, d_rep, r_rep, s1_rep, s_rep)
-
             if self.PER:
                 for i in range(self.batch_size):
-                    update_error = np.abs(np.array(tf.reduce_mean(td_error)))
+                    update_error = np.array(tf.reduce_mean(td_error))
                     self.memory.update(idxs[i], update_error)
 
             self.sum_q += np.amax(tf.squeeze(self.critic(s_rep, a_rep), 1))
@@ -136,11 +135,9 @@ class TDDDPG():
     def save_model(self):
         self.actor.save_weights(os.path.join(self.save_dir, self.actor.model_name))
         self.critic.save_weights(os.path.join(self.save_dir, self.critic.model_name))
-        self.actor_target.save_weights(os.path.join(self.save_dir, self.actor_target.model_name))
-        self.critic_target.save_weights(os.path.join(self.save_dir, self.critic_target.model_name))
 
     def load_model(self):
         self.actor.load_weights(os.path.join(self.save_dir, self.actor.model_name))
         self.critic.load_weights(os.path.join(self.save_dir, self.critic.model_name))
-        self.actor_target.load_weights(os.path.join(self.save_dir, self.actor_target.model_name))
-        self.critic_target.load_weights(os.path.join(self.save_dir, self.critic_target.model_name))
+        self.actor_target.load_weights(os.path.join(self.save_dir, self.actor.model_name))
+        self.critic_target.load_weights(os.path.join(self.save_dir, self.critic.model_name))
