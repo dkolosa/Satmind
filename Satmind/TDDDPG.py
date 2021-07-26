@@ -13,8 +13,9 @@ class TDDDPG():
         self.batch_size = batch_size
         self.tau = tau
         self.PER = PER
-        self.policy_delay = 10
-
+        self.policy_delay = 2
+        self.action_bound = action_bound
+        
         self.save_dir = save_dir
 
         self.actor = Actor(n_action, action_bound, layer_1_nodes, layer_2_nodes)
@@ -57,10 +58,6 @@ class TDDDPG():
             d_rep = tf.convert_to_tensor(np.array([_[4] for _ in mem]), dtype=tf.float32)
 
             td_error, critic_loss = self.loss_critic(a_rep, d_rep, r_rep, s1_rep, s_rep)
-           
-            if j % self.policy_delay == 0:
-                actor_loss = self.loss_actor(s_rep)
-                self.actor_loss += np.amax(actor_loss)
 
             if self.PER:
                 for i in range(self.batch_size):
@@ -71,11 +68,12 @@ class TDDDPG():
             self.critic_loss += np.amax(critic_loss)
 
             # update target network
-            if j % self.policy_delay == 0: 
+            if j % self.policy_delay == 0 and j != 0: 
+                actor_loss = self.loss_actor(s_rep)
+                self.actor_loss += np.amax(actor_loss)
                 self.update_target_network(self.actor, self.actor_target, self.tau)
                 self.update_target_network(self.critic, self.critic_target, self.tau)
-                self.update_target_network(self.critic, self.critic_target2,
-            self.tau)
+                self.update_target_network(self.critic, self.critic_target2, self.tau)
 
     @tf.function
     def loss_actor(self, s_rep):
@@ -89,6 +87,11 @@ class TDDDPG():
     @tf.function
     def loss_critic(self,a_rep, d_rep, r_rep, s1_rep, s_rep):
         targ_actions = self.actor_target(s1_rep)
+        
+        targ_actions = tf.clip_by_value(targ_actions + 
+            tf.clip_by_value(tf.convert_to_tensor(np.random.normal(scale=.2)), -.5,.5), 
+            -self.action_bound, self.action_bound)
+        
         target_q = tf.squeeze(self.critic_target(s1_rep, targ_actions), 1)
         target_q2 = tf.squeeze(self.critic_target2(s1_rep, targ_actions), 1)
 
@@ -99,6 +102,7 @@ class TDDDPG():
             td_error = y_i - q
             if not self.PER:
                 critic_loss = tf.math.reduce_mean(tf.math.square(td_error))
+                # critic_loss = tf.keras.losses.mae(y_i, q)
             else:
                 critic_loss = tf.math.reduce_mean(tf.math.square(td_error) * self.isweight)
 
@@ -106,6 +110,7 @@ class TDDDPG():
             q2 = tf.squeeze(self.critic2(s_rep, a_rep), 1)
             td_error2 = y_i - q2
             if not self.PER:
+                # critic_loss2 = tf.keras.losses.mae(y_i, q2)
                 critic_loss2 = tf.math.reduce_mean(tf.math.square(td_error2))
             else:
                 critic_loss2 = tf.math.reduce_mean(tf.math.square(td_error2) * self.isweight)
@@ -117,11 +122,6 @@ class TDDDPG():
         self.critic2.optimizer.apply_gradients(zip(critic_gradient2,
         self.critic2.trainable_variables))
 
-        # TODO:
-        #   Test the td_error and loss for network 1 vs 2
-        #   Maybe use the maximum td_error and critic loss of the two?
-        #   Or would it be better to use the min?
-        #   or take an average?
         td_error = tf.math.minimum(td_error, td_error2)
         critic_loss = tf.math.minimum(critic_loss, critic_loss2)
         return td_error, critic_loss

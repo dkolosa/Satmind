@@ -27,9 +27,9 @@ def test_rl():
     np.random.seed(1234)
 
     num_episodes = 1001
-    PER = True
+    PER = False
 
-    batch_size = 32
+    batch_size = 64
     #Pendulum
     layer_1_nodes, layer_2_nodes = 128, 128
 
